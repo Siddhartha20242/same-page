@@ -94,3 +94,14 @@ Everything below was run on the real dev site, and on a fresh demo site for the 
 - **Attached files**: R5 reads an OpenAPI JSON spec that is IN a linked Confluence page (a code block). Attachments and YAML are not read.
 - **A decorative "AI phrasing off" switch**: not built on purpose. Detection never calls a model; only an ambiguous line (for example `v1.4`) does, and it is labelled "AI-suggested".
 - **Third-party MCP**: unchanged, unverified. The Rovo agent runs end to end.
+
+## 2026-11-06: new features on the development site (app version 7.12 to 7.15)
+Observed on a real Jira and Confluence site, in a team-managed project, with a test work item (SCRUM-5, description "Access token expiry should be 1 hour") linked to a test page ("Access tokens expire after 30 minutes."):
+- **R8 on a work item with no target version.** The panel showed one Warning, "R8 Duration differs: Page says access token expire is 30 minutes, but SCRUM-5 says 1 hour", with both lines side by side, "No automatic edit" and the two ways to resolve it, and "ran 8 of 10 rules" with "Did not run: R1 and R4 (no status change recorded yet)". After the status change it read "ran 9 of 10".
+- **Rules list.** It listed the rules with their severities and, because the viewer is a Jira administrator, offered "Make it a blocker". Changing R8 to Blocker showed "(changed on this site)", and changing it back removed that text.
+- **Soft gate.** With R8 set to Blocker, moving SCRUM-5 to Done made the app post one comment: "Same Page: this work item was moved to Done while 1 blocking contradiction with its docs is still open (R8 Duration differs)… This is a notice, not a block." It named the rule and a count, no page title or text. The log line read `same-page soft gate SCRUM-5: commented`.
+- **Weekly scan.** The scheduled function ran on its own after deploy: `same-page drift scan: 4 items, 0 not checked`.
+- **Real payloads.** Four responses from this site (changelog, remote links, page, search) were captured, redacted and now back the contract tests.
+
+Not observed: R9 and R10 on a real site; the project brief and rules list agent actions; the new demo data (this site already held demo state, so seeding resumed instead of recreating); the soft gate in a company-managed project; the Rules tab as a non-administrator; the weekly summary line on the overview page; production.
+The test work item and page remain on the development site.
