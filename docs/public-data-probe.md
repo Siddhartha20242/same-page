@@ -55,7 +55,7 @@ This is a weak miss estimate: 80 pairs, one reader, and most sampled lines are p
 
 ## What changed afterwards
 
-After this probe, rules R4 and R6 ignore a line that carries a date before the ticket key (a dated log entry such as "2017-10-31: waiting on HDFS-12682" is history, not a claim). That removes false positive 1 and is covered by a test. The two R1 false positives are unchanged: Fix Version stays opt-in and off by default.
+After this probe, rules R4 and R6 ignore a line that carries a date before the ticket key (for example "2017-10-31: waiting on HDFS-12682"). This is covered by a test on a constructed line. **It did not remove false positive 1.** On 2026-11-05 we re-ran Hadoop with the same seed: it still raises the same single R6 finding, because the line on the page today carries no date (the entry's date is not on that line), so the line-level skip never applies. We did not find a safe rule for this case. Its classification is also arguable: the page is a frozen 2017 status log and the ticket is Done today, so a reader today does see a stale claim, but it was true when written. The two R1 false positives are unchanged: Fix Version stays opt-in and off by default.
 
 ## A further tweak that was considered and not applied
 
