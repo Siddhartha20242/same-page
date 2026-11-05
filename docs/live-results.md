@@ -113,3 +113,10 @@ Observed on the same development site, as a Jira administrator, on SCRUM-5:
 - **Evidence id.** Each finding in the panel showed "Evidence id: #xxxxxxxx" (for example #a45e3483). The gate refusal carries the same short id; that match is covered by a test, and was not re-run live in this session.
 - **Handling events.** The audit trail read "Chain intact" with "5 sealed entries" and listed the new event types. DISMISSED, SNOOZED and REVIEW_TASK events were not triggered live.
 Not observed: the weekly scan's "resolved" count, the project brief's weekly delta, custom rules in the gate or the soft gate, and a non-administrator seeing the saved rules read-only.
+
+## 2026-11-06: overview impact card and "run the scan now" (app version 7.18 to 7.19)
+Observed on the development site, as a Jira administrator, on the project overview page:
+- **Impact card.** "What Same Page has done on this site" showed "6 contradictions found · 0 fixed on the page · 0 sent to a page owner · 0 dismissed · 0 transitions refused", with no hours figure and the sentence that none is guessed. The minutes field appeared because the viewer is an administrator. The minutes were not saved.
+- **A gap the live site exposed.** The overview said no weekly scan had run, although the log showed the scheduled scan running. Scheduled triggers run once per installation and storage is per installation, so the scan's result had been saved in the other product. Fix: an administrator-only "Run the weekly scan now" button saves the result where the overview reads it.
+- **Run the scan now.** After clicking it the page read "Weekly scan (11/6/2026): 1 of 2 checked open epics had contradictions". The first scan then said "1 new and 0 resolved since the scan before", which was misleading for a first scan; it now says it is the first scan, covered by a test, not re-run live.
+Not observed: the three new Rovo agents and the three new actions (no Rovo on this site), the minutes estimate being saved, and the "resolved" count on a second scan.

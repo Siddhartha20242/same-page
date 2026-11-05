@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import ForgeReconciler, { Button, Heading, Inline, Link, Lozenge, SectionMessage, Spinner, Stack, Text } from '@forge/react';
+import ForgeReconciler, { Button, Heading, Inline, Link, Lozenge, SectionMessage, Spinner, Stack, Text, Textfield } from '@forge/react';
 import { invoke as bridgeInvoke } from '@forge/bridge';
 import type { Overview, OverviewRow } from '../core/overview';
 import type { ProjectDrift } from '../core/drift';
+import type { Impact } from '../core/impact';
 
 const invoke = <T,>(name: string, payload?: Record<string, unknown>): Promise<T> => bridgeInvoke(name, payload) as unknown as Promise<T>;
 
-type Reply = (Overview & { drift?: { at: string; project: ProjectDrift | null } | null }) | { status: 'error'; message: string };
+type Reply = (Overview & { drift?: { at: string; hadPrevious?: boolean; project: ProjectDrift | null } | null; impact?: Impact & { canEdit: boolean } }) | { status: 'error'; message: string };
 type Load = { phase: 'loading' } | { phase: 'failed' } | { phase: 'done'; reply: Reply };
 
 const TONE: Record<OverviewRow['verdict'], 'removed' | 'moved' | 'success' | 'default'> = { Blocked: 'removed', Warning: 'moved', Clean: 'success', 'Not checked': 'default' };
@@ -26,6 +27,50 @@ const Row = ({ r }: { r: OverviewRow }) => (
     </Inline>
   </Stack>
 );
+
+// What Same Page has done on this site, from its own counters. Time saved appears only after an administrator types their own estimate.
+const ScanNow = ({ onDone }: { onDone: () => void }) => {
+  const [state, setState] = useState<'idle' | 'working' | { error: string }>('idle');
+  const go = async () => {
+    setState('working');
+    try { const r = await invoke<{ ok?: boolean; reason?: string }>('runScanNow'); if (r?.ok === false) setState({ error: r.reason ?? 'Not run.' }); else { setState('idle'); onDone(); } }
+    catch { setState({ error: 'The scan could not run. Try again.' }); }
+  };
+  return (
+    <Stack space="space.050">
+      <Button isDisabled={state === 'working'} onClick={go}>{state === 'working' ? 'Scanning, this can take up to 40 seconds…' : 'Run the weekly scan now'}</Button>
+      {typeof state === 'object' ? <Text>{state.error}</Text> : null}
+    </Stack>
+  );
+};
+
+const ImpactCard = ({ impact, onSaved }: { impact: Impact & { canEdit: boolean }; onSaved: () => void }) => {
+  const [minutes, setMinutes] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  const save = async () => {
+    try { const r = await invoke<{ ok?: boolean; reason?: string }>('setMinutesPerFix', { minutes }); if (r?.ok === false) setMsg(r.reason ?? 'Not saved.'); else { setMsg(null); onSaved(); } }
+    catch { setMsg('Not saved. Try again.'); }
+  };
+  return (
+    <Stack space="space.100">
+      <Heading size="xsmall">What Same Page has done on this site</Heading>
+      <Text>{impact.line}</Text>
+      {impact.estimatedHoursSaved !== null
+        ? <Text>{`About ${impact.estimatedHoursSaved} hours of review time saved: ${impact.counts.applied} fixes at ${impact.minutesPerFix} minutes each. That is your administrator's own estimate, not something Same Page measured.`}</Text>
+        : <Text>No time-saved figure yet. Same Page does not guess one; a Jira administrator can enter how many minutes one fix saves.</Text>}
+      {impact.canEdit ? (
+        <Stack space="space.050">
+          <Text>Minutes saved per applied fix (0 clears it)</Text>
+          <Inline space="space.100" alignBlock="center">
+            <Textfield placeholder="Minutes, for example 15" onChange={(e) => setMinutes(e.target.value)} />
+            <Button onClick={save}>Save estimate</Button>
+          </Inline>
+          {msg ? <Text>{msg}</Text> : null}
+        </Stack>
+      ) : null}
+    </Stack>
+  );
+};
 
 const App = () => {
   const [load, setLoad] = useState<Load>({ phase: 'loading' });
@@ -50,7 +95,9 @@ const App = () => {
             <Text>{load.reply.summaryLine}</Text>
             {load.reply.coverageLine ? <Text>{load.reply.coverageLine}</Text> : null}
           </SectionMessage>
-          {load.reply.drift ? <Text>{load.reply.drift.project ? `Weekly scan (${new Date(load.reply.drift.at).toLocaleDateString()}): ${load.reply.drift.project.withContradictions} of ${load.reply.drift.project.checked} checked open epics had contradictions, ${load.reply.drift.project.newSincePrevious} new and ${load.reply.drift.project.resolvedSincePrevious ?? 0} resolved since the scan before.` : `Weekly scan (${new Date(load.reply.drift.at).toLocaleDateString()}): no open epics in this project were checked.`}</Text> : <Text>The weekly scan has not run yet. It runs once a week as the app and reports here.</Text>}
+          {load.reply.drift ? <Text>{load.reply.drift.project ? `Weekly scan (${new Date(load.reply.drift.at).toLocaleDateString()}): ${load.reply.drift.project.withContradictions} of ${load.reply.drift.project.checked} checked open epics had contradictions${load.reply.drift.hadPrevious === false ? '. This is the first scan, so there is nothing to compare with yet.' : `, ${load.reply.drift.project.newSincePrevious} new and ${load.reply.drift.project.resolvedSincePrevious ?? 0} resolved since the scan before.`}` : `Weekly scan (${new Date(load.reply.drift.at).toLocaleDateString()}): no open epics in this project were checked.`}</Text> : <Text>No weekly scan result has reached this page yet. The scan runs once a week as the app, and its result is kept per product, so a Jira administrator can also run it here.</Text>}
+          {load.reply.impact?.canEdit ? <ScanNow onDone={run} /> : null}
+          {load.reply.impact ? <ImpactCard impact={load.reply.impact} onSaved={run} /> : null}
           {load.reply.rows.map((r) => <Row key={r.key} r={r} />)}
           <Text>Rules only, no AI in detection. A Not checked item is not a clean item.</Text>
         </Stack>

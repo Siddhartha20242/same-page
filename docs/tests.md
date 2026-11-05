@@ -1,6 +1,6 @@
 # What the tests cover
 
-`npm test` runs 267 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
+`npm test` runs 270 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|
@@ -9,6 +9,7 @@
 | Numbers, dates, descriptions | `facts` | R8 to R10 fire on the review's own example and stay silent on equal values in other units, other subjects, qualifiers, ranges, history and defaults; ADF descriptions become text; the panel shows no Apply for them. |
 | Custom rules | `custom` | The three templates, plain-text matching, history skipping, input checks, the cap of ten, stable ids, a preview that saves nothing, and the evidence id in a gate refusal. |
 | Handling timeline | `handling` | Events join the same verified chain, record who and why only where a person acted, break the chain if edited, and never throw. |
+| Agent actions and impact | `agents` | The finding history lists events without account ids, rule health shows severity, handling and noisy hints, and the impact figures never invent a time-saved number. |
 | Soft gate and weekly scan | `softgate` | Only a move to Done counts, one notice per set of blockers, names rules and a count and never page text; the scan keeps per-project counts and marks what is new. |
 | Gate | `gate`, `ruleCatalog` | Fail-open behaviour, cache rules, the refusal message, page-text redaction, per-rule severity settings. |
 | Security | `security`, `receipt`, `pin` | Permission-based redaction, the hash chain and tamper detection, the pin guard. |

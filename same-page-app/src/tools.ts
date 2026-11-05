@@ -4,7 +4,7 @@ import { BUILT_IN_RULES } from './core/rules';
 import { loadCustomRules } from './core/customRules';
 import { loadDrift } from './core/drift';
 import { createDeps } from './core/atlassianDeps';
-import { checkIssueDocs as check, scanIssues as scan, projectBrief as brief, listRules as rules } from './core/tools';
+import { checkIssueDocs as check, scanIssues as scan, projectBrief as brief, listRules as rules, findingHistory as history, ruleHealth as health, impactSummary as impact } from './core/tools';
 
 // Action functions behind the Rovo agent and rovo:mcp (see ../../manifest.mcp.draft.yml). NOT referenced by manifest.yml yet.
 // UNVERIFIED: the exact handler signature Forge passes to action functions, and that asUser resolves to the invoking user here.
@@ -37,3 +37,11 @@ export const projectBrief = async (payload?: { projectKey?: string }) => {
   }, /^[A-Z][A-Z0-9_]*$/.test(String(payload?.projectKey ?? '')) ? await loadDrift({ get: (k) => kvs.get(k), set: (k, v) => kvs.set(k, v) }, String(payload?.projectKey)) : null);
 };
 export const listRules = async () => rules();
+
+const kv = { get: (k: string) => kvs.get(k), set: (k: string, v: unknown) => kvs.set(k, v) };
+export const findingHistory = async (payload?: { issueKey?: string }) => {
+  console.log(`same-page tool finding-history ${String(payload?.issueKey ?? '').slice(0, 40)}`);
+  return history({ issueKey: payload?.issueKey }, kv);
+};
+export const ruleHealth = async () => { console.log('same-page tool rule-health'); return health(kv); };
+export const impactSummary = async () => { console.log('same-page tool impact-summary'); return impact(kv); };

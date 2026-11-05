@@ -26,6 +26,12 @@ Every limit below is a constant in the code. Where a limit is hit, the app says 
 | Matching | plain text, ignoring case; first matching line per page; history-worded lines skipped |
 | Where they run | the panel, the gate, the soft gate, the weekly scan, the agent and MCP tools. Not the Confluence byline. |
 
+## Overview extras
+| Item | Behaviour |
+|---|---|
+| Run the weekly scan now | Administrators only. Same 20-epic site-wide limit and 40 second budget as the scheduled scan. Scheduled triggers run once per installation and storage is per installation, so the scheduled result can land in the other product; this button saves it where the overview reads it. |
+| Minutes per fix | 1 to 240, set by an administrator. Blank means no hours figure is shown. |
+
 ## Agent and MCP tools
 | Limit | Value |
 |---|---|

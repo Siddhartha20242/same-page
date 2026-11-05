@@ -50,9 +50,11 @@ test('the weekly drift scan keeps per-project counts and says which findings are
   };
   const a = await runDriftScan(deps, store, () => Date.parse('2026-11-01T00:00:00Z'));
   assert.deepEqual(a.projects.PAY, { withContradictions: 1, checked: 2, newSincePrevious: 1, resolvedSincePrevious: 0, keys: ['PAY-1'] });
+  assert.equal(a.hadPrevious, false);                                     // the first scan has nothing to compare with
   assert.equal(a.projects.OPS?.withContradictions, 0);
   bad = ['PAY-1', 'PAY-2'];
   const b = await runDriftScan(deps, store, () => Date.parse('2026-11-08T00:00:00Z'));
+  assert.equal(b.hadPrevious, true);
   assert.equal(b.projects.PAY?.withContradictions, 2);
   assert.equal(b.projects.PAY?.newSincePrevious, 1);                       // PAY-1 was already there
   const seen = await loadDrift(store, 'PAY');

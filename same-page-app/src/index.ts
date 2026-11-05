@@ -23,6 +23,7 @@ import { runOverview } from './core/overview';
 import { runSoftGate } from './core/softGate';
 import type { SoftGateEvent } from './core/softGate';
 import { runDriftScan, loadDrift } from './core/drift';
+import { loadImpact, setMinutesPerFix } from './core/impact';
 import { RULE_CATALOG, loadSeverityOverrides, saveSeverity, withSeverities } from './core/ruleCatalog';
 import { BUILT_IN_RULES } from './core/rules';
 import { TEMPLATES, addCustomRule, deleteCustomRule, loadCustomDefs, loadCustomRules, previewRule } from './core/customRules';
@@ -362,12 +363,33 @@ overviewResolver.define('getOverview', async ({ context }: { context?: OverviewC
         return (((await res.json()) as { issues?: { key: string; fields?: { summary?: string } }[] }).issues ?? []).map((i) => ({ key: i.key, summary: i.fields?.summary }));
       },
     });
-    return out.status === 'ready' && projectKey ? { ...out, drift: await loadDrift(store, projectKey) } : out;
+    return out.status === 'ready' && projectKey ? { ...out, drift: await loadDrift(store, projectKey), impact: { ...(await loadImpact(store as KV)), canEdit: await isJiraAdmin() } } : out;
   } catch (e) {
     if (needsConsent(e)) throw e;
     const status = (e as { status?: number } | null)?.status;
     return { status: 'error', message: status === 429 ? 'Atlassian is rate limiting this app. Try again in a minute.' : status === 403 || status === 401 ? 'You may not have permission to search this project.' : 'Something went wrong while loading the overview.' };
   }
+});
+// The hours figure needs an administrator's own estimate of minutes saved per applied fix. We never supply one.
+overviewResolver.define('setMinutesPerFix', async ({ payload }: { payload?: { minutes?: unknown } }) => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can set this.' };
+  return setMinutesPerFix(store as KV, payload?.minutes);
+});
+// Scheduled triggers run once per installation and Forge storage is per installation, so a scheduled scan may save its result in the other product.
+// An administrator can run the same scan from Jira, which saves the result where this page reads it.
+overviewResolver.define('runScanNow', async () => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can run the scan.' };
+  try {
+    const snap = await runDriftScan({
+      ...makeDeps(), rules: await rulesNow(),
+      searchIssues: async (jql, limit) => {
+        const res = await api.asUser().requestJira(route`/rest/api/3/search/jql?jql=${jql}&fields=summary&maxResults=${limit}`);
+        if (!res.ok) throw new Error(`search failed (HTTP ${res.status})`);
+        return (((await res.json()) as { issues?: { key: string; fields?: { summary?: string } }[] }).issues ?? []).map((i) => ({ key: i.key, summary: i.fields?.summary }));
+      },
+    }, store);
+    return { ok: true, scanned: snap.scanned, notChecked: snap.notChecked };
+  } catch (e) { if (needsConsent(e)) throw e; return { ok: false, reason: 'The scan could not finish. Try again.' }; }
 });
 export const overview = overviewResolver.getDefinitions();
 

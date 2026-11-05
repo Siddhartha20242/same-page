@@ -12,7 +12,7 @@ export const DRIFT_JQL = 'statusCategory != Done AND issuetype = Epic ORDER BY u
 const MAX_ITEMS = 20;
 
 export interface ProjectDrift { withContradictions: number; checked: number; newSincePrevious: number; resolvedSincePrevious?: number; keys: string[] }
-export interface DriftSnapshot { at: string; projects: Record<string, ProjectDrift>; scanned: number; notChecked: number }
+export interface DriftSnapshot { /** False for the first scan on a site, when there is nothing to compare with. */ hadPrevious?: boolean; at: string; projects: Record<string, ProjectDrift>; scanned: number; notChecked: number }
 export interface DriftStore { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<unknown> }
 export interface DriftDeps extends JobDeps { searchIssues: (jql: string, limit: number) => Promise<{ key: string; summary?: string }[]> }
 
@@ -40,14 +40,14 @@ export async function runDriftScan(deps: DriftDeps, store: DriftStore, now: () =
     const p = projects[proj];
     if (p) p.resolvedSincePrevious = prev.keys.filter((k) => checkedNow.has(k) && !p.keys.includes(k)).length;
   }
-  const snap: DriftSnapshot = { at: new Date(now()).toISOString(), projects, scanned: rows.length, notChecked: rows.filter((r) => r.verdict === 'Not checked').length };
+  const snap: DriftSnapshot = { hadPrevious: Boolean(previous), at: new Date(now()).toISOString(), projects, scanned: rows.length, notChecked: rows.filter((r) => r.verdict === 'Not checked').length };
   await store.set(DRIFT_KEY, snap);
   return snap;
 }
 
-export async function loadDrift(store: DriftStore, projectKey: string): Promise<{ at: string; project: ProjectDrift | null } | null> {
+export async function loadDrift(store: DriftStore, projectKey: string): Promise<{ at: string; hadPrevious?: boolean; project: ProjectDrift | null } | null> {
   try {
     const s = (await store.get(DRIFT_KEY)) as DriftSnapshot | null;
-    return s?.at ? { at: s.at, project: s.projects?.[projectKey] ?? null } : null;
+    return s?.at ? { at: s.at, hadPrevious: s.hadPrevious, project: s.projects?.[projectKey] ?? null } : null;
   } catch { return null; }
 }

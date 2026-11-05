@@ -1,7 +1,7 @@
 # Same Page over MCP
 
 This is a separate surface for a different person: someone in an MCP client such as Claude Code or Cursor who wants to ask
-"do the docs for PAY-1 contradict the ticket?" without opening Jira. It exposes four read-only tools. It cannot apply a fix,
+"do the docs for PAY-1 contradict the ticket?" without opening Jira. It exposes seven read-only tools. It cannot apply a fix,
 create a task, or change anything.
 
 ## Tools
@@ -11,6 +11,9 @@ create a task, or change anything.
 | `scan-issues` | You want to know which of up to 10 work items have contradictions. | `issueKeys`, a JSON list such as `["PAY-1","PAY-2"]` | A coverage line (how many could be checked and why the rest could not), then the findings. |
 | `project-brief` | You want to know whether a whole project is out of step with its docs. | `projectKey`, for example `PAY` | A verdict per open epic and in-progress item, what could not be checked and why. |
 | `list-rules` | You want to know what Same Page looks for. | none | The ten rules, what each checks and its default severity. |
+| `finding-history` | You want to know what happened to the contradictions on a work item. | `issueKey` | The events in order (first found, dismissed, snoozed, review task, fixed) with the rule and any reason. Never the people involved. |
+| `rule-health` | You want to know how the rules are doing on this site. | none | Each rule's severity, how it was handled, a noisy hint, and the team's own rules. |
+| `impact-summary` | You want to know what Same Page has done on this site. | none | Counters, and an hours figure only if an administrator set one. |
 
 ## Turn it on (site admin, once)
 External access is off by default. Atlassian Administration > Apps > Sites > your site > Connected apps > Same Page: allow

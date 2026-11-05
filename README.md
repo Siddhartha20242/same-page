@@ -8,7 +8,7 @@ stop a Jira transition (for example to Done) while a contradiction is still open
 
 **Detection is deterministic, repeatable and auditable. No model decides what counts as a contradiction.** We chose that on purpose: it is for teams that have to explain a release decision afterwards, and it is why every finding carries its evidence and every fix is a revertible page version.
 
-Codegeist 2026, category: Apps for Software Teams. Bonus targets: Best Agents, and Marketplace. A Rovo agent and an MCP module are included; the MCP module is live, but no signed-in third-party client call has been recorded yet ([docs/mcp.md](docs/mcp.md)).
+Codegeist 2026, category: Apps for Software Teams. Bonus targets: Atlassian MCP, Marketplace and Best Agents. Four Rovo agents and an MCP module are included; the MCP module is live, but no signed-in third-party client call has been recorded yet ([docs/mcp.md](docs/mcp.md)).
 
 ## The problem
 
@@ -56,7 +56,8 @@ Tools such as code-to-docs generators start from the code and use a model to dra
 | Soft gate | When a work item is moved to Done with a blocking contradiction open, Same Page leaves one notice comment on it. It works in every project type, including team-managed ones, and never blocks. |
 | Weekly scan | Once a week the app checks open epics and the project overview shows how many have contradictions and how many are new since the last scan. |
 | Overview | A project page, **Same Page overview**, lists the open epics and in-progress work items (up to 20) with a verdict, finding count and the reason for anything it could not check. Read-only. |
-| Agent | A Rovo agent and MCP tools let you ask "do the docs for PAY-1 contradict the ticket?" and get the stored evidence quoted back. |
+| Agents | Four read-only Rovo agents for four different people, sharing seven checks that are also exposed as MCP tools: a general one, a **release check** (is project PAY ready to ship?), an **audit trail** agent (what happened to the contradictions on PAY-1?) and a **rule coach** (which rules look noisy on this site?). They answer from the same evidence as the panel and cannot change anything. See [docs/agent.md](docs/agent.md). |
+| Impact on this site | The overview page shows what Same Page has done here: contradictions found, fixed, sent to owners, dismissed, transitions refused. A time-saved figure appears only if a Jira administrator types their own minutes-per-fix estimate. See [docs/impact.md](docs/impact.md). |
 
 ### The rules
 
@@ -154,7 +155,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      267 tests and the 30-pair fixture set
+test/  fixtures/      270 tests and the 30-pair fixture set
 scripts/              live gate check, receipt verifier, payload capture
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
