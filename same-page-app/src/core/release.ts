@@ -11,6 +11,7 @@ export type PageBody = string | { text: string; modifiedAt?: string; labels?: st
 
 /** The Atlassian access the release flow needs. Injected, so it runs against fakes in tests. */
 export interface IssueDeps {
+  loadIssue?: (key: string) => Promise<Issue>;
   getTransition: (key: string) => Promise<{ at: string; by: string | null } | null>;
   getRemoteLinkIds: (key: string) => Promise<string[]>;
   searchPages: (issue: Issue) => Promise<CandidatePage[]>;
@@ -53,9 +54,19 @@ export function cached<A, R>(fn: (arg: A) => R): (arg: A) => R {
   return (arg: A) => { if (!memo.has(arg)) memo.set(arg, fn(arg)); return memo.get(arg) as R; };
 }
 
+// Statuses of the other tickets the loaded pages mention (rule R6). At most 5 extra reads, and any failure just leaves that ticket out.
+const TICKET_KEY = /(?<![A-Za-z0-9-])[A-Z][A-Z0-9_]+-\d+(?![0-9])/g;
+async function loadCited(own: string, pages: Page[], loadIssue?: (key: string) => Promise<Issue>): Promise<Record<string, { status: string }> | undefined> {
+  if (!loadIssue) return undefined;
+  const keys = [...new Set(pages.flatMap((p) => p.text.match(TICKET_KEY) ?? []))].filter((k) => k !== own).slice(0, 5);
+  const out: Record<string, { status: string }> = {};
+  for (const k of keys) { try { const i = await loadIssue(k); if (i?.status) out[k] = { status: i.status }; } catch { /* unreadable or missing: skip */ } }
+  return out;
+}
+
 // One issue. Two-stage discovery keeps API use low: `searchPages` returns light metadata (an excerpt in `text`),
 // ranking runs on that, and `getPageBody` (null when the viewer cannot read it) is called only for the top few.
-export async function checkIssue(issue: Issue, { getTransition, getRemoteLinkIds, searchPages, getPageBody, rules, maxPages = 5, versionSources, pinnedIds = [] }: IssueDeps): Promise<ItemResult> {
+export async function checkIssue(issue: Issue, { loadIssue, getTransition, getRemoteLinkIds, searchPages, getPageBody, rules, maxPages = 5, versionSources, pinnedIds = [] }: IssueDeps): Promise<ItemResult> {
   const base = { key: issue.key, summary: issue.summary };
   const apiVersion = deriveTargetVersion(issue, versionSources ? { sources: versionSources } : undefined);
   if (!apiVersion) return { ...base, status: 'unchecked', reason: 'no target version found on the issue' };
@@ -76,8 +87,9 @@ export async function checkIssue(issue: Issue, { getTransition, getRemoteLinkIds
   }
   if (!loaded.length) return { ...base, status: 'unchecked', reason: 'related page(s) found but not readable with your permissions' };
   const workItem: WorkItem = { ...issue, apiVersion, statusChangedAt: transition.at, statusChangedBy: transition.by };
-  const siblings = loaded.map((l) => l.page);                  // lets a rule compare a doc with another loaded artifact, such as an API spec
-  const findings = loaded.flatMap(({ c, page }) => check({ workItem, page, siblings }, rules).findings
+  const siblings = loaded.map((l) => l.page);
+  const cited = await loadCited(issue.key, siblings, loadIssue);                  // lets a rule compare a doc with another loaded artifact, such as an API spec
+  const findings = loaded.flatMap(({ c, page }) => check({ workItem, page, siblings, cited }, rules).findings
     .map((f) => ({ ...f, pageId: page.id, pageTitle: page.title, foundBecause: c.reasons })));
   const real = findings.filter((f) => f.severity !== 'info');
   const out: ItemResult = real.length

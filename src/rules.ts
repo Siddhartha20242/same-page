@@ -196,4 +196,41 @@ export const specDisagrees: Rule = {
   },
 };
 
-export const BUILT_IN_RULES: Rule[] = [versionMismatch, deprecatedDecision, missingRequiredField, statusClaim, specDisagrees];
+// R6: a page says a ticket it mentions is still open ("blocked by PAY-9", "PAY-9 is in progress") but Jira says that ticket is closed.
+// Warn only, so it never blocks a transition. The mentioned ticket's status arrives in `cited`; with no data the rule stays silent.
+const CLOSED_STATUSES = ['done', 'closed', 'resolved', 'released', 'cancelled', 'canceled', 'complete', 'completed', "won't do", 'wont do'];
+const OPEN_AFTER = /\b(is|are|still|currently)\s+(open|pending|in progress|blocked|not\s+(?:yet\s+)?(?:done|merged|released|shipped|finished))\b/i;
+const OPEN_BEFORE = /\b(waiting\s+(?:on|for)|blocked\s+by|pending)\s+$/i;
+export const citedTicketClosed: Rule = {
+  id: 'R6_CITED_TICKET_CLOSED',
+  severity: 'warn',
+  why: 'A page tells readers that a ticket it relies on is still open, but Jira says it is closed, so the page is out of date and the work it waits for is already done.',
+  run({ workItem, page, cited }: Pair): Finding[] {
+    if (!cited) return [];
+    const out: Finding[] = [];
+    const keys = Object.keys(cited).filter((k) => k !== workItem.key && CLOSED_STATUSES.includes(String(cited[k]?.status ?? '').toLowerCase()));
+    if (!keys.length) return [];
+    page.text.split('\n').forEach((line, i) => {
+      for (const key of keys) {
+        const re = new RegExp(`(?<![A-Za-z0-9-])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![0-9])`);
+        const at = re.exec(line)?.index ?? -1;
+        if (at < 0) continue;
+        const after = line.slice(at + key.length, at + key.length + 60);
+        const before = line.slice(Math.max(0, at - 25), at);
+        if (!(OPEN_AFTER.test(after) || OPEN_BEFORE.test(before))) continue;
+        if (WAS_WORDING.test(line.slice(Math.max(0, at - 40), at + key.length + 60))) continue;
+        const status = String(cited[key].status);
+        out.push({
+          ruleId: this.id,
+          severity: this.severity,
+          why: this.why,
+          summary: `Page treats ${key} as still open, but Jira says it is ${status}`,
+          evidence: { page: { id: page.id, modifiedAt: page.modifiedAt, line: i + 1, snippet: line.trim() }, cited: { key, status }, workItem: { key: workItem.key } },
+        });
+      }
+    });
+    return out;
+  },
+};
+
+export const BUILT_IN_RULES: Rule[] = [versionMismatch, deprecatedDecision, missingRequiredField, statusClaim, specDisagrees, citedTicketClosed];

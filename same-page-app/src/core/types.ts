@@ -25,7 +25,7 @@ export interface Page {
 }
 
 /** `siblings` are all the pages loaded for the same work item (including `page`), so a rule can compare a doc with another artifact, such as an API spec. */
-export interface Pair { workItem: WorkItem; page: Page; siblings?: Page[] }
+export interface Pair { workItem: WorkItem; page: Page; siblings?: Page[]; cited?: Record<string, { status: string }> }
 
 export interface VersionRef { version: string; index: number; text: string; kind: 'token' | 'phrase' }
 export interface VersionHit { version: string; line: number; snippet: string; historical: boolean }
@@ -35,6 +35,8 @@ export interface Evidence {
   page?: { id?: string; modifiedAt?: string; line?: number; snippet?: string; labels?: string[]; moreStale?: number };
   /** The other artifact the page was compared with (rule R6): what the API spec says, and the exact text in the page that disagrees. */
   spec?: { title?: string; detail: string; opText: string };
+  /** A ticket the page mentions (rule R6) and the status Jira reports for it. */
+  cited?: { key: string; status: string };
   workItem: { key?: string; apiVersion?: string; statusChangedAt?: string; statusChangedBy?: string | null; status?: string; missingField?: string };
 }
 

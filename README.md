@@ -37,6 +37,7 @@ endpoint. The contradiction was detectable for weeks and nobody checked, because
 | R3 missing field | A required field is empty while the work item is Done. |
 | R4 stale status claim | A page calls a work item "planned" or "shipped" when Jira says otherwise. |
 | R5 spec mismatch | A doc line such as `DELETE /api/v2/charge/42` disagrees with an OpenAPI 3 JSON spec held in a linked page (deprecated is a block, unknown is a warning). |
+| R6 closed ticket | A page treats another ticket as still open ("blocked by PAY-9") but Jira says that ticket is Done or Closed. It only warns and never blocks a transition. |
 
 Notes that may be intentional history (near "rollback", "legacy", "migration", "deprecated") are listed but never block.
 
@@ -95,7 +96,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 - The audit log is **tamper-evident, not tamper-proof**. It detects rewritten history; it cannot stop someone with storage write
   access from rewriting the whole chain.
 - Third-party MCP clients are untested. The Rovo agent path is verified.
-- Not covered by any rule yet: environment-name mismatches, and a page that cites a ticket that has since closed.
+- Not covered by any rule yet: environment-name mismatches. R6 reads the status of at most 5 tickets a page mentions, by status name only.
 
 ## Architecture
 
@@ -103,7 +104,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      203 tests and the 30-pair fixture set
+test/  fixtures/      208 tests and the 30-pair fixture set
 scripts/              live gate check, receipt verifier, payload capture
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -115,7 +116,7 @@ Forge modules: `jira:issuePanel`, `jira:workflowValidator`, `confluence:contentB
 
 ```bash
 npm install
-npm test            # 203 tests: 199 pass, 4 skipped (they wait for captured real payloads)
+npm test            # 208 tests: 199 pass, 4 skipped (they wait for captured real payloads)
 npm run typecheck
 ```
 

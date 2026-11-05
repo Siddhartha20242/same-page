@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import ForgeReconciler, { Button, Code, Heading, Inline, Lozenge, SectionMessage, Spinner, Stack, Text, Textfield } from '@forge/react';
+import ForgeReconciler, { Button, Code, Heading, Inline, Lozenge, SectionMessage, Spinner, Stack, Strike, Text, Textfield } from '@forge/react';
 import { invoke as bridgeInvoke } from '@forge/bridge';
 import type { PanelFinding, PanelModel, Span } from '../core/panelModel';
 
@@ -33,6 +33,32 @@ const Highlighted = ({ line, span, appearance }: { line?: string; span?: Span; a
     </Inline>
   );
 };
+
+// The change Apply would make (or has made): the old line on top, the new line below, with the changed token highlighted.
+// Once applied, the old line is struck through so the before and after read as one edit.
+const BeforeAfter = ({ s, done }: { s: NonNullable<PanelFinding['suggestion']>; done: boolean }) => (
+  <Stack space="space.050">
+    <Heading size="xsmall">{done ? 'What changed on the page' : 'Proposed change (nothing is edited until you click Apply)'}</Heading>
+    <Inline space="space.100" alignBlock="center" shouldWrap>
+      <Lozenge appearance="removed">{done ? 'Was' : 'Now'}</Lozenge>
+      {done ? <Strike>{s.before ?? ''}</Strike> : <Highlighted line={s.before} span={s.beforeHighlight} appearance="removed" />}
+    </Inline>
+    <Inline space="space.100" alignBlock="center" shouldWrap>
+      <Lozenge appearance="success">{done ? 'Is now' : 'After Apply'}</Lozenge>
+      <Highlighted line={s.after} span={s.afterHighlight} appearance="success" />
+    </Inline>
+    <Text>{`Only this line changes, and only its version reference. ${s.note ?? ''}`}</Text>
+  </Stack>
+);
+
+// What was looked at, so a clean result reads as a result and not as an empty panel.
+const RULES_RUN = 'stale version, deprecated decision, missing field, stale status claim, API spec, closed ticket still cited as open';
+const Checked = ({ titles, count }: { titles?: string[]; count: number }) => (
+  <Stack space="space.050">
+    <Text>{`Checked ${count} linked page${count === 1 ? '' : 's'}${titles?.length ? `: ${titles.join(', ')}` : ''}.`}</Text>
+    <Text>{`Rules run: ${RULES_RUN}. Rules only, no AI in detection, so every finding can be explained.`}</Text>
+  </Stack>
+);
 
 // Where this finding is in its life: found by a rule, a fix proposed (when one is verified), then applied by a human.
 // Snoozed and dismissed findings leave the list, and the count of hidden ones is shown above it.
@@ -83,6 +109,7 @@ const AuditTrail = () => {
 
 interface FindingProps {
   f: PanelFinding;
+  first?: boolean;
   task?: TaskState;
   act?: ActState;
   onCreateTask: (f: PanelFinding) => void;
@@ -91,13 +118,14 @@ interface FindingProps {
   onDismiss: (f: PanelFinding, reason: string) => void;
 }
 
-const Finding = ({ f, task, onCreateTask, act, onApply, onSnooze, onDismiss }: FindingProps) => {
+const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismiss }: FindingProps) => {
   const [reason, setReason] = useState('');
   const [asking, setAsking] = useState(false);
   return (
   <Stack space="space.100">
     <Lifecycle proposed={Boolean(f.suggestion?.after)} applied={act?.status === 'applied'} />
     <Inline space="space.100" alignBlock="center">
+      {first ? <Lozenge appearance="new" isBold>Start here</Lozenge> : null}
       <Lozenge appearance={TONE[f.severity] ?? 'default'}>{LABEL[f.severity] ?? 'Finding'}</Lozenge>
       <Text>{f.summary}</Text>
     </Inline>
@@ -116,11 +144,7 @@ const Finding = ({ f, task, onCreateTask, act, onApply, onSnooze, onDismiss }: F
     <Text>{`Why it matters: ${f.why}`}</Text>
     {f.foundBecause?.length ? <Text>{`Found because: ${f.foundBecause.join(', ')}`}</Text> : null}
     {f.suggestion?.after ? (
-      <Stack space="space.050">
-        <Text>{`Suggested edit (${f.suggestion.note})`}</Text>
-        <Highlighted line={f.suggestion.before} span={f.suggestion.beforeHighlight} appearance="removed" />
-        <Highlighted line={f.suggestion.after} span={f.suggestion.afterHighlight} appearance="success" />
-      </Stack>
+      <BeforeAfter s={f.suggestion} done={act?.status === 'applied'} />
     ) : f.suggestion?.unavailable ? (
       <Text>{`No automatic edit: ${f.suggestion.unavailable}`}</Text>
     ) : null}
@@ -135,7 +159,7 @@ const Finding = ({ f, task, onCreateTask, act, onApply, onSnooze, onDismiss }: F
     )}
     {f.suggestion?.after ? (
       act?.status === 'applied' ? (
-        <SectionMessage appearance="success">{`Applied as page version ${act.version}. Revert it from the page history if it is wrong.${act.receipt ? ` Sealed as audit entry #${act.receipt.seq} (${act.receipt.entryHash.slice(0, 12)}…).` : ''}${f.evidence.moreStale ? ` ${f.evidence.moreStale} more line(s) on this page still name an old version. The page now counts as edited, so Same Page will not flag them again. Review them.` : ''}`}</SectionMessage>
+        <SectionMessage appearance="success">{`Done. Applied as page version ${act.version}. Revert it from the page history if it is wrong.${act.receipt ? ` Sealed as audit entry #${act.receipt.seq} (${act.receipt.entryHash.slice(0, 12)}…).` : ''}${f.evidence.moreStale ? ` ${f.evidence.moreStale} more line(s) on this page still name an old version. The page now counts as edited, so Same Page will not flag them again. Review them.` : ''}`}</SectionMessage>
       ) : (
         <Button appearance="warning" isDisabled={act?.status === 'working'} onClick={() => onApply(f)}>
           {act?.status === 'working' ? 'Applying…' : 'Apply this edit to the page'}
@@ -217,8 +241,8 @@ const App = () => {
     } catch (e) { setSeed({ status: 'error', message: (e as Error)?.message ?? 'Unknown error.' }); }
   };
 
-  if (state.phase === 'loading') return (<Inline space="space.100" alignBlock="center"><Spinner /><Text>Checking this issue against its docs…</Text></Inline>);
-  if (state.phase === 'error') return (<SectionMessage appearance="error" title="Same Page could not load">{state.message}</SectionMessage>);
+  if (state.phase === 'loading') return (<Inline space="space.100" alignBlock="center"><Spinner /><Text>Reading the linked pages and checking them against this work item…</Text></Inline>);
+  if (state.phase === 'error') return (<Stack space="space.100"><SectionMessage appearance="error" title="Same Page could not load"><Text>{state.message}</Text><Text>Nothing was changed. This is usually a permissions prompt or a short outage.</Text></SectionMessage><Button onClick={load}>Try again</Button></Stack>);
 
   const m = state.model;
   if (m.status === 'error') return (<Stack space="space.100"><SectionMessage appearance="error" title="Same Page could not finish">{m.message}</SectionMessage><Button onClick={load}>Try again</Button></Stack>);
@@ -242,7 +266,7 @@ const App = () => {
         </Stack>
       ) : null}
       {seed.status === 'done' && seed.linked
-        ? <SectionMessage appearance="success" title="Demo data created">{`Open ${seed.epicKey} to see Same Page find a real contradiction.`}</SectionMessage>
+        ? <SectionMessage appearance="success" title="Demo data created">{`Open ${seed.epicKey} (the epic it names), then the Same Page panel in its apps menu. You should see 2 contradictions. Start with the runbook one: it has a verified fix you can Apply, and you can then watch the page change in Confluence.`}</SectionMessage>
         : (
           <>
             {seed.status === 'done' ? <SectionMessage appearance="warning" title="Demo data created, but the page link failed">{`${seed.linkNote ?? 'The pages were not linked to the epic.'} Click Create demo data again to retry the link.`}</SectionMessage> : null}
@@ -254,19 +278,27 @@ const App = () => {
   );
   if (m.status === 'clean') return (
     <Stack space="space.100">
-      <SectionMessage appearance="success" title="Same page">{`Checked ${m.pagesChecked} related page(s). No contradictions found.${m.hidden ? ` ${m.hidden} finding(s) hidden by snooze or dismissal.` : ''}`}</SectionMessage>
+      <SectionMessage appearance="success" title="Same page">{`No contradictions found.${m.hidden ? ` ${m.hidden} finding(s) hidden by snooze or dismissal.` : ''}`}</SectionMessage>
+      <Checked titles={m.pageTitles} count={m.pagesChecked} />
+      <Button onClick={load}>Check again</Button>
       <AuditTrail />
     </Stack>
   );
 
+  // Findings with a verified fix come first, then blockers, so the first card is the quickest win.
+  const rank = (f: PanelFinding) => (f.suggestion?.after ? 0 : f.severity === 'block' ? 1 : 2);
+  const ordered = [...(m.findings ?? [])].sort((a, b) => rank(a) - rank(b));
+  const hasFix = ordered.some((f) => f.suggestion?.after);
   return (
     <Stack space="space.200">
       <Heading size="small">{m.status === 'findings' ? `${m.findings.length} contradiction(s) found` : 'Possible history, worth a look'}</Heading>
+      {m.status === 'findings' ? <Text>{hasFix ? 'Start with the first one: it has a verified edit you can apply in one click. Then decide on the rest.' : 'Start with the first one. None has an automatic edit, so open the page or create a review task.'}</Text> : null}
       {m.hidden ? <Text>{`${m.hidden} more finding(s) hidden by snooze or dismissal.`}</Text> : null}
-      {[...(m.findings ?? []), ...(m.notes ?? [])].map((f) => (<Finding key={f.id} f={f} task={tasks[f.id]} onCreateTask={createTask} act={acts[f.id]} onApply={apply} onSnooze={snooze} onDismiss={dismissIt} />))}
+      {[...ordered, ...(m.notes ?? [])].map((f, i) => (<Finding key={f.id} first={i === 0 && m.status === 'findings'} f={f} task={tasks[f.id]} onCreateTask={createTask} act={acts[f.id]} onApply={apply} onSnooze={snooze} onDismiss={dismissIt} />))}
       <Inline space="space.100" alignBlock="center" shouldWrap>
         <Button onClick={load}>Check again</Button>
       </Inline>
+      <Checked titles={m.pageTitles} count={m.pagesChecked} />
       <AuditTrail />
     </Stack>
   );
