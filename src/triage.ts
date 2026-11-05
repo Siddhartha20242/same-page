@@ -82,7 +82,7 @@ export function ruleNoise(history: { ruleId: string; outcome: 'dismissed' | 'act
 
 export interface OutcomeStore { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<unknown> }
 export type Outcomes = Record<string, { dismissed: number; acted: number }>;
-export interface NoisyRule { ruleId: string; dismissed: number; message: string }
+export interface NoisyRule { ruleId: string; dismissed: number; total?: number; message: string }
 
 const OUTCOMES_KEY = 'noise:outcomes';
 const MAX_COUNT = 1000;
@@ -112,7 +112,7 @@ export async function loadNoisyRules(store: OutcomeStore): Promise<NoisyRule[]> 
     ]);
     return ruleNoise(history).filter((r) => r.noisy).map((r) => {
       const dismissed = Math.round(r.rate * r.samples);
-      return { ruleId: r.ruleId, dismissed, message: `Rule ${r.ruleId.split('_')[0]} was dismissed ${dismissed} times on this site. If it is usually wrong for your team, tell us with a reason.` };
+      return { ruleId: r.ruleId, dismissed, total: r.samples, message: `Rule ${r.ruleId.split('_')[0]} has been dismissed ${dismissed} of ${r.samples} times on this site. If it is usually wrong for your team, a site admin can change its severity under Rules.` };
     });
   } catch { return []; }
 }

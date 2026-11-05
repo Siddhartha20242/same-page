@@ -9,6 +9,7 @@ const invoke = <T,>(name: string, payload?: Record<string, unknown>): Promise<T>
 // Thin view over the model built by the resolver. Native UI Kit only; props checked against @forge/react 11.17 types.
 const TONE: Record<string, 'removed' | 'moved' | 'default'> = { block: 'removed', warn: 'moved', info: 'default' };
 const LABEL: Record<string, string> = { block: 'Blocker', warn: 'Warning', info: 'Note' };
+const ruleShort = (id: string) => { const m = /^R(\d)_/.exec(id); const names: Record<string, string> = { '1': 'Stale version', '2': 'Deprecated decision', '3': 'Missing field', '4': 'Stale status claim', '5': 'API spec mismatch', '6': 'Closed ticket cited as open', '7': 'Pages disagree' }; return m ? `R${m[1]} ${names[m[1]!] ?? ''}`.trim() : 'Rule'; };
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : 'an unknown date');
 
 type TaskState = { status: 'creating' } | { status: 'done'; key: string } | { status: 'error'; message: string };
@@ -51,12 +52,55 @@ const BeforeAfter = ({ s, done }: { s: NonNullable<PanelFinding['suggestion']>; 
   </Stack>
 );
 
-// What was looked at, so a clean result reads as a result and not as an empty panel.
-const RULES_RUN = 'stale version, deprecated decision, missing field, stale status claim, API spec, closed ticket still cited as open';
-const Checked = ({ titles, count }: { titles?: string[]; count: number }) => (
-  <Stack space="space.050">
-    <Text>{`Checked ${count} linked page${count === 1 ? '' : 's'}${titles?.length ? `: ${titles.join(', ')}` : ''}.`}</Text>
-    <Text>{`Rules run: ${RULES_RUN}. Rules only, no AI in detection, so every finding can be explained.`}</Text>
+type RuleRow = { ruleId: string; short: string; name: string; checks: string; pain: string; severity: 'block' | 'warn'; changed: boolean };
+type RulesReply = { canEdit: boolean; rules: RuleRow[] };
+
+// The rule set, visible even when nothing is found. A Jira administrator can move a rule between Blocker and Warning;
+// that decides which findings may stop a transition. Rules cannot be switched off and findings are never hidden by this.
+const RulesList = () => {
+  const [view, setView] = useState<{ phase: 'closed' } | { phase: 'loading' } | { phase: 'error' } | { phase: 'ready'; data: RulesReply; note?: string }>({ phase: 'closed' });
+  const open = () => {
+    setView({ phase: 'loading' });
+    invoke<RulesReply>('getRules').then((data) => setView({ phase: 'ready', data })).catch(() => setView({ phase: 'error' }));
+  };
+  const change = async (r: RuleRow, severity: 'block' | 'warn') => {
+    try {
+      const out = await invoke<ActionReply>('setRuleSeverity', { ruleId: r.ruleId, severity });
+      if (out?.ok === false) { setView((v) => (v.phase === 'ready' ? { ...v, note: out.reason ?? 'Not changed.' } : v)); return; }
+      open();
+    } catch { setView((v) => (v.phase === 'ready' ? { ...v, note: 'Not changed. Try again.' } : v)); }
+  };
+  if (view.phase === 'closed') return <Button onClick={open}>Rules</Button>;
+  if (view.phase === 'loading') return <Inline space="space.100" alignBlock="center"><Spinner size="small" /><Text>Loading the rules…</Text></Inline>;
+  if (view.phase === 'error') return <SectionMessage appearance="error" title="Could not load the rules"><Text>Nothing was changed. Try again in a moment.</Text></SectionMessage>;
+  const { data } = view;
+  return (
+    <Stack space="space.100">
+      <Heading size="xsmall">The seven rules</Heading>
+      <Text>{data.canEdit ? 'Blockers can stop a Jira transition when the validator is attached. You are a Jira administrator, so you can move a rule between Blocker and Warning.' : 'Blockers can stop a Jira transition when the validator is attached. Only a Jira administrator can change a severity.'}</Text>
+      {data.rules.map((r) => (
+        <Stack key={r.ruleId} space="space.050">
+          <Inline space="space.100" alignBlock="center" shouldWrap>
+            <Lozenge appearance={r.severity === 'block' ? 'removed' : 'moved'} isBold>{r.severity === 'block' ? 'Blocker' : 'Warning'}</Lozenge>
+            <Text>{`${r.short} ${r.name}${r.changed ? ' (changed on this site)' : ''}`}</Text>
+            {data.canEdit ? <Button onClick={() => change(r, r.severity === 'block' ? 'warn' : 'block')}>{r.severity === 'block' ? 'Make it a warning' : 'Make it a blocker'}</Button> : null}
+          </Inline>
+          <Text>{`${r.checks} ${r.pain}`}</Text>
+        </Stack>
+      ))}
+      {view.note ? <SectionMessage appearance="warning"><Text>{view.note}</Text></SectionMessage> : null}
+      <Button onClick={() => setView({ phase: 'closed' })}>Hide rules</Button>
+    </Stack>
+  );
+};
+
+// The trust layer: what was read and which rules ran, always shown, in the same place whether or not anything was found.
+const Checked = ({ titles, count, found }: { titles?: string[]; count: number; found: number }) => (
+  <Stack space="space.100">
+    <Heading size="xsmall">What Same Page checked</Heading>
+    <Text>{`Read ${count} linked page${count === 1 ? '' : 's'}${titles?.length ? ` (${titles.join(', ')})` : ''}, ran 7 rules, found ${found} contradiction${found === 1 ? '' : 's'}.`}</Text>
+    <Text>Rules only, no AI in detection, so every finding can be explained and repeated.</Text>
+    <RulesList />
   </Stack>
 );
 
@@ -121,12 +165,34 @@ interface FindingProps {
 const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismiss }: FindingProps) => {
   const [reason, setReason] = useState('');
   const [asking, setAsking] = useState(false);
+  const applied = act?.status === 'applied';
+  const hasFix = Boolean(f.suggestion?.after);
+  const busy = act?.status === 'working';
   return (
   <Stack space="space.100">
-    <Lifecycle proposed={Boolean(f.suggestion?.after)} applied={act?.status === 'applied'} />
+    <Lifecycle proposed={hasFix} applied={applied} />
     {first ? <Heading size="xsmall">Start here</Heading> : null}
-    <Lozenge appearance={TONE[f.severity] ?? 'default'}>{LABEL[f.severity] ?? 'Finding'}</Lozenge>
+    <Inline space="space.100" alignBlock="center" shouldWrap>
+      <Lozenge appearance={TONE[f.severity] ?? 'default'} isBold>{LABEL[f.severity] ?? 'Finding'}</Lozenge>
+      <Text>{ruleShort(f.ruleId)}</Text>
+    </Inline>
     <Text>{f.summary}</Text>
+    {applied ? (
+      <SectionMessage appearance="success" title="Fixed">{`Applied as page version ${act.version}. Revert it from the page history if it is wrong.${act.receipt ? ` Sealed as audit entry #${act.receipt.seq} (${act.receipt.entryHash.slice(0, 12)}…).` : ''}${f.evidence.moreStale ? ` ${f.evidence.moreStale} more line(s) on this page still name an old version. The page now counts as edited, so Same Page will not flag them again. Review them.` : ''}`}</SectionMessage>
+    ) : (
+      <Stack space="space.050">
+        <Text>{hasFix ? 'Next step: apply the verified edit below. Nothing changes on the page until you click.' : 'Next step: open the page and fix it, or hand it to the page owner as a review task.'}</Text>
+        <Inline space="space.100" alignBlock="center" shouldWrap>
+          {hasFix ? <Button appearance="primary" isDisabled={busy} onClick={() => onApply(f)}>{busy ? 'Applying…' : 'Apply this edit to the page'}</Button> : null}
+          {task?.status === 'done' ? <Lozenge appearance="success">{`Review task ${task.key} created`}</Lozenge> : (
+            <Button appearance={hasFix ? 'default' : 'primary'} isDisabled={task?.status === 'creating'} onClick={() => onCreateTask(f)}>{task?.status === 'creating' ? 'Creating…' : 'Create review task'}</Button>
+          )}
+        </Inline>
+        {task?.status === 'error' ? <SectionMessage appearance="error" title="Could not create the task">{task.message}</SectionMessage> : null}
+      </Stack>
+    )}
+    {act?.status === 'error' ? <SectionMessage appearance="error" title="Not done">{act.message}</SectionMessage> : null}
+    {hasFix ? <BeforeAfter s={f.suggestion!} done={applied} /> : f.suggestion?.unavailable ? <Text>{`No automatic edit: ${f.suggestion.unavailable}`}</Text> : null}
     <Inline space="space.200" alignBlock="start" shouldWrap>
       <Stack space="space.050">
         <Heading size="xsmall">Page says</Heading>
@@ -141,33 +207,9 @@ const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismi
     </Inline>
     <Text>{`Why it matters: ${f.why}`}</Text>
     {f.foundBecause?.length ? <Text>{`Found because: ${f.foundBecause.join(', ')}`}</Text> : null}
-    {f.suggestion?.after ? (
-      <BeforeAfter s={f.suggestion} done={act?.status === 'applied'} />
-    ) : f.suggestion?.unavailable ? (
-      <Text>{`No automatic edit: ${f.suggestion.unavailable}`}</Text>
-    ) : null}
-    {task?.status === 'done' ? (
-      <SectionMessage appearance="success">{`Created review task ${task.key}.`}</SectionMessage>
-    ) : task?.status === 'error' ? (
-      <SectionMessage appearance="error" title="Could not create the task">{task.message}</SectionMessage>
-    ) : (
-      <Button appearance="primary" isDisabled={task?.status === 'creating'} onClick={() => onCreateTask(f)}>
-        {task?.status === 'creating' ? 'Creating…' : 'Create review task'}
-      </Button>
-    )}
-    {f.suggestion?.after ? (
-      act?.status === 'applied' ? (
-        <SectionMessage appearance="success">{`Done. Applied as page version ${act.version}. Revert it from the page history if it is wrong.${act.receipt ? ` Sealed as audit entry #${act.receipt.seq} (${act.receipt.entryHash.slice(0, 12)}…).` : ''}${f.evidence.moreStale ? ` ${f.evidence.moreStale} more line(s) on this page still name an old version. The page now counts as edited, so Same Page will not flag them again. Review them.` : ''}`}</SectionMessage>
-      ) : (
-        <Button appearance="warning" isDisabled={act?.status === 'working'} onClick={() => onApply(f)}>
-          {act?.status === 'working' ? 'Applying…' : 'Apply this edit to the page'}
-        </Button>
-      )
-    ) : null}
-    {act?.status === 'error' ? <SectionMessage appearance="error" title="Not done">{act.message}</SectionMessage> : null}
     <Inline space="space.100" alignBlock="center">
-      <Button onClick={() => onSnooze(f)} isDisabled={act?.status === 'working'}>Snooze 7 days</Button>
-      <Button onClick={() => setAsking(!asking)} isDisabled={act?.status === 'working'}>Dismiss…</Button>
+      <Button onClick={() => onSnooze(f)} isDisabled={busy}>Snooze 7 days</Button>
+      <Button onClick={() => setAsking(!asking)} isDisabled={busy}>Dismiss…</Button>
     </Inline>
     {asking ? (
       <Stack space="space.050">
@@ -240,7 +282,7 @@ const App = () => {
   };
 
   if (state.phase === 'loading') return (<Inline space="space.100" alignBlock="center"><Spinner /><Text>Reading the linked pages and checking them against this work item…</Text></Inline>);
-  if (state.phase === 'error') return (<Stack space="space.100"><SectionMessage appearance="error" title="Same Page could not load"><Text>{state.message}</Text><Text>Nothing was changed. This is usually a permissions prompt or a short outage.</Text></SectionMessage><Button onClick={load}>Try again</Button></Stack>);
+  if (state.phase === 'error') return (<Stack space="space.100"><SectionMessage appearance="error" title="Same Page could not load"><Text>{state.message}</Text><Text>Nothing was changed, and this is not a clean result: Same Page never reports no contradictions when a check failed. This is usually a permissions prompt or a short outage.</Text></SectionMessage><Button onClick={load}>Try again</Button></Stack>);
 
   const m = state.model;
   if (m.status === 'error') return (<Stack space="space.100"><SectionMessage appearance="error" title="Same Page could not finish">{m.message}</SectionMessage><Button onClick={load}>Try again</Button></Stack>);
@@ -276,8 +318,8 @@ const App = () => {
   );
   if (m.status === 'clean') return (
     <Stack space="space.100">
-      <SectionMessage appearance="success" title="Same page">{`No contradictions found.${m.hidden ? ` ${m.hidden} finding(s) hidden by snooze or dismissal.` : ''}`}</SectionMessage>
-      <Checked titles={m.pageTitles} count={m.pagesChecked} />
+      <SectionMessage appearance="success" title="Same page">{`No contradictions found across ${m.pagesChecked} linked page${m.pagesChecked === 1 ? '' : 's'}.${m.hidden ? ` ${m.hidden} finding(s) hidden by snooze or dismissal.` : ''}`}</SectionMessage>
+      <Checked titles={m.pageTitles} count={m.pagesChecked} found={0} />
       <Button onClick={load}>Check again</Button>
       <AuditTrail />
     </Stack>
@@ -291,13 +333,13 @@ const App = () => {
     <Stack space="space.200">
       <Heading size="small">{m.status === 'findings' ? `${m.findings.length} contradiction(s) found` : 'Possible history, worth a look'}</Heading>
       {m.status === 'findings' ? <Text>{hasFix ? 'Start with the first one: it has a verified edit you can apply in one click. Then decide on the rest.' : 'Start with the first one. None has an automatic edit, so open the page or create a review task.'}</Text> : null}
+      <Checked titles={m.pageTitles} count={m.pagesChecked} found={m.findings.length} />
       {m.hidden ? <Text>{`${m.hidden} more finding(s) hidden by snooze or dismissal.`}</Text> : null}
       {(m.noisyRules ?? []).map((n) => <Text key={n.ruleId}>{n.message}</Text>)}
       {[...ordered, ...(m.notes ?? [])].map((f, i) => (<Finding key={f.id} first={i === 0 && m.status === 'findings'} f={f} task={tasks[f.id]} onCreateTask={createTask} act={acts[f.id]} onApply={apply} onSnooze={snooze} onDismiss={dismissIt} />))}
       <Inline space="space.100" alignBlock="center" shouldWrap>
         <Button onClick={load}>Check again</Button>
       </Inline>
-      <Checked titles={m.pageTitles} count={m.pagesChecked} />
       <AuditTrail />
     </Stack>
   );

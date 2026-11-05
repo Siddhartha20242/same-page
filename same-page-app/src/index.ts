@@ -19,6 +19,7 @@ import type { LedgerEntry } from './core/ledger';
 import { decideTransition, gateKey, snapshotFromModel } from './core/gate';
 import type { CanView } from './core/gate';
 import { runOverview } from './core/overview';
+import { RULE_CATALOG, loadSeverityOverrides, saveSeverity, withSeverities } from './core/ruleCatalog';
 import { checkPage, bylineTitle } from './core/pageCheck';
 import type { PageCheck } from './core/pageCheck';
 
@@ -83,7 +84,7 @@ resolver.define('getPanel', async ({ context }: Req) => {
   const issueKey = issueKeyOf(context);
   if (!issueKey) return { status: 'error', message: 'This panel must be opened from a Jira issue.' };
   try {
-    const model = filterModelByTriage(await buildPanelModel(issueKey, makeDeps(), { llm: forgeLlm }), await loadTriage(issueKey, store));
+    const model = filterModelByTriage(withSeverities(await buildPanelModel(issueKey, makeDeps(), { llm: forgeLlm }) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as never;
     const shown = model as { findings?: { id: string }[]; notes?: { id: string }[] };
     await markSeen(store, [...(shown.findings ?? []), ...(shown.notes ?? [])].map((f) => f.id));
     const snap = snapshotFromModel(model);
@@ -161,6 +162,25 @@ resolver.define('ledgerView', async () => {
   return verified.ok
     ? { status: 'verified', length, head: head.slice(0, 12), recent, counts }
     : { status: 'broken', length, head: head.slice(0, 12), reason: (verified as { reason?: string }).reason ?? 'chain does not verify', brokenAt: (verified as { brokenAt?: number }).brokenAt ?? null, recent, counts };
+});
+
+// Rules tab: the seven rules with their current severity. Anyone can read it; only a Jira administrator can change a severity, because it
+// decides which findings can stop a transition. Only block and warn are allowed, and notes (history) are never affected.
+const isJiraAdmin = async (): Promise<boolean> => {
+  try {
+    const r = await api.asUser().requestJira(route`/rest/api/3/mypermissions?permissions=ADMINISTER`);
+    return r.ok && ((await r.json()) as { permissions?: { ADMINISTER?: { havePermission?: boolean } } }).permissions?.ADMINISTER?.havePermission === true;
+  } catch { return false; }
+};
+resolver.define('getRules', async () => {
+  const overrides = await loadSeverityOverrides(store);
+  return { canEdit: await isJiraAdmin(), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]) })) };
+});
+resolver.define('setRuleSeverity', async ({ payload }: Req<{ ruleId?: string; severity?: string }>) => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change a rule severity.' };
+  const out = await saveSeverity(store, String(payload?.ruleId ?? ''), String(payload?.severity ?? ''));
+  if (!out.ok) return out;
+  return { ok: true };
 });
 
 resolver.define('triage', async ({ payload, context }: Req<{ findingId?: string; kind?: string; reason?: string }>) => {
@@ -251,7 +271,7 @@ export const validator = async (event: { issue?: { key?: string }; user?: { acco
   const started = Date.now();
   const d = await decideTransition({
     issueKey, store, canView: canViewAs(event?.user?.accountId),
-    live: async () => snapshotFromModel(filterModelByTriage(await buildPanelModel(issueKey, appDeps()), await loadTriage(issueKey, store))),
+    live: async () => snapshotFromModel(filterModelByTriage(withSeverities(await buildPanelModel(issueKey, appDeps()) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as never),
   });
   console.log(`same-page gate ${issueKey}: ${d.result ? 'allow' : 'BLOCK'} (${d.basis}) ${Date.now() - started}ms${d.note ? ` ${d.note}` : ''}`);
   if (!d.result) await bump(store, 'gateBlocks');

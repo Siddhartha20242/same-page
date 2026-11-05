@@ -1,5 +1,6 @@
 import type { PanelModel } from './panelModel';
 import type { Severity } from './types';
+import { ruleLabel } from './ruleCatalog';
 
 // The pre-ship gate behind a Jira workflow validator. Same rules, new entry point.
 // Principles, in order:
@@ -38,16 +39,17 @@ export function snapshotFromModel(model: PanelModel, now: () => number = Date.no
 
 const flat = (s: string | undefined, max: number) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
-/** Plain-text evidence packet for the validator's error message. Page text is untrusted, so it is flattened and capped. */
+/** Plain-text evidence packet for the validator's error message. Page text is untrusted, so it is flattened and capped.
+ *  It names the rule, the page and what to do next, and withholds page text from anyone who cannot read the page. */
 export function formatBlockMessage(issueKey: string, blockers: GateBlocker[]): string {
   const first = blockers.find((b) => !b.hidden) ?? blockers[0];
   const head = `Same Page blocked this transition: ${issueKey} has ${blockers.length} provable contradiction${blockers.length === 1 ? '' : 's'} with its docs.`;
   const detail = !first ? ''
     : first.hidden
-      ? ` [${first.ruleId.split('_')[0]}] A linked page you cannot view contradicts this issue; its details are withheld.`
-      : ` [${first.ruleId.split('_')[0]}] ${flat(first.summary, 160)}.${first.pageTitle ? ` Page "${flat(first.pageTitle, 80)}"` : ''}${first.docLine ? `: "${flat(first.docLine, 120)}"` : ''}`;
+      ? ` Rule: ${ruleLabel(first.ruleId)}. A linked page you cannot view contradicts this issue; its details are withheld. Ask someone who can read that page to fix it.`
+      : ` Rule: ${ruleLabel(first.ruleId)}. ${flat(first.summary, 160)}.${first.pageTitle ? ` Update the page "${flat(first.pageTitle, 80)}"` : ''}${first.docLine ? `, which says: "${flat(first.docLine, 120)}"` : ''}.`;
   const more = blockers.length > 1 ? ` (+${blockers.length - 1} more)` : '';
-  return `${head}${detail}${more} Fix the page, or open Same Page from this work item's apps menu and dismiss the finding with a reason.`;
+  return `${head}${detail}${more} Next: open Same Page from this work item's apps menu to see the evidence, then fix the page, create a review task for its owner, or dismiss the finding with a reason.`;
 }
 
 /** Page text may only reach the person who is allowed to read the page. Anything unproven (no page id, no checker, a failed check) is withheld. */

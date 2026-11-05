@@ -2,6 +2,7 @@ import { check } from './engine';
 import { deriveTargetVersion } from './adapters';
 import type { Issue, Page, WorkItem } from './types';
 import type { PageBody } from './release';
+import { ruleInfo } from './ruleCatalog';
 
 // Confluence byline: does the page being viewed contradict a work item it names? Pairs the viewed page with up to MAX_KEYS work item keys
 // found in its own text, using the same rules as the Jira panel. Read-only. It reports only rule, plain summary and work item key.
@@ -9,15 +10,7 @@ import type { PageBody } from './release';
 const KEY = /(?<![A-Za-z0-9-])[A-Z][A-Z0-9_]+-\d+(?![0-9])/g;
 export const MAX_KEYS = 5;
 
-export const RULE_NAMES: Record<string, string> = {
-  R1_VERSION_MISMATCH: 'Stale version',
-  R2_DEPRECATED_DECISION_ACTIVE_WORK: 'Deprecated decision, work still active',
-  R3_MISSING_REQUIRED_FIELD: 'Missing field',
-  R4_STATUS_CLAIM_STALE: 'Stale status claim',
-  R5_SPEC_DISAGREES: 'API spec mismatch',
-  R6_CITED_TICKET_CLOSED: 'Closed ticket cited as open',
-};
-export const ruleName = (id: string) => RULE_NAMES[id] ?? 'Rule';
+export const ruleName = (id: string) => ruleInfo(id)?.name ?? 'Rule';
 
 export interface PageIssue { ruleId: string; rule: string; severity: 'block' | 'warn'; summary: string; key: string }
 export type PageCheck =

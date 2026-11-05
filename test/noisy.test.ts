@@ -14,7 +14,7 @@ test('a rule dismissed often enough gets a calm hint', async () => {
   await recordOutcome(s, 'R4_STATUS_CLAIM_STALE', 'acted');
   const noisy = await loadNoisyRules(s);
   assert.equal(noisy.length, 1);
-  assert.equal(noisy[0].message, 'Rule R4 was dismissed 4 times on this site. If it is usually wrong for your team, tell us with a reason.');
+  assert.equal(noisy[0].message, 'Rule R4 has been dismissed 4 of 5 times on this site. If it is usually wrong for your team, a site admin can change its severity under Rules.');
   const m = withNoisyRules(model([finding('1', 'R4_STATUS_CLAIM_STALE', 'warn')]), noisy) as { noisyRules?: unknown[] };
   assert.equal(m.noisyRules?.length, 1);
 });
