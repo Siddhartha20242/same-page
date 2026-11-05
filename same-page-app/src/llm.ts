@@ -12,7 +12,9 @@ const DAY_MS = 24 * 3600 * 1000;
 
 const textOf = (c: unknown): string => (typeof c === 'string' ? c : Array.isArray(c) ? c.map((p) => (p as { text?: string } | null)?.text ?? '').join('') : '');
 
+// OFF unless the developer sets SAME_PAGE_AI=1 (forge variables set). Forge LLM calls are billed, so by default nothing is ever sent to a model.
 export const forgeLlm: Llm = async ({ prompt }) => {
+  if (process.env.SAME_PAGE_AI !== '1') throw new Error('AI fixes are off');
   const key = `llm:fix:${createHash('sha256').update(prompt).digest('hex').slice(0, 40)}`;
   const hit = (await kvs.get(key)) as { text?: string; at?: number } | undefined;
   if (hit?.text && Date.now() - (hit.at ?? 0) < DAY_MS) return hit.text;

@@ -21,7 +21,7 @@ endpoint. The contradiction was detectable for weeks and nobody checked, because
 | Discover | Finds candidate pages for a work item: Jira remote links, Confluence search, or a pasted URL. |
 | Detect | Deterministic rules, **no AI in detection**, so every finding is reproducible. |
 | Show evidence | The exact line from the page beside what Jira says, with timestamps, authors and the stale token highlighted. |
-| Propose a fix | A mechanical rewrite when unambiguous (`v1` to `v2`). For an ambiguous line, Forge-hosted Claude may reword that one line, and the result must pass the same rule check before it is shown. |
+| Propose a fix | A mechanical rewrite when unambiguous (`v1` to `v2`). For an ambiguous line, an optional Forge-hosted Claude path can reword that one line (off by default, see Security), and the result must pass the same rule check before it is shown. |
 | Human decides | Apply (a Confluence page version that names the approver), create a review task, snooze 7 days, or dismiss with a required reason. |
 | Record | Every Apply is sealed into a hash-chained audit log; the hash is also anchored on the Jira work item. |
 | Guard | After a fix, the page is pinned. If someone edits the old version back in, Same Page comments on the work item. |
@@ -63,7 +63,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 - Panel, Create demo data, R1, R2, R4 and R5 findings, Apply (page version 2, one line changed), review task, snooze and dismiss.
 - The gate refusing a Done transition with the evidence, and allowing it after Apply fixed the page.
 - The gate withholding quoted page text from a person who cannot read the page.
-- The AI-suggested fix on an ambiguous line, passing the same verification.
+- The AI-suggested fix on an ambiguous line, passing the same verification (run with the optional AI path switched on).
 - The sealed audit chain, shown as "Chain intact", and its anchor on the work item.
 - The pin guard commenting after the old version was edited back.
 - The Rovo agent end to end on a fresh site: it called both tools and quoted the evidence.
@@ -76,8 +76,9 @@ The full log, including every bug the real site exposed, is in [docs/live-result
   message if it cannot tell.
 - **Minimal data kept.** Forge storage holds dismiss/snooze records, the audit chain, and counters. The counters hold no page text,
   titles or names. The pin guard's comment names no page title or text.
-- **AI is optional and bounded.** Detection never calls a model. The model may reword one ambiguous line; it is capped at 40 calls
-  per day, cached for 24 hours, limited to version-only changes, and its output is rejected unless it passes the rule check.
+- **AI is optional, off by default, and bounded.** Detection never calls a model, and the shipped app sends nothing to a model unless
+  the developer sets `SAME_PAGE_AI=1`, because Forge LLM calls are billed. When on, it may reword one ambiguous line; it is capped at
+  40 calls per day, cached for 24 hours, limited to version-only changes, and its output is rejected unless it passes the rule check.
 - **Kill switch.** Setting the `SAME_PAGE_KILL` environment variable makes the gate allow everything.
 - Scopes are listed with the reason for each in [same-page-app/manifest.yml](same-page-app/manifest.yml).
 
