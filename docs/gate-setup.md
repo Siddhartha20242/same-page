@@ -35,3 +35,16 @@ workflow validator named **Same Page contradiction check**. Verified on a real s
 
 ## Turning it off
 Remove the rule in the same workflow editor (Validate details > the rule > delete), then **Update workflow**.
+
+## If the validator is unavailable
+`jira:workflowValidator` is a Preview Forge module. Same Page is designed so that nothing important depends on it:
+- **Not attached, or not available on your site:** the panel still finds and explains every contradiction. **Create review task**
+  hands each one to the page owner, and **Apply** fixes the page. Enforcement is the only thing missing.
+- **Attached but failing:** the gate fails open, so a bug or an outage never stops anyone's work. The `SAME_PAGE_KILL` variable
+  turns it off completely.
+- **Team-managed projects:** Jira offers no validators there, so the panel and the project overview are the whole product.
+
+## Who decides what blocks
+Each rule has a severity, Blocker or Warning. R1, R2 and R5 ship as Blockers; R3, R4, R6 and R7 ship as Warnings. A Jira
+administrator can move any rule between the two from **Same Page > Rules** in the panel. Only Blockers can stop a transition.
+Rules cannot be switched off, and notes about possible history never block.

@@ -20,6 +20,7 @@ For one ambiguous line, the app can ask a model to reword that single line. This
 In Forge storage for your installation:
 - Dismiss and snooze records: an identifier for the finding, the reason a person typed, their account ID, and the date.
 - An audit chain: one entry for each fix a person applied, with the rule, the work item key, the page ID, a short snippet (up to 200 characters) of the old and new line, a timestamp, and hashes.
+- Rule severity settings: if a Jira administrator moves a rule between Blocker and Warning, which rule and which setting. No names or text.
 - Counters: how many findings were shown, applied, dismissed, snoozed, turned into review tasks, and how many transitions were blocked. The counters hold no page text, titles, or names.
 - A short cache for the pre-ship gate, per work item: the blocking finding, page title, and the flagged line.
 - A cache of AI-reworded lines, only if the optional AI path is on.

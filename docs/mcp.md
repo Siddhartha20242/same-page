@@ -1,15 +1,27 @@
-# Using Same Page from an MCP client
+# Same Page over MCP
 
-Same Page ships a `rovo:mcp` module, so an MCP client such as Claude Code or Cursor can ask it to check a work item against its linked pages.
+This is a separate surface for a different person: someone in an MCP client such as Claude Code or Cursor who wants to ask
+"do the docs for PAY-1 contradict the ticket?" without opening Jira. It exposes two read-only tools. It cannot apply a fix,
+create a task, or change anything.
+
+## Tools
+| Tool | Use it when | Input | Returns |
+|---|---|---|---|
+| `check-issue-docs` | You want the contradictions for one work item. | `issueKey`, for example `PAY-123` | Findings with evidence (rule, the page line, what Jira says), notes on possible history, or the reason the item could not be checked. |
+| `scan-issues` | You want to know which of up to 10 work items have contradictions. | `issueKeys`, a JSON list such as `["PAY-1","PAY-2"]` | A coverage line (how many could be checked and why the rest could not), then the findings. |
 
 ## Turn it on (site admin, once)
-Atlassian Administration > Apps > Sites > your site > Connected apps > Same Page: allow external access. It is off by default.
+External access is off by default. Atlassian Administration > Apps > Sites > your site > Connected apps > Same Page: allow
+external access. Every tool call runs with the signed-in person's own Jira and Confluence permissions.
 
 ## Connect Claude Code
 ```bash
 claude mcp add --transport http same-page https://mcp.atlassian.com/forge/bfaa94fa-5d7a-44a3-b41f-1cd0aa6cc462
 ```
-Then run `/mcp` in Claude Code, pick `same-page`, and sign in. Atlassian shows an OAuth consent screen; tools are available after you accept.
+Run `/mcp` inside Claude Code, choose `same-page`, and sign in. Atlassian shows an OAuth consent screen, and the tools appear after you accept.
+
+## What success looks like
+Ask: `Use same-page to check PAY-1 against its docs.` A good answer names the rule, quotes the page line and the Jira fact side by side, and says how many pages were read. If the work item has no target version or no linked page, the answer says it could not check and why. It never says "no contradictions" for something it could not check.
 
 ## Check the endpoint without signing in
 ```bash
@@ -17,7 +29,9 @@ curl -i -X POST https://mcp.atlassian.com/forge/bfaa94fa-5d7a-44a3-b41f-1cd0aa6c
   -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"probe","version":"0"}}}'
 ```
-A live endpoint answers `401` with a `www-authenticate` header pointing at its OAuth metadata. This was observed on 2026-11-05.
+A live endpoint answers `401` with a `www-authenticate` header that points to its OAuth metadata. Observed on 2026-11-05.
 
 ## Status
-The endpoint is live. A signed-in tool call from a third-party client has not been recorded yet.
+`rovo:mcp` is a Preview module. The endpoint is live and protected. A signed-in tool call from a third-party client has **not**
+been recorded yet, so this surface is described but not proven. The same two tools are used by the Rovo agent, and that path
+was verified end to end on a fresh site.
