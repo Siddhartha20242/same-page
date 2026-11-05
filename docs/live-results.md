@@ -120,3 +120,12 @@ Observed on the development site, as a Jira administrator, on the project overvi
 - **A gap the live site exposed.** The overview said no weekly scan had run, although the log showed the scheduled scan running. Scheduled triggers run once per installation and storage is per installation, so the scan's result had been saved in the other product. Fix: an administrator-only "Run the weekly scan now" button saves the result where the overview reads it.
 - **Run the scan now.** After clicking it the page read "Weekly scan (11/6/2026): 1 of 2 checked open epics had contradictions". The first scan then said "1 new and 0 resolved since the scan before", which was misleading for a first scan; it now says it is the first scan, covered by a test, not re-run live.
 Not observed: the three new Rovo agents and the three new actions (no Rovo on this site), the minutes estimate being saved, and the "resolved" count on a second scan.
+
+## 2026-11-06: the three new Rovo agents, on the production build (demo site)
+After the production deploy, on the demo site (Jira and Confluence at major version 3), in Rovo chat, as the site owner:
+- **Listing.** Searching agents for "Same Page" listed all four: Same Page, Same Page release check, Same Page audit trail and Same Page rule coach.
+- **Rule coach.** "What do the ten Same Page rules check?" returned all ten rules with a plain description each, and a "Site Health & Tuning" part: all rules at default severity, no recorded actions or dismissals, none noisy, and the pointer to Same Page > Rules for changes. It used the site's own data.
+- **Release check.** "Is project MOBL ready to ship?" answered "not ready": MOBL-58 Blocked with 2 findings, one clean item, and 18 items listed as not checked with reasons (4 unreadable pages, 2 with no related page, 12 not reached before the request budget ran out). It said an unchecked item is not a clean item.
+- **Audit trail.** "What has Same Page done on this site, and what happened to the contradictions on MOBL-58?" answered that the site has found 2 contradictions, none fixed, sent or dismissed, and that there are no recorded handling events for MOBL-58 (the new build had not been used on that work item yet).
+A limit this showed: on a project with many open items the release check reaches only the first items before its request budget (60 requests) runs out, and says so. We have not tuned that budget.
+Not observed: an agent answering with real handling events, and how Rovo chooses between the four agents when the user does not pick one.
