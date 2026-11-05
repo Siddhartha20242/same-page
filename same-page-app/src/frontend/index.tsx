@@ -124,11 +124,9 @@ const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismi
   return (
   <Stack space="space.100">
     <Lifecycle proposed={Boolean(f.suggestion?.after)} applied={act?.status === 'applied'} />
-    <Inline space="space.100" alignBlock="center">
-      {first ? <Lozenge appearance="new" isBold>Start here</Lozenge> : null}
-      <Lozenge appearance={TONE[f.severity] ?? 'default'}>{LABEL[f.severity] ?? 'Finding'}</Lozenge>
-      <Text>{f.summary}</Text>
-    </Inline>
+    {first ? <Heading size="xsmall">Start here</Heading> : null}
+    <Lozenge appearance={TONE[f.severity] ?? 'default'}>{LABEL[f.severity] ?? 'Finding'}</Lozenge>
+    <Text>{f.summary}</Text>
     <Inline space="space.200" alignBlock="start" shouldWrap>
       <Stack space="space.050">
         <Heading size="xsmall">Page says</Heading>
