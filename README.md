@@ -15,6 +15,14 @@ Codegeist 2026, category: Apps for Software Teams. Bonus targets: Best Agents, a
 A runbook says `/api/v1/charge`. The Jira epic says the target is `v2`. An on-call engineer follows the runbook and calls a retired
 endpoint. The contradiction was detectable for weeks and nobody checked, because docs and tickets live in different tools.
 
+## Why detection has no model
+We kept AI out of the decision on purpose, for three reasons a team can check:
+- **Repeatable.** The same work item and pages always give the same findings, so a refusal can be reproduced and explained to the person it stopped.
+- **No model reads page text during detection,** so wiki content cannot steer a finding. (The agent and MCP tools do quote page text back to a model, so those outputs are flattened, capped and marked as data. That lowers the risk and does not remove it, which is why the tools are read-only.)
+- **No drift.** A finding does not change because a model changed.
+
+We are not claiming that is novel. We are claiming it is what makes a transition gate defensible: when Same Page stops a transition, the evidence is the page's own line next to Jira's own field. We know of no other app that does that inside a Jira workflow, but we have not surveyed the whole Marketplace.
+
 ## Who it is for
 The first reader we build for is the **release owner or engineering manager** who has to say "we are ready" and be right. The audit trail serves the second reader, a compliance lead, and the rules for specs and duplicates serve a third, the API team. We lead with the first.
 
@@ -29,7 +37,7 @@ The first reader we build for is the **release owner or engineering manager** wh
 ## How it differs from tools that write docs for you
 Tools such as code-to-docs generators start from the code and use a model to draft documentation. Same Page starts from the **work item** and the pages people already wrote, checks them against each other with fixed rules, and stops at "here is the contradiction and the evidence". It does not write prose. That makes it smaller and easier to trust, and it composes with a docs generator rather than replacing one.
 
-**Scope on purpose:** Same Page reads Jira work items and Confluence pages only. Reading READMEs, Google Docs or Notion would need external network access, which would remove the app's "no external egress" guarantee, so we left it out.
+**Scope on purpose:** Same Page reads Jira work items and Confluence pages only. Reading READMEs, Google Docs or Notion would need external network access, which would remove the app's "no external egress" guarantee, so we left it out. [docs/extending.md](docs/extending.md) describes how a new source would plug in; it is a design, not a feature.
 
 ## What it does
 
@@ -40,9 +48,10 @@ Tools such as code-to-docs generators start from the code and use a model to dra
 | Show evidence | The exact line from the page beside what Jira says, with timestamps, authors and the stale token highlighted. |
 | Propose a fix | A mechanical rewrite when unambiguous (`v1` to `v2`). For an ambiguous line, an optional Forge-hosted Claude path can reword that one line (off by default, see Security), and the result must pass the same rule check before it is shown. |
 | Human decides | Apply (a Confluence page version that names the approver), create a review task, snooze 7 days, or dismiss with a required reason. |
-| Record | Every Apply is sealed into a hash-chained audit log; the hash is also anchored on the Jira work item. |
+| Record | Every Apply is sealed into a hash-chained audit log; the hash is also anchored on the Jira work item. The same chain holds each finding's handling timeline: first shown, dismissed (with the reason and who), snoozed, turned into a review task, applied. It does not record who merely looked at a finding. |
 | Guard | After a fix, the page is pinned. If someone edits the old version back in, Same Page comments on the work item. |
-| Gate (optional) | A Jira workflow validator refuses the transition and names the rule, the page and the next step. It fails open on any error. The panel and review tasks work without it. |
+| Gate (optional) | A Jira workflow validator refuses the transition and names the rule, the page, the next step and a short **evidence id** that is the same id the panel shows for that finding. It fails open on any error. The panel and review tasks work without it. |
+| Your team's rules | A Jira administrator can add up to 10 rules of their own from three fixed templates (a phrase on the page while the status is, or is not, a value; a phrase while the work item has a label or component; a label that needs a phrase). They are plain-text matches, with a preview of what a rule would find on the current work item before it is saved. They run in the panel, the gate, the soft gate, the weekly scan and the agent. |
 | Rules | Lists all ten rules with their severity and, once people use them, how often each was acted on or dismissed on this site. |
 | Soft gate | When a work item is moved to Done with a blocking contradiction open, Same Page leaves one notice comment on it. It works in every project type, including team-managed ones, and never blocks. |
 | Weekly scan | Once a week the app checks open epics and the project overview shows how many have contradictions and how many are new since the last scan. |
@@ -122,6 +131,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
   It does not prove the new version is the correct one, so a human always reviews it.
 - R1 needs a target version on the work item (summary, a component, or set from the panel); without one, R1 is skipped and the panel says so, and the other rules still run. Free-form version names are not matched.
 - The Confluence byline finds work items only by Jira keys written in the page text, so a page that is linked from an epic but never names it shows "not checked".
+- Custom rules are plain-text matches from three templates, not a pattern language, and they run everywhere except the Confluence byline. A phrase that contains history wording (for example "legacy") is skipped on that line, like the built-in rules.
 - R5 reads OpenAPI 3 **JSON** held in a linked Confluence page. It does not read attachments or YAML.
 - The gate works only in **company-managed** projects (Jira does not offer validators in team-managed ones).
 - The audit log is **tamper-evident, not tamper-proof**. It detects rewritten history; it cannot stop someone with storage write
@@ -144,7 +154,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      255 tests and the 30-pair fixture set
+test/  fixtures/      267 tests and the 30-pair fixture set
 scripts/              live gate check, receipt verifier, payload capture
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -156,7 +166,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 255 tests, all passing (see docs/tests.md)
+npm test            # 267 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

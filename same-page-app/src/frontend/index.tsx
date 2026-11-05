@@ -68,6 +68,7 @@ const CustomRules = ({ data, onChanged }: { data: RulesReply; onChanged: () => v
   const [severity, setSeverity] = useState<'block' | 'warn'>('warn');
   const [msg, setMsg] = useState<{ appearance: 'success' | 'error' | 'information'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [formKey, setFormKey] = useState(0);        // changing it clears the fields: they are uncontrolled so fast typing is never overwritten
   const body = { name, template, phrase, value, severity };
   const current = templates.find((t) => t.id === template);
   type CallReply = ActionReply & { count?: number; pagesChecked?: number; note?: string };
@@ -85,7 +86,7 @@ const CustomRules = ({ data, onChanged }: { data: RulesReply; onChanged: () => v
   const save = async () => {
     const r = await call('saveCustomRule', body);
     if (r.ok === false) { setMsg({ appearance: 'error', text: r.reason ?? 'Not saved.' }); return; }
-    setName(''); setPhrase(''); setValue(''); onChanged();
+    setName(''); setPhrase(''); setValue(''); setFormKey((k) => k + 1); onChanged();
   };
   const remove = async (id: string) => { const r = await call('deleteCustomRule', { id }); if (r.ok === false) setMsg({ appearance: 'error', text: r.reason ?? 'Not deleted.' }); else onChanged(); };
   const custom = data.custom ?? [];
@@ -108,11 +109,11 @@ const CustomRules = ({ data, onChanged }: { data: RulesReply; onChanged: () => v
           </Inline>
           {current ? <Text>{current.sentence}</Text> : null}
           <Text>Rule name</Text>
-          <Textfield placeholder="Rule name, for example Ready too early" value={name} onChange={(e) => setName(e.target.value)} />
+          <Textfield key={`n${formKey}`} placeholder="Rule name, for example Ready too early" onChange={(e) => setName(e.target.value)} />
           <Text>Phrase on the page (at least 3 characters)</Text>
-          <Textfield placeholder="Phrase, for example ready for production" value={phrase} onChange={(e) => setPhrase(e.target.value)} />
+          <Textfield key={`p${formKey}`} placeholder="Phrase, for example ready for production" onChange={(e) => setPhrase(e.target.value)} />
           <Text>{template === 'phrase-while-status' ? 'Work item status (put ! before it to mean "is not")' : 'Work item label or component'}</Text>
-          <Textfield placeholder={template === 'phrase-while-status' ? 'Status, for example !Done' : 'Label or component, for example payments'} value={value} onChange={(e) => setValue(e.target.value)} />
+          <Textfield key={`v${formKey}`} placeholder={template === 'phrase-while-status' ? 'Status, for example !Done' : 'Label or component, for example payments'} onChange={(e) => setValue(e.target.value)} />
           <Inline space="space.100" alignBlock="center" shouldWrap>
             <Button onClick={() => setSeverity(severity === 'warn' ? 'block' : 'warn')}>{severity === 'warn' ? 'Severity: Warning (click for Blocker)' : 'Severity: Blocker (click for Warning)'}</Button>
             <Button isDisabled={busy} onClick={preview}>Preview on this work item</Button>
@@ -182,7 +183,7 @@ const TargetForm = ({ onSaved }: { onSaved: () => void }) => {
     <Stack space="space.050">
       <Text>Target API version (optional, lets rule R1 run)</Text>
       <Inline space="space.100" alignBlock="center">
-        <Textfield placeholder="Target API version, for example v2" value={v} onChange={(e) => setV(e.target.value)} />
+        <Textfield placeholder="Target API version, for example v2" onChange={(e) => setV(e.target.value)} />
         <Button isDisabled={!v.trim() || st.status === 'working'} onClick={save}>{st.status === 'working' ? 'Saving…' : 'Save target version'}</Button>
       </Inline>
       {st.status === 'error' ? <SectionMessage appearance="error" title="Not saved">{st.message}</SectionMessage> : null}
@@ -315,7 +316,7 @@ const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismi
     {asking ? (
       <Stack space="space.050">
         <Text>Reason for dismissing this finding (required)</Text>
-        <Textfield placeholder="Why is this not a problem? (required)" value={reason} onChange={(e) => setReason(e.target.value)} />
+        <Textfield placeholder="Why is this not a problem? (required)" onChange={(e) => setReason(e.target.value)} />
         <Button appearance="danger" isDisabled={!reason.trim()} onClick={() => onDismiss(f, reason)}>Dismiss with this reason</Button>
       </Stack>
     ) : null}
@@ -401,7 +402,7 @@ const App = () => {
       {/target version/i.test(m.reason) ? (
         <Stack space="space.050">
           <Inline space="space.100" alignBlock="center">
-            <Textfield placeholder="Target API version, for example v2" value={target} onChange={(e) => setTarget(e.target.value)} />
+            <Textfield placeholder="Target API version, for example v2" onChange={(e) => setTarget(e.target.value)} />
             <Button appearance="primary" isDisabled={!target.trim() || targetState.status === 'working'} onClick={saveTarget}>{targetState.status === 'working' ? 'Saving…' : 'Save target version'}</Button>
           </Inline>
           {targetState.status === 'error' ? <SectionMessage appearance="error" title="Not saved">{targetState.message}</SectionMessage> : null}

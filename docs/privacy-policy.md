@@ -19,7 +19,8 @@ For one ambiguous line, the app can ask a model to reword that single line. This
 ## What is stored
 In Forge storage for your installation:
 - Dismiss and snooze records: an identifier for the finding, the reason a person typed, their account ID, and the date.
-- An audit chain: one entry for each fix a person applied, with the rule, the work item key, the page ID, a short snippet (up to 200 characters) of the old and new line, a timestamp, and hashes.
+- An audit chain: one entry for each fix a person applied and for each step in a finding's handling (first shown, dismissed with the reason, snoozed, review task created). Entries for a person's actions name that person's account ID. Nothing records who merely viewed a finding. Each entry holds the rule, the work item key, the page ID, a short snippet (up to 200 characters) of the old and new line (or of the reason or task key for a handling step) line, a timestamp, and hashes.
+- Custom rules a Jira administrator wrote: the rule name, one of three templates, a phrase and a status or label. Treat them as visible to every user of the app on your site.
 - Rule severity settings: if a Jira administrator moves a rule between Blocker and Warning, which rule and which setting. No names or text.
 - Soft-gate markers: for a work item that was moved to Done with a blocking contradiction, a short marker (which findings the notice covered and when), so the same notice is not posted twice.
 - A weekly scan summary: per project, how many open epics had contradictions, which work item keys, and when the scan ran. No page text or titles.
