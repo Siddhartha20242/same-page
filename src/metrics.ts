@@ -20,13 +20,15 @@ export async function bump(store: MetricStore, field: keyof Counts, by = 1): Pro
 }
 
 /** Counts each finding id once, the first time it is shown. A finding that returns after a fix is a new id only if its evidence changed. */
-export async function markSeen(store: MetricStore, ids: string[]): Promise<void> {
+export async function markSeen(store: MetricStore, ids: string[]): Promise<string[]> {
+  const firsts: string[] = [];
   try {
     let fresh = 0;
     for (const id of [...new Set(ids)].slice(0, MAX_NEW_PER_CALL)) {
       const key = `metrics:seen:${id}`.slice(0, 200);
-      if (!(await store.get(key))) { await store.set(key, 1); fresh++; }
+      if (!(await store.get(key))) { await store.set(key, 1); fresh++; firsts.push(id); }
     }
     if (fresh) await bump(store, 'seen', fresh);
   } catch { /* best effort */ }
+  return firsts;
 }

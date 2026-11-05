@@ -65,7 +65,7 @@ export async function triageFinding(
   } catch (e) { return { ok: false, reason: e instanceof Error ? e.message : String(e) }; }
   await store.set(key(issueKey), next);
   if (kind === 'dismiss') await recordOutcome(store, target.ruleId, 'dismissed');       // feeds the calm "noisy rule" line; never hides anything
-  return { ok: true };
+  return { ok: true, ruleId: target.ruleId, pageId: target.pageId } as ActionResult;
 }
 
 export async function loadTriage(issueKey: string, store: KeyValueStore): Promise<TriageRecords> { return ((await store.get(key(issueKey))) ?? {}) as TriageRecords; }

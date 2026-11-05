@@ -37,6 +37,8 @@ export function snapshotFromModel(model: PanelModel, now: () => number = Date.no
   return { at, blockers };
 }
 
+/** The short id the Same Page panel shows for the same finding, so a refusal and the panel can be matched by eye. */
+export const evidenceId = (b: { id: string }) => String(b.id).slice(0, 8);
 const flat = (s: string | undefined, max: number) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
 /** Plain-text evidence packet for the validator's error message. Page text is untrusted, so it is flattened and capped.
@@ -46,8 +48,8 @@ export function formatBlockMessage(issueKey: string, blockers: GateBlocker[]): s
   const head = `Same Page blocked this transition: ${issueKey} has ${blockers.length} provable contradiction${blockers.length === 1 ? '' : 's'} with its docs.`;
   const detail = !first ? ''
     : first.hidden
-      ? ` Rule: ${ruleLabel(first.ruleId)}. A linked page you cannot view contradicts this issue; its details are withheld. Ask someone who can read that page to fix it.`
-      : ` Rule: ${ruleLabel(first.ruleId)}. ${flat(first.summary, 160)}.${first.pageTitle ? ` Update the page "${flat(first.pageTitle, 80)}"` : ''}${first.docLine ? `, which says: "${flat(first.docLine, 120)}"` : ''}.`;
+      ? ` Rule: ${ruleLabel(first.ruleId)} · evidence #${evidenceId(first)}. A linked page you cannot view contradicts this issue; its details are withheld. Ask someone who can read that page to fix it.`
+      : ` Rule: ${ruleLabel(first.ruleId)} · evidence #${evidenceId(first)}. ${flat(first.summary, 160)}.${first.pageTitle ? ` Update the page "${flat(first.pageTitle, 80)}"` : ''}${first.docLine ? `, which says: "${flat(first.docLine, 120)}"` : ''}.`;
   const more = blockers.length > 1 ? ` (+${blockers.length - 1} more)` : '';
   return `${head}${detail}${more} Next: open Same Page from this work item's apps menu to see the evidence, then fix the page, create a review task for its owner, or dismiss the finding with a reason.`;
 }

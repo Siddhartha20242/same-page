@@ -12,6 +12,7 @@ import { createSeedDeps } from './core/seedDeps';
 import { forgeLlm } from './llm';
 import { appendToStore, headOf, verifyStored } from './core/ledgerStore';
 import { bump, markSeen, readCounts } from './core/metrics';
+import { recordHandling } from './core/handling';
 import { addPin, PIN_PROPERTY, processPageUpdate } from './core/pin';
 import type { Pin } from './core/pin';
 import type { KV } from './core/ledgerStore';
@@ -23,12 +24,17 @@ import { runSoftGate } from './core/softGate';
 import type { SoftGateEvent } from './core/softGate';
 import { runDriftScan, loadDrift } from './core/drift';
 import { RULE_CATALOG, loadSeverityOverrides, saveSeverity, withSeverities } from './core/ruleCatalog';
+import { BUILT_IN_RULES } from './core/rules';
+import { TEMPLATES, addCustomRule, deleteCustomRule, loadCustomDefs, loadCustomRules, previewRule } from './core/customRules';
 import { checkPage, bylineTitle } from './core/pageCheck';
 import type { PageCheck } from './core/pageCheck';
 
 // Everything runs AS THE VIEWING USER (asUser), so Jira and Confluence permissions decide what is visible and what can be created.
 // The engine under ./core is a synced copy of the tested code in the repo's ./src (scripts/sync-core.mjs).
 const resolver = new Resolver();
+
+// The rules every check runs: the ten built-in rules plus the rules this site's administrators defined.
+const rulesNow = async () => [...BUILT_IN_RULES, ...(await loadCustomRules({ get: (k) => kvs.get(k), set: (k, v) => kvs.set(k, v) }))];
 
 const makeDeps = () => createDeps({
   requestJira: (path) => api.asUser().requestJira(assumeTrustedRoute(path)),
@@ -87,9 +93,13 @@ resolver.define('getPanel', async ({ context }: Req) => {
   const issueKey = issueKeyOf(context);
   if (!issueKey) return { status: 'error', message: 'This panel must be opened from a Jira issue.' };
   try {
-    const model = filterModelByTriage(withSeverities(await buildPanelModel(issueKey, makeDeps(), { llm: forgeLlm }) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as never;
+    const model = filterModelByTriage(withSeverities(await buildPanelModel(issueKey, { ...makeDeps(), rules: await rulesNow() }, { llm: forgeLlm }) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as never;
     const shown = model as { findings?: { id: string }[]; notes?: { id: string }[] };
-    await markSeen(store, [...(shown.findings ?? []), ...(shown.notes ?? [])].map((f) => f.id));
+    const firsts = await markSeen(store, [...(shown.findings ?? []), ...(shown.notes ?? [])].map((f) => f.id));
+    for (const id of firsts) {
+      const f = [...(shown.findings ?? []), ...(shown.notes ?? [])].find((x) => x.id === id) as { ruleId?: string; pageId?: string } | undefined;
+      if (f?.ruleId) await recordHandling(store as KV, { event: 'DISCOVERED', ruleId: f.ruleId, issueKey, pageId: f.pageId });
+    }
     const snap = snapshotFromModel(model);
     if (snap) { try { await store.set(gateKey(issueKey), snap); } catch { /* best effort */ } }
     // Dismissal learning: a calm hint only. Findings, severities and blockers are never hidden or changed because a rule is noisy.
@@ -106,7 +116,7 @@ resolver.define('getPanel', async ({ context }: Req) => {
 // The client sends only a finding id. The finding is rebuilt here, so nothing the browser sends ends up in the task.
 resolver.define('createReviewTask', async ({ payload, context }: Req<{ findingId?: string }>) => {
   const issueKey = issueKeyOf(context) as string;
-  const model = await buildPanelModel(issueKey, makeDeps(), { llm: forgeLlm });
+  const model = await buildPanelModel(issueKey, { ...makeDeps(), rules: await rulesNow() }, { llm: forgeLlm });
   const lists = model as { findings?: { id: string }[]; notes?: { id: string }[] };
   const finding = [...(lists.findings ?? []), ...(lists.notes ?? [])].find((f) => f.id === payload?.findingId);
   if (!finding) throw new Error('That finding is no longer present. Refresh the panel.');
@@ -118,13 +128,15 @@ resolver.define('createReviewTask', async ({ payload, context }: Req<{ findingId
   if (!res.ok) throw new Error(`Jira did not create the task (HTTP ${res.status}).`);
   await bump(store, 'reviewTasks');
   await recordOutcome(store, (finding as { ruleId?: string }).ruleId, 'acted');
-  return { key: ((await res.json()) as { key: string }).key };
+  const taskKey = ((await res.json()) as { key: string }).key;
+  await recordHandling(store as KV, { event: 'REVIEW_TASK', ruleId: (finding as { ruleId?: string }).ruleId ?? 'UNKNOWN', issueKey, pageId: (finding as { pageId?: string }).pageId, note: `task ${taskKey}`, by: context?.accountId });
+  return { key: taskKey };
 });
 
 // Apply: a human clicked. The edit is rebuilt and re-verified here; the write runs as that user and becomes a revertible page version.
 resolver.define('applyFix', async ({ payload, context }: Req<{ findingId?: string; expectedAfter?: string }>) => {
   const issueKey = issueKeyOf(context) as string;
-  const deps = makeDeps();
+  const deps = { ...makeDeps(), rules: await rulesNow() };
   const out = await applySuggestion({ issueKey, findingId: payload?.findingId, expectedAfter: payload?.expectedAfter, approver: await whoAmI(context) }, {
     buildModel: (k) => buildPanelModel(k, deps, { llm: forgeLlm }), getPageSource: (id) => deps.getPageSource(id), putPage,
   });
@@ -157,7 +169,7 @@ resolver.define('ledgerView', async () => {
   const { length, head } = await headOf(store as KV);
   const verified = await verifyStored(store as KV);
   const recent = [];
-  for (let i = Math.max(0, length - 3); i < length; i++) {
+  for (let i = Math.max(0, length - 8); i < length; i++) {
     const e = (await kvs.get(`ledger:e:${i}`)) as LedgerEntry | undefined;
     if (e) recent.push({ seq: e.seq, at: e.at, ruleId: e.ruleId, issueKey: e.issueKey, entryHash: e.entryHash.slice(0, 12), prevHash: e.prevHash.slice(0, 12) });
   }
@@ -178,7 +190,7 @@ const isJiraAdmin = async (): Promise<boolean> => {
 resolver.define('getRules', async () => {
   const overrides = await loadSeverityOverrides(store);
   const outcomes = await loadOutcomes(store);
-  return { canEdit: await isJiraAdmin(), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 })) };
+  return { canEdit: await isJiraAdmin(), templates: TEMPLATES, custom: await loadCustomDefs(store), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 })) };
 });
 resolver.define('setRuleSeverity', async ({ payload }: Req<{ ruleId?: string; severity?: string }>) => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change a rule severity.' };
@@ -187,12 +199,41 @@ resolver.define('setRuleSeverity', async ({ payload }: Req<{ ruleId?: string; se
   return { ok: true };
 });
 
+// Custom rules: administrators only. Three fixed templates, plain-text phrases, at most ten per site. A rule can be previewed against the
+// work item being viewed before it is saved, and a preview saves nothing.
+resolver.define('saveCustomRule', async ({ payload }: Req<Record<string, unknown>>) => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change custom rules.' };
+  const out = await addCustomRule(store, payload ?? {});
+  return out.ok ? { ok: true } : out;
+});
+resolver.define('deleteCustomRule', async ({ payload }: Req<{ id?: string }>) => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change custom rules.' };
+  return deleteCustomRule(store, String(payload?.id ?? ''));
+});
+resolver.define('previewCustomRule', async ({ payload, context }: Req<Record<string, unknown>>) => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can preview custom rules.' };
+  const issueKey = issueKeyOf(context);
+  const rule = previewRule(payload ?? {});
+  if (!rule.ok) return rule;
+  if (!issueKey) return { ok: false, reason: 'Open this from a work item to preview against it.' };
+  try {
+    const m = await buildPanelModel(issueKey, { ...makeDeps(), rules: [rule.rule] }) as { status: string; findings?: unknown[]; pagesChecked?: number; reason?: string };
+    if (m.status === 'unchecked' || m.status === 'error') return { ok: true, count: 0, note: `This work item could not be checked (${m.reason ?? 'unknown reason'}), so there is nothing to preview against.` };
+    return { ok: true, count: (m.findings ?? []).length, pagesChecked: m.pagesChecked ?? 0 };
+  } catch (e) { if (needsConsent(e)) throw e; return { ok: false, reason: 'The preview could not run. Try again.' }; }
+});
+
 resolver.define('triage', async ({ payload, context }: Req<{ findingId?: string; kind?: string; reason?: string }>) => {
   const issueKey = issueKeyOf(context) as string;
   const kind = payload?.kind === 'snooze' ? 'snooze' : 'dismiss';
   const until = kind === 'snooze' ? new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString() : undefined;
-  const out = await triageFinding({ issueKey, findingId: payload?.findingId, kind, reason: payload?.reason, until, by: context?.accountId }, { buildModel: (k) => buildPanelModel(k, makeDeps(), { llm: forgeLlm }), store });
-  if (out.ok) { await clearGate(issueKey); await bump(store, kind === 'snooze' ? 'snoozed' : 'dismissed'); }
+  const triageDeps = { ...makeDeps(), rules: await rulesNow() };
+  const out = await triageFinding({ issueKey, findingId: payload?.findingId, kind, reason: payload?.reason, until, by: context?.accountId }, { buildModel: (k) => buildPanelModel(k, triageDeps, { llm: forgeLlm }), store });
+  if (out.ok) {
+    await clearGate(issueKey); await bump(store, kind === 'snooze' ? 'snoozed' : 'dismissed');
+    const meta = out as { ruleId?: string; pageId?: string };
+    if (meta.ruleId) await recordHandling(store as KV, { event: kind === 'snooze' ? 'SNOOZED' : 'DISMISSED', ruleId: meta.ruleId, issueKey, pageId: meta.pageId, note: kind === 'dismiss' ? `reason: ${payload?.reason ?? ''}` : 'for 7 days', by: context?.accountId });
+  }
   return out;
 });
 
@@ -275,7 +316,7 @@ export const validator = async (event: { issue?: { key?: string }; user?: { acco
   const started = Date.now();
   const d = await decideTransition({
     issueKey, store, canView: canViewAs(event?.user?.accountId),
-    live: async () => snapshotFromModel(filterModelByTriage(withSeverities(await buildPanelModel(issueKey, appDeps()) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as never),
+    live: async () => snapshotFromModel(filterModelByTriage(withSeverities(await buildPanelModel(issueKey, { ...appDeps(), rules: await rulesNow() }) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as never),
   });
   console.log(`same-page gate ${issueKey}: ${d.result ? 'allow' : 'BLOCK'} (${d.basis}) ${Date.now() - started}ms${d.note ? ` ${d.note}` : ''}`);
   if (!d.result) await bump(store, 'gateBlocks');
@@ -310,7 +351,7 @@ const overviewResolver = new Resolver();
 interface OverviewCtx { extension?: { project?: { key?: string } } }
 
 overviewResolver.define('getOverview', async ({ context }: { context?: OverviewCtx }) => {
-  const deps = makeDeps();
+  const deps = { ...makeDeps(), rules: await rulesNow() };
   try {
     const projectKey = context?.extension?.project?.key;
     const out = await runOverview(projectKey, {
@@ -377,7 +418,7 @@ export const statusWatch = async (event: SoftGateEvent) => {
       store,
       postComment: postCommentAsApp,
       blockers: async (issueKey) => {
-        const model = filterModelByTriage(withSeverities(await buildPanelModel(issueKey, appDeps()) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as { status?: string; findings?: { id: string; ruleId: string; severity: string }[] };
+        const model = filterModelByTriage(withSeverities(await buildPanelModel(issueKey, { ...appDeps(), rules: await rulesNow() }) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as { status?: string; findings?: { id: string; ruleId: string; severity: string }[] };
         if (model.status === 'unchecked' || model.status === 'error') return null;
         return (model.findings ?? []).filter((f) => f.severity === 'block').map((f) => ({ id: f.id, ruleId: f.ruleId }));
       },
@@ -392,6 +433,7 @@ export const driftScan = async () => {
   try {
     const snap = await runDriftScan({
       ...appDeps(),
+      rules: await rulesNow(),
       searchIssues: async (jql, limit) => {
         const res = await api.asApp().requestJira(route`/rest/api/3/search/jql?jql=${jql}&fields=summary&maxResults=${limit}`);
         if (!res.ok) throw new Error(`search failed (HTTP ${res.status})`);

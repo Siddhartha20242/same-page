@@ -19,7 +19,7 @@ export const RULE_CATALOG: RuleInfo[] = [
 ];
 
 export const ruleInfo = (ruleId: string) => RULE_CATALOG.find((r) => r.ruleId === ruleId);
-export const ruleLabel = (ruleId: string) => { const r = ruleInfo(ruleId); return r ? `${r.short} ${r.name}` : 'Rule'; };
+export const ruleLabel = (ruleId: string) => { const r = ruleInfo(ruleId); return r ? `${r.short} ${r.name}` : /^C\d+_CUSTOM$/.test(ruleId) ? 'Custom rule' : 'Rule'; };
 
 export type SeverityOverrides = Record<string, 'block' | 'warn'>;
 export interface SettingsStore { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<unknown> }

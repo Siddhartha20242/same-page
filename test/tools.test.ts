@@ -98,3 +98,10 @@ test('list rules names all ten with a default severity', () => {
   assert.equal(r.rules.length, 10);
   assert.ok(r.rules.every((x) => x.defaultSeverity === 'block' || x.defaultSeverity === 'warn'));
 });
+
+test('project brief carries the weekly scan delta when there is one', async () => {
+  const s = site();
+  const r = await projectBrief({ projectKey: 'PAY' }, { ...s, searchIssues: async () => [{ key: 'PAY-1', summary: 'x' }] } as never,
+    { at: '2026-11-08T00:00:00.000Z', project: { withContradictions: 2, checked: 5, newSincePrevious: 1, resolvedSincePrevious: 3 } }) as { weeklyScan?: Record<string, unknown> };
+  assert.deepEqual(r.weeklyScan, { scannedOn: '2026-11-08', openEpicsWithContradictions: 2, checked: 5, newSinceTheScanBefore: 1, resolvedSinceTheScanBefore: 3 });
+});

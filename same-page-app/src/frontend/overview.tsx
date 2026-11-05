@@ -50,7 +50,7 @@ const App = () => {
             <Text>{load.reply.summaryLine}</Text>
             {load.reply.coverageLine ? <Text>{load.reply.coverageLine}</Text> : null}
           </SectionMessage>
-          {load.reply.drift ? <Text>{load.reply.drift.project ? `Weekly scan (${new Date(load.reply.drift.at).toLocaleDateString()}): ${load.reply.drift.project.withContradictions} of ${load.reply.drift.project.checked} checked open epics had contradictions, ${load.reply.drift.project.newSincePrevious} new since the scan before.` : `Weekly scan (${new Date(load.reply.drift.at).toLocaleDateString()}): no open epics in this project were checked.`}</Text> : <Text>The weekly scan has not run yet. It runs once a week as the app and reports here.</Text>}
+          {load.reply.drift ? <Text>{load.reply.drift.project ? `Weekly scan (${new Date(load.reply.drift.at).toLocaleDateString()}): ${load.reply.drift.project.withContradictions} of ${load.reply.drift.project.checked} checked open epics had contradictions, ${load.reply.drift.project.newSincePrevious} new and ${load.reply.drift.project.resolvedSincePrevious ?? 0} resolved since the scan before.` : `Weekly scan (${new Date(load.reply.drift.at).toLocaleDateString()}): no open epics in this project were checked.`}</Text> : <Text>The weekly scan has not run yet. It runs once a week as the app and reports here.</Text>}
           {load.reply.rows.map((r) => <Row key={r.key} r={r} />)}
           <Text>Rules only, no AI in detection. A Not checked item is not a clean item.</Text>
         </Stack>

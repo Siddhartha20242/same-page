@@ -9,7 +9,7 @@ const invoke = <T,>(name: string, payload?: Record<string, unknown>): Promise<T>
 // Thin view over the model built by the resolver. Native UI Kit only; props checked against @forge/react 11.17 types.
 const TONE: Record<string, 'removed' | 'moved' | 'default'> = { block: 'removed', warn: 'moved', info: 'default' };
 const LABEL: Record<string, string> = { block: 'Blocker', warn: 'Warning', info: 'Note' };
-const ruleShort = (id: string) => { const m = /^R(\d+)_/.exec(id); const names: Record<string, string> = { '8': 'Duration differs', '9': 'Limit or port differs', '10': 'Date differs', '1': 'Stale version', '2': 'Deprecated decision', '3': 'Missing field', '4': 'Stale status claim', '5': 'API spec mismatch', '6': 'Closed ticket cited as open', '7': 'Pages disagree' }; return m ? `R${m[1]} ${names[m[1]!] ?? ''}`.trim() : 'Rule'; };
+const ruleShort = (id: string) => { const m = /^R(\d+)_/.exec(id); const names: Record<string, string> = { '8': 'Duration differs', '9': 'Limit or port differs', '10': 'Date differs', '1': 'Stale version', '2': 'Deprecated decision', '3': 'Missing field', '4': 'Stale status claim', '5': 'API spec mismatch', '6': 'Closed ticket cited as open', '7': 'Pages disagree' }; return m ? `R${m[1]} ${names[m[1]!] ?? ''}`.trim() : /^C\d+_CUSTOM$/.test(id) ? 'Custom rule' : 'Rule'; };
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : 'an unknown date');
 
 type TaskState = { status: 'creating' } | { status: 'done'; key: string } | { status: 'error'; message: string };
@@ -53,7 +53,77 @@ const BeforeAfter = ({ s, done }: { s: NonNullable<PanelFinding['suggestion']>; 
 );
 
 type RuleRow = { ruleId: string; short: string; name: string; checks: string; pain: string; severity: 'block' | 'warn'; changed: boolean; dismissed?: number; acted?: number };
-type RulesReply = { canEdit: boolean; rules: RuleRow[] };
+type CustomDef = { id: string; name: string; template: string; phrase: string; value: string; severity: 'block' | 'warn' };
+type TemplateInfo = { id: string; label: string; sentence: string };
+type RulesReply = { canEdit: boolean; rules: RuleRow[]; custom?: CustomDef[]; templates?: TemplateInfo[] };
+
+// Team-defined rules: pick one of three templates, type a phrase and a value, preview what it would find on this work item, then save.
+// Nothing is saved by a preview. Only a Jira administrator sees the form; everyone can see the saved rules.
+const CustomRules = ({ data, onChanged }: { data: RulesReply; onChanged: () => void }) => {
+  const templates = data.templates ?? [];
+  const [template, setTemplate] = useState(templates[0]?.id ?? 'phrase-while-status');
+  const [name, setName] = useState('');
+  const [phrase, setPhrase] = useState('');
+  const [value, setValue] = useState('');
+  const [severity, setSeverity] = useState<'block' | 'warn'>('warn');
+  const [msg, setMsg] = useState<{ appearance: 'success' | 'error' | 'information'; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const body = { name, template, phrase, value, severity };
+  const current = templates.find((t) => t.id === template);
+  type CallReply = ActionReply & { count?: number; pagesChecked?: number; note?: string };
+  const call = async (fn: string, payload: Record<string, unknown>): Promise<CallReply> => {
+    setBusy(true); setMsg(null);
+    try { return await invoke<CallReply>(fn, payload); }
+    catch { return { ok: false, reason: 'Something went wrong. Try again.' }; }
+    finally { setBusy(false); }
+  };
+  const preview = async () => {
+    const r = await call('previewCustomRule', body);
+    if (r.ok === false) { setMsg({ appearance: 'error', text: r.reason ?? 'Not previewed.' }); return; }
+    setMsg({ appearance: 'information', text: r.note ?? `On this work item, this rule would raise ${r.count ?? 0} finding${r.count === 1 ? '' : 's'} (${r.pagesChecked ?? 0} linked page${r.pagesChecked === 1 ? '' : 's'} read). Nothing was saved.` });
+  };
+  const save = async () => {
+    const r = await call('saveCustomRule', body);
+    if (r.ok === false) { setMsg({ appearance: 'error', text: r.reason ?? 'Not saved.' }); return; }
+    setName(''); setPhrase(''); setValue(''); onChanged();
+  };
+  const remove = async (id: string) => { const r = await call('deleteCustomRule', { id }); if (r.ok === false) setMsg({ appearance: 'error', text: r.reason ?? 'Not deleted.' }); else onChanged(); };
+  const custom = data.custom ?? [];
+  if (!data.canEdit && !custom.length) return null;
+  return (
+    <Stack space="space.100">
+      <Heading size="xsmall">Your team's rules</Heading>
+      {custom.length ? custom.map((c) => (
+        <Inline key={c.id} space="space.100" alignBlock="center" shouldWrap>
+          <Lozenge appearance={c.severity === 'block' ? 'removed' : 'moved'} isBold>{c.severity === 'block' ? 'Blocker' : 'Warning'}</Lozenge>
+          <Text>{`${c.name}: ${templates.find((t) => t.id === c.template)?.label ?? c.template} (phrase "${c.phrase}", value "${c.value}")`}</Text>
+          {data.canEdit ? <Button isDisabled={busy} onClick={() => remove(c.id)}>Delete this rule</Button> : null}
+        </Inline>
+      )) : <Text>No team rules yet.</Text>}
+      {data.canEdit ? (
+        <Stack space="space.100">
+          <Text>Add a rule. Phrases are matched as plain text, ignoring case, and lines worded as history (previously, deprecated…) are skipped. A site can have up to 10.</Text>
+          <Inline space="space.100" shouldWrap>
+            {templates.map((t) => <Button key={t.id} appearance={t.id === template ? 'primary' : 'default'} onClick={() => setTemplate(t.id)}>{t.label}</Button>)}
+          </Inline>
+          {current ? <Text>{current.sentence}</Text> : null}
+          <Text>Rule name</Text>
+          <Textfield placeholder="Rule name, for example Ready too early" value={name} onChange={(e) => setName(e.target.value)} />
+          <Text>Phrase on the page (at least 3 characters)</Text>
+          <Textfield placeholder="Phrase, for example ready for production" value={phrase} onChange={(e) => setPhrase(e.target.value)} />
+          <Text>{template === 'phrase-while-status' ? 'Work item status (put ! before it to mean "is not")' : 'Work item label or component'}</Text>
+          <Textfield placeholder={template === 'phrase-while-status' ? 'Status, for example !Done' : 'Label or component, for example payments'} value={value} onChange={(e) => setValue(e.target.value)} />
+          <Inline space="space.100" alignBlock="center" shouldWrap>
+            <Button onClick={() => setSeverity(severity === 'warn' ? 'block' : 'warn')}>{severity === 'warn' ? 'Severity: Warning (click for Blocker)' : 'Severity: Blocker (click for Warning)'}</Button>
+            <Button isDisabled={busy} onClick={preview}>Preview on this work item</Button>
+            <Button appearance="primary" isDisabled={busy} onClick={save}>Save this rule</Button>
+          </Inline>
+        </Stack>
+      ) : null}
+      {msg ? <SectionMessage appearance={msg.appearance}><Text>{msg.text}</Text></SectionMessage> : null}
+    </Stack>
+  );
+};
 
 // The rule set, visible even when nothing is found. A Jira administrator can move a rule between Blocker and Warning;
 // that decides which findings may stop a transition. Rules cannot be switched off and findings are never hidden by this.
@@ -86,9 +156,10 @@ const RulesList = () => {
             {data.canEdit ? <Button onClick={() => change(r, r.severity === 'block' ? 'warn' : 'block')}>{r.severity === 'block' ? 'Make it a warning' : 'Make it a blocker'}</Button> : null}
           </Inline>
           <Text>{`${r.checks} ${r.pain}`}</Text>
-          {(r.dismissed ?? 0) + (r.acted ?? 0) > 0 ? <Text>{`On this site: acted on ${r.acted ?? 0}, dismissed ${r.dismissed ?? 0}.`}</Text> : null}
+          {(r.dismissed ?? 0) + (r.acted ?? 0) > 0 ? <Text>{`On this site: acted on ${r.acted ?? 0}, dismissed ${r.dismissed ?? 0} (${Math.round((100 * (r.dismissed ?? 0)) / ((r.dismissed ?? 0) + (r.acted ?? 0)))}% dismissed).`}</Text> : null}
         </Stack>
       ))}
+      <CustomRules data={data} onChanged={open} />
       {view.note ? <SectionMessage appearance="warning"><Text>{view.note}</Text></SectionMessage> : null}
       <Button onClick={() => setView({ phase: 'closed' })}>Hide the rules</Button>
     </Stack>
@@ -172,6 +243,7 @@ const AuditTrail = () => {
       </Inline>
       {l.reason ? <Text>{l.reason}</Text> : null}
       {l.counts ? <Text>{`Impact on this site so far: ${l.counts.seen} finding(s) shown · ${l.counts.applied} fix(es) applied · ${l.counts.dismissed} dismissed · ${l.counts.snoozed} snoozed · ${l.counts.reviewTasks} review task(s) · ${l.counts.gateBlocks} transition(s) blocked.`}</Text> : null}
+      {l.recent.length ? <Text>The latest events, oldest first. DISCOVERED, DISMISSED, SNOOZED, REVIEW_TASK and APPLIED sit in one chain, so each finding has a handling history.</Text> : null}
       {l.recent.map((e) => <Code key={e.seq}>{`#${e.seq} ${e.ruleId} ${e.issueKey ?? ''}  ${e.prevHash}… → ${e.entryHash}…`}</Code>)}
       <Text>Each applied fix is hashed together with the one before it, so changing or deleting an old entry breaks every hash after it. This detects tampering; it cannot stop someone with access to the app's storage from rewriting the whole chain.</Text>
       <Button onClick={() => setView({ phase: 'closed' })}>Hide the audit trail</Button>
@@ -235,6 +307,7 @@ const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismi
     </Inline>
     <Text>{`Why it matters: ${f.why}`}</Text>
     {f.foundBecause?.length ? <Text>{`Found because: ${f.foundBecause.join(', ')}`}</Text> : null}
+    <Text>{`Evidence id: #${f.id.slice(0, 8)} (the same id appears if a workflow gate refuses a transition because of this finding)`}</Text>
     <Inline space="space.100" alignBlock="center">
       <Button onClick={() => onSnooze(f)} isDisabled={busy}>Snooze for 7 days</Button>
       <Button onClick={() => setAsking(!asking)} isDisabled={busy}>Dismiss with a reason…</Button>

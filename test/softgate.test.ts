@@ -49,7 +49,7 @@ test('the weekly drift scan keeps per-project counts and says which findings are
     searchPages: async (i: { key: string }) => [{ id: `p-${i.key}`, title: `Token expiry ${i.key}`, text: bad.includes(i.key) ? 'Tokens expire after 30 minutes.' : 'Tokens expire after 1 hour.', modifiedAt: '2026-01-01T00:00:00Z', labels: [] }],
   };
   const a = await runDriftScan(deps, store, () => Date.parse('2026-11-01T00:00:00Z'));
-  assert.deepEqual(a.projects.PAY, { withContradictions: 1, checked: 2, newSincePrevious: 1, keys: ['PAY-1'] });
+  assert.deepEqual(a.projects.PAY, { withContradictions: 1, checked: 2, newSincePrevious: 1, resolvedSincePrevious: 0, keys: ['PAY-1'] });
   assert.equal(a.projects.OPS?.withContradictions, 0);
   bad = ['PAY-1', 'PAY-2'];
   const b = await runDriftScan(deps, store, () => Date.parse('2026-11-08T00:00:00Z'));
@@ -58,4 +58,24 @@ test('the weekly drift scan keeps per-project counts and says which findings are
   const seen = await loadDrift(store, 'PAY');
   assert.equal(seen?.project?.withContradictions, 2);
   assert.equal(await loadDrift(mem(), 'PAY'), null);
+});
+
+test('the weekly scan also says how many contradictions were resolved since the scan before, and does not count an unchecked item as resolved', async () => {
+  const store = mem();
+  let bad = ['PAY-1', 'PAY-2'];
+  let unreadable = false;
+  const deps = {
+    searchIssues: async () => [{ key: 'PAY-1', summary: 'a' }, { key: 'PAY-2', summary: 'b' }],
+    loadIssue: async (k: string) => { if (unreadable && k === 'PAY-2') throw new Error('nope'); return { key: k, summary: `Token expiry ${k}`, status: 'In Progress', components: [], fixVersions: [], labels: [], requiredFields: [], fields: {}, description: 'Token expiry is 1 hour' }; },
+    getTransition: async () => ({ at: '2026-10-01T00:00:00Z', by: 'Sam' }),
+    getRemoteLinkIds: async () => [],
+    searchPages: async (i: { key: string }) => [{ id: `p-${i.key}`, title: `Token expiry ${i.key}`, text: bad.includes(i.key) ? 'Tokens expire after 30 minutes.' : 'Tokens expire after 1 hour.', modifiedAt: '2026-01-01T00:00:00Z', labels: [] }],
+  };
+  await runDriftScan(deps, store, () => Date.parse('2026-11-01T00:00:00Z'));
+  bad = ['PAY-2'];                       // PAY-1 was fixed
+  const b = await runDriftScan(deps, store, () => Date.parse('2026-11-08T00:00:00Z'));
+  assert.equal(b.projects.PAY?.resolvedSincePrevious, 1);
+  unreadable = true;                     // PAY-2 cannot be read this time: not resolved
+  const c = await runDriftScan(deps, store, () => Date.parse('2026-11-15T00:00:00Z'));
+  assert.equal(c.projects.PAY?.resolvedSincePrevious, 0);
 });

@@ -2,7 +2,7 @@ import { checkIssue, cached } from './release.ts';
 import { proposeFix } from './propose.ts';
 import { refsInLine } from './rules.ts';
 import { fingerprint } from './triage.ts';
-import type { Finding, Issue, Page, Severity, Verdict, WorkItem } from './types.ts';
+import type { Finding, Issue, Page, Rule, Severity, Verdict, WorkItem } from './types.ts';
 import type { Llm } from './propose.ts';
 import type { AtlassianDeps } from './atlassianDeps.ts';
 import type { PanelFinding } from './reviewTask.ts';
@@ -34,7 +34,7 @@ export type PanelModel =
   | { issueKey?: string; status: 'error'; message: string };
 
 /** What buildPanelModel needs from Atlassian (and from fakes in tests). */
-export type PanelDeps = Pick<AtlassianDeps, 'loadIssue' | 'getTransition' | 'getRemoteLinkIds' | 'searchPages' | 'getPageBody'>;
+export type PanelDeps = Pick<AtlassianDeps, 'loadIssue' | 'getTransition' | 'getRemoteLinkIds' | 'searchPages' | 'getPageBody'> & { /** The rules to run. Defaults to the built-in rules; the app passes them plus the site's custom rules. */ rules?: Rule[] };
 
 // The slice of an issue check this module reads. checkIssue (release.ts) returns a superset.
 interface IssueCheck {

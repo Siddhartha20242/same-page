@@ -11,7 +11,7 @@ export const DRIFT_KEY = 'drift:last';
 export const DRIFT_JQL = 'statusCategory != Done AND issuetype = Epic ORDER BY updated DESC';
 const MAX_ITEMS = 20;
 
-export interface ProjectDrift { withContradictions: number; checked: number; newSincePrevious: number; keys: string[] }
+export interface ProjectDrift { withContradictions: number; checked: number; newSincePrevious: number; resolvedSincePrevious?: number; keys: string[] }
 export interface DriftSnapshot { at: string; projects: Record<string, ProjectDrift>; scanned: number; notChecked: number }
 export interface DriftStore { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<unknown> }
 export interface DriftDeps extends JobDeps { searchIssues: (jql: string, limit: number) => Promise<{ key: string; summary?: string }[]> }
@@ -25,7 +25,7 @@ export async function runDriftScan(deps: DriftDeps, store: DriftStore, now: () =
   const previous = (await store.get(DRIFT_KEY).catch(() => null)) as DriftSnapshot | null;
   const projects: Record<string, ProjectDrift> = {};
   for (const r of rows) {
-    const p = (projects[projectOf(r.key)] ??= { withContradictions: 0, checked: 0, newSincePrevious: 0, keys: [] });
+    const p = (projects[projectOf(r.key)] ??= { withContradictions: 0, checked: 0, newSincePrevious: 0, resolvedSincePrevious: 0, keys: [] });
     if (r.verdict === 'Not checked') continue;
     p.checked++;
     if (r.verdict === 'Blocked' || r.verdict === 'Warning') {
@@ -33,6 +33,12 @@ export async function runDriftScan(deps: DriftDeps, store: DriftStore, now: () =
       p.keys.push(r.key);
       if (!previous?.projects[projectOf(r.key)]?.keys.includes(r.key)) p.newSincePrevious++;
     }
+  }
+  // Resolved: contradicting at the last scan, and now checked without one. An item that could not be checked this time is not counted as resolved.
+  const checkedNow = new Set(rows.filter((r) => r.verdict !== 'Not checked').map((r) => r.key));
+  for (const [proj, prev] of Object.entries(previous?.projects ?? {})) {
+    const p = projects[proj];
+    if (p) p.resolvedSincePrevious = prev.keys.filter((k) => checkedNow.has(k) && !p.keys.includes(k)).length;
   }
   const snap: DriftSnapshot = { at: new Date(now()).toISOString(), projects, scanned: rows.length, notChecked: rows.filter((r) => r.verdict === 'Not checked').length };
   await store.set(DRIFT_KEY, snap);
