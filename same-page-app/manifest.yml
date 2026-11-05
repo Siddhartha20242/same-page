@@ -57,12 +57,33 @@ modules:
           type: string
           required: true
           description: A JSON list of up to 10 issue keys, such as ["PAY-1","PAY-2"].
+    - key: project-brief
+      name: Where a project stands against its docs
+      function: project-brief-fn
+      actionVerb: GET
+      description: >
+        Use when someone asks whether a whole Jira project or release is ready, or which open epics are out of step with their docs. Takes a project key such as PAY. Returns a verdict per item.
+      inputs:
+        projectKey:
+          title: Project key
+          type: string
+          required: true
+          description: The Jira project key, such as PAY.
+    - key: list-rules
+      name: What Same Page checks
+      function: list-rules-fn
+      actionVerb: GET
+      description: >
+        Use when someone asks what Same Page looks for, which rules it runs, or what blocks a transition. Returns the ten rules with
+        what each checks and its default severity.
   rovo:mcp:
     - key: same-page-mcp
       name: Same Page
       tools:
         - check-issue-docs
         - scan-issues
+        - project-brief
+        - list-rules
   rovo:agent:
     - key: same-page-agent
       name: Same Page
@@ -74,9 +95,12 @@ modules:
       conversationStarters:
         - Do the docs for SCRUM-2 contradict the ticket?
         - Which of SCRUM-1, SCRUM-2 and SCRUM-3 have stale docs?
+        - Is project SCRUM ready, or is anything out of step with its docs?
       actions:
         - check-issue-docs
         - scan-issues
+        - project-brief
+        - list-rules
   llm:
     - key: same-page-llm
       model:
@@ -86,6 +110,14 @@ modules:
       function: pin-guard-fn
       events:
         - avi:confluence:updated:page
+    - key: same-page-status-watch
+      function: status-watch-fn
+      events:
+        - avi:jira:updated:issue
+  scheduledTrigger:
+    - key: same-page-drift
+      function: drift-fn
+      interval: week
   function:
     - key: panel-resolver
       handler: index.panel
@@ -99,10 +131,19 @@ modules:
       handler: index.pageUpdated
     - key: gate-validator
       handler: index.validator
+    - key: status-watch-fn
+      handler: index.statusWatch
+    - key: drift-fn
+      handler: index.driftScan
+      timeoutSeconds: 120
     - key: check-issue-docs-fn
       handler: tools.checkIssueDocs
     - key: scan-issues-fn
       handler: tools.scanIssues
+    - key: project-brief-fn
+      handler: tools.projectBrief
+    - key: list-rules-fn
+      handler: tools.listRules
 resources:
   - key: main
     path: src/frontend/index.tsx

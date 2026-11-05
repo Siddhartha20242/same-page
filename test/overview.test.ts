@@ -30,7 +30,7 @@ test('runOverview: verdicts, counts, reasons and honest summary', async () => {
   assert.equal(r.rows[0]?.verdict, 'Blocked');
   assert.equal(r.rows[0]?.findings, 1);
   assert.equal(r.rows[1]?.verdict, 'Not checked');
-  assert.match(r.rows[1]?.reason ?? '', /no target version/);
+  assert.match(r.rows[1]?.reason ?? '', /no related Confluence page/);
   assert.equal(r.rows[2]?.verdict, 'Not checked');
   assert.match(r.summaryLine, /^1 of 1 checked item has contradictions; 2 could not be checked/);
   assert.equal(r.coverageLine, null);

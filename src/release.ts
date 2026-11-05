@@ -31,6 +31,8 @@ export interface ItemResult {
   pagesChecked?: number;
   workItem?: WorkItem;
   pages?: Page[];
+  /** Rules that could not run on this work item, with the reason. A result is never presented as a full check when some rules were skipped. */
+  skippedRules?: string[];
 }
 
 export interface Report {
@@ -69,9 +71,11 @@ async function loadCited(own: string, pages: Page[], loadIssue?: (key: string) =
 export async function checkIssue(issue: Issue, { loadIssue, getTransition, getRemoteLinkIds, searchPages, getPageBody, rules, maxPages = 5, versionSources, pinnedIds = [] }: IssueDeps): Promise<ItemResult> {
   const base = { key: issue.key, summary: issue.summary };
   const apiVersion = deriveTargetVersion(issue, versionSources ? { sources: versionSources } : undefined);
-  if (!apiVersion) return { ...base, status: 'unchecked', reason: 'no target version found on the issue' };
-  const transition = await getTransition(issue.key);
-  if (!transition) return { ...base, status: 'unchecked', reason: 'no status transition recorded' };
+  // A missing target version or status change no longer stops the check: only the rules that need them are skipped, and the result says so.
+  const transition = await getTransition(issue.key).catch((e: unknown) => { if ((e as { status?: number } | null)?.status === 404) return null; throw e; });   // 429 and consent errors still propagate
+  const skippedRules: string[] = [];
+  if (!transition) skippedRules.push('R1 stale version and R4 stale status claim (no status change recorded yet)');
+  else if (!apiVersion) skippedRules.push('R1 stale version (this work item names no target version)');
   const remoteLinkIds = await getRemoteLinkIds(issue.key);
   const found = await searchPages(issue);
   // A page linked from the issue must be considered even if the search did not return it.
@@ -86,7 +90,7 @@ export async function checkIssue(issue: Issue, { loadIssue, getTransition, getRe
     loaded.push({ c, page: { ...c.page, ...(typeof body === 'string' ? { text: body } : body) } as Page });
   }
   if (!loaded.length) return { ...base, status: 'unchecked', reason: 'related page(s) found but not readable with your permissions' };
-  const workItem: WorkItem = { ...issue, apiVersion, statusChangedAt: transition.at, statusChangedBy: transition.by };
+  const workItem: WorkItem = { ...issue, apiVersion, statusChangedAt: transition?.at, statusChangedBy: transition?.by, text: [issue.summary, issue.description].filter(Boolean).join('\n') };
   const siblings = loaded.map((l) => l.page);
   const cited = await loadCited(issue.key, siblings, loadIssue);                  // lets a rule compare a doc with another loaded artifact, such as an API spec
   const findings = loaded.flatMap(({ c, page }) => check({ workItem, page, siblings, cited }, rules).findings
@@ -97,7 +101,7 @@ export async function checkIssue(issue: Issue, { loadIssue, getTransition, getRe
     : findings.length
       ? { ...base, status: 'notes', findings, pagesChecked: loaded.length }
       : { ...base, status: 'clean', pagesChecked: loaded.length };
-  return { ...out, workItem, pages: loaded.map(({ page }) => page) };
+  return { ...out, workItem, pages: loaded.map(({ page }) => page), ...(skippedRules.length ? { skippedRules } : {}) };
 }
 
 // Everything in one go: fine for small releases and tests. Large releases use job.js (batches under a time and request budget).

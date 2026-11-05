@@ -17,7 +17,7 @@ const Byline = () => {
   if (r === 'failed' || r.status === 'error') return <SectionMessage appearance="error" title="Same Page could not check this page"><Text>{r === 'failed' ? 'Same Page could not reach Confluence or Jira. Try again later.' : r.message}</Text></SectionMessage>;
   if (r.status === 'unchecked') return <SectionMessage appearance="information" title="Same Page: not checked"><Text>{`Not checked: ${r.reason}. This is not a clean result.`}</Text><Text>This item finds work items only by keys written in the page text, for example PAY-123. Add the key of the work item this page documents, or open the work item in Jira and use its Same Page panel, which follows links in both directions.</Text></SectionMessage>;
   const skipped = r.skipped.length ? <Text>{`Not compared: ${r.skipped.map((s) => `${s.key} (${s.reason})`).join('; ')}.`}</Text> : null;
-  if (r.status === 'clean') return <Stack space="space.100"><Heading size="small">Same Page: no issues</Heading><Text>{`Compared this page with ${r.checked.join(', ')} (found from the Jira keys written in this page). No contradictions found by the 7 rules. Rules only, no AI.`}</Text>{skipped}</Stack>;
+  if (r.status === 'clean') return <Stack space="space.100"><Heading size="small">Same Page: no issues</Heading><Text>{`Compared this page with ${r.checked.join(', ')} (found from the Jira keys written in this page). No contradictions found by the 10 rules. Rules only, no AI.`}</Text>{skipped}</Stack>;
   return (
     <Stack space="space.150">
       <Heading size="small">{`Same Page: ${r.issues.length} issue${r.issues.length === 1 ? '' : 's'}`}</Heading>

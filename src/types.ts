@@ -12,6 +12,8 @@ export interface WorkItem {
   statusChangedBy?: string | null;
   requiredFields?: string[];
   fields?: Record<string, unknown>;
+  /** The summary and description as plain text. The fact rules (R8 to R10) read their numbers and dates from it. */
+  text?: string;
 }
 
 /** A Confluence page as the engine sees it. */
@@ -37,6 +39,8 @@ export interface Evidence {
   spec?: { title?: string; detail: string; opText: string };
   /** The other page that states a different version of the same endpoint or API (rule R7): its title and the exact line. */
   other?: { pageId?: string; pageTitle?: string; line?: number; snippet: string };
+  /** A number or date that the work item text and the page state differently (rules R8 to R10). */
+  fact?: { label: string; ticketLine: string; ticketValue: string; pageValue: string };
   /** A ticket the page mentions (rule R6) and the status Jira reports for it. */
   cited?: { key: string; status: string };
   workItem: { key?: string; apiVersion?: string; statusChangedAt?: string; statusChangedBy?: string | null; status?: string; missingField?: string };

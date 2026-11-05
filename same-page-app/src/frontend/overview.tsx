@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import ForgeReconciler, { Button, Heading, Inline, Link, Lozenge, SectionMessage, Spinner, Stack, Text } from '@forge/react';
 import { invoke as bridgeInvoke } from '@forge/bridge';
 import type { Overview, OverviewRow } from '../core/overview';
+import type { ProjectDrift } from '../core/drift';
 
 const invoke = <T,>(name: string, payload?: Record<string, unknown>): Promise<T> => bridgeInvoke(name, payload) as unknown as Promise<T>;
 
-type Reply = Overview | { status: 'error'; message: string };
+type Reply = (Overview & { drift?: { at: string; project: ProjectDrift | null } | null }) | { status: 'error'; message: string };
 type Load = { phase: 'loading' } | { phase: 'failed' } | { phase: 'done'; reply: Reply };
 
 const TONE: Record<OverviewRow['verdict'], 'removed' | 'moved' | 'success' | 'default'> = { Blocked: 'removed', Warning: 'moved', Clean: 'success', 'Not checked': 'default' };
@@ -49,6 +50,7 @@ const App = () => {
             <Text>{load.reply.summaryLine}</Text>
             {load.reply.coverageLine ? <Text>{load.reply.coverageLine}</Text> : null}
           </SectionMessage>
+          {load.reply.drift ? <Text>{load.reply.drift.project ? `Weekly scan (${new Date(load.reply.drift.at).toLocaleDateString()}): ${load.reply.drift.project.withContradictions} of ${load.reply.drift.project.checked} checked open epics had contradictions, ${load.reply.drift.project.newSincePrevious} new since the scan before.` : `Weekly scan (${new Date(load.reply.drift.at).toLocaleDateString()}): no open epics in this project were checked.`}</Text> : <Text>The weekly scan has not run yet. It runs once a week as the app and reports here.</Text>}
           {load.reply.rows.map((r) => <Row key={r.key} r={r} />)}
           <Text>Rules only, no AI in detection. A Not checked item is not a clean item.</Text>
         </Stack>

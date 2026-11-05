@@ -1,4 +1,4 @@
-import { lastStatusTransition, storageToText } from './adapters.ts';
+import { adfToText, lastStatusTransition, storageToText } from './adapters.ts';
 import { confluencePageIdsFromRemoteLinks } from './links.ts';
 import type { Issue } from './types.ts';
 
@@ -64,10 +64,10 @@ export function createDeps({ requestJira, requestConfluence }: { requestJira: Re
     async loadIssue(key: string): Promise<Issue> {
       if (!KEY_RE.test(key)) throw new Error('not a valid issue key');
       // The target version a person set from the panel is stored as an issue property and read here in the same request.
-      const j = await jira(`/rest/api/3/issue/${key}?fields=summary,status,components,fixVersions,labels&properties=${TARGET_PROPERTY}`);
+      const j = await jira(`/rest/api/3/issue/${key}?fields=summary,description,status,components,fixVersions,labels&properties=${TARGET_PROPERTY}`);
       const f = j.fields ?? {};
       const set = j.properties?.[TARGET_PROPERTY]?.version ?? j.properties?.[TARGET_PROPERTY]?.value?.version;
-      return { key: j.key ?? key, summary: f.summary ?? '', status: f.status?.name ?? '', components: names(f.components), fixVersions: names(f.fixVersions), labels: f.labels ?? [], requiredFields: [], fields: {}, ...(typeof set === 'string' ? { apiVersionField: set } : {}) };
+      return { key: j.key ?? key, summary: f.summary ?? '', status: f.status?.name ?? '', components: names(f.components), fixVersions: names(f.fixVersions), labels: f.labels ?? [], requiredFields: [], fields: {}, description: f.description ? adfToText(f.description) : undefined, ...(typeof set === 'string' ? { apiVersionField: set } : {}) };
     },
 
     // Changelog is oldest-first and paged, so read the LAST page to find the most recent status change.

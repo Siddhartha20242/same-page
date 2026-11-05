@@ -48,11 +48,12 @@ test('release report separates findings, clean, and unchecked, and never calls u
   const byKey = Object.fromEntries(r.items.map((i) => [i.key, i]));
   assert.equal(byKey['A-1']!.status, 'findings');
   assert.equal(byKey['B-1']!.status, 'clean');
-  assert.match(byKey['C-1']!.reason as string, /no target version/);
-  assert.match(byKey['D-1']!.reason as string, /no status transition/);
+  assert.match(byKey['C-1']!.reason as string, /no related Confluence page/);
+  assert.equal(byKey['D-1']!.status, 'clean');                                   // no status change recorded: checked, with the skipped rules named
+  assert.match(byKey['D-1']!.skippedRules?.[0] ?? '', /no status change recorded/);
   assert.match(byKey['E-1']!.reason as string, /no related Confluence page/);
   assert.equal(r.verdict, 'ATTENTION');
-  assert.deepEqual(r.coverage, { checked: 2, total: 5 });
+  assert.deepEqual(r.coverage, { checked: 3, total: 5 });
   assert.equal(r.complete, false);
 });
 
@@ -62,7 +63,7 @@ test('rendered report escapes hostile page titles and flags incomplete coverage'
   const html = renderReportHtml(r, { version: '2.0' });
   assert.ok(!html.includes('<script>'));
   assert.match(html, /&lt;script&gt;/);
-  assert.match(html, /2 of 5 issues checked/);
+  assert.match(html, /3 of 5 issues checked/);
   assert.match(html, /UNCHECKED/);
 });
 
@@ -96,3 +97,16 @@ test('refuses to record a ledger that does not verify', async () => {
   assert.throws(() => releaseRecord({ version: '2.0', report: await_report(), chain }), /does not verify/);
 });
 function await_report(): Report { return { verdict: 'X', coverage: { checked: 0, total: 0 }, counts: { findings: 0 } } as unknown as Report; }   // minimal report fixture
+
+test('a work item with no target version is still checked: the fact rules run and the skipped rule is named', async () => {
+  const r = await checkRelease({
+    issues: [issue('F-1', 'Token expiry', { description: 'Access token expiry should be 1 hour' })],
+    getTransition: async () => ({ at: iso, by: 'Dana' }),
+    getRemoteLinkIds: async () => [],
+    searchPages: async () => [{ id: 'pf', title: 'Token expiry runbook', text: 'Access tokens expire after 30 minutes.', modifiedAt: old, labels: [] }],
+  });
+  const item = r.items[0]!;
+  assert.equal(item.status, 'findings');
+  assert.equal(item.findings?.[0]?.ruleId, 'R8_DURATION_DIFFERS');
+  assert.match(item.skippedRules?.[0] ?? '', /names no target version/);
+});

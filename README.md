@@ -6,7 +6,7 @@ Same Page is a Forge app for Jira and Confluence. It finds *provable* contradict
 linked to it, shows the evidence side by side, proposes a verified fix that a human applies as a revertible page version, and can
 stop a Jira transition (for example to Done) while a contradiction is still open.
 
-**Detection is deterministic, repeatable and auditable. No model decides what counts as a contradiction.**
+**Detection is deterministic, repeatable and auditable. No model decides what counts as a contradiction.** We chose that on purpose: it is for teams that have to explain a release decision afterwards, and it is why every finding carries its evidence and every fix is a revertible page version.
 
 Codegeist 2026, category: Apps for Software Teams. Bonus targets: Best Agents, and Marketplace. A Rovo agent and an MCP module are included; the MCP module is live, but no signed-in third-party client call has been recorded yet ([docs/mcp.md](docs/mcp.md)).
 
@@ -16,13 +16,20 @@ A runbook says `/api/v1/charge`. The Jira epic says the target is `v2`. An on-ca
 endpoint. The contradiction was detectable for weeks and nobody checked, because docs and tickets live in different tools.
 
 ## Who it is for
+The first reader we build for is the **release owner or engineering manager** who has to say "we are ready" and be right. The audit trail serves the second reader, a compliance lead, and the rules for specs and duplicates serve a third, the API team. We lead with the first.
+
 | Reader | Rules that matter most | Value |
 |---|---|---|
-| Engineering manager, on-call lead | R1 stale version, R4 stale status claim, R6 closed ticket | A runbook that contradicts the release is caught before someone follows it. |
+| Engineering manager, on-call lead | R1 stale version, R4 stale status claim, R6 closed ticket, R8 to R10 numbers and dates | A runbook that contradicts the release is caught before someone follows it. |
 | Governance and compliance lead | R2 deprecated decision, R3 missing field, and the audit log | Withdrawn decisions and missing fields are caught at transition time, and every applied fix is sealed in a tamper-evident log. |
 | API and platform team | R5 spec mismatch, R7 pages disagree | Docs that describe an endpoint the spec does not have, or two pages that give two answers. |
 
 **Why it matters.** Public surveys put an hour of downtime above $300,000 for over 90% of mid-size and large enterprises (ITIC, 2024). No survey we found isolates outages caused by stale documentation, so we do not claim a saving. The aim is to remove one avoidable cause. The pilot below is how we will measure it.
+
+## How it differs from tools that write docs for you
+Tools such as code-to-docs generators start from the code and use a model to draft documentation. Same Page starts from the **work item** and the pages people already wrote, checks them against each other with fixed rules, and stops at "here is the contradiction and the evidence". It does not write prose. That makes it smaller and easier to trust, and it composes with a docs generator rather than replacing one.
+
+**Scope on purpose:** Same Page reads Jira work items and Confluence pages only. Reading READMEs, Google Docs or Notion would need external network access, which would remove the app's "no external egress" guarantee, so we left it out.
 
 ## What it does
 
@@ -36,7 +43,9 @@ endpoint. The contradiction was detectable for weeks and nobody checked, because
 | Record | Every Apply is sealed into a hash-chained audit log; the hash is also anchored on the Jira work item. |
 | Guard | After a fix, the page is pinned. If someone edits the old version back in, Same Page comments on the work item. |
 | Gate (optional) | A Jira workflow validator refuses the transition and names the rule, the page and the next step. It fails open on any error. The panel and review tasks work without it. |
-| Rules | Lists all seven rules with their severity, so the scope is visible even when nothing is found. |
+| Rules | Lists all ten rules with their severity and, once people use them, how often each was acted on or dismissed on this site. |
+| Soft gate | When a work item is moved to Done with a blocking contradiction open, Same Page leaves one notice comment on it. It works in every project type, including team-managed ones, and never blocks. |
+| Weekly scan | Once a week the app checks open epics and the project overview shows how many have contradictions and how many are new since the last scan. |
 | Overview | A project page, **Same Page overview**, lists the open epics and in-progress work items (up to 20) with a verdict, finding count and the reason for anything it could not check. Read-only. |
 | Agent | A Rovo agent and MCP tools let you ask "do the docs for PAY-1 contradict the ticket?" and get the stored evidence quoted back. |
 
@@ -51,8 +60,13 @@ endpoint. The contradiction was detectable for weeks and nobody checked, because
 | R5 spec mismatch | Blocker | A doc line such as `DELETE /api/v2/charge/42` disagrees with an OpenAPI 3 JSON spec held in a linked page (deprecated is a block, unknown is a warning). |
 | R6 closed ticket | Warning | A page treats another ticket as still open ("blocked by PAY-9") but Jira says that ticket is Done or Closed. It only warns and never blocks a transition. |
 | R7 pages disagree | Warning | Two linked pages document the same endpoint or API at different versions (`POST /api/v1/charge` vs `/api/v2/charge`, or "Payments API v1" vs "v2") and the ticket cannot settle it: it has no target version, or targets neither. It shows both lines, only warns, and stays silent if the target matches one page (R1 handles that) or the wording is historical. |
+| R8 duration differs | Warning | The work item and a page give different times for the same thing, such as "Access token expiry should be 1 hour" against "Access tokens expire after 30 minutes". |
+| R9 limit or port differs | Warning | Different limits, sizes, counts or ports for the same thing ("100 requests per minute" against "200 requests per minute", `port 8080` against `port 9090`). |
+| R10 date differs | Warning | Different dates for the same milestone (release, deadline, code freeze, cutover). |
 
-A Jira administrator can move any rule between Blocker and Warning from **Same Page > Rules** in the panel, which also lists all seven rules even when nothing is found. Only Blockers can stop a transition.
+R8 to R10 read the work item's summary and description, so they need **no target version and no status change**. They stay quiet unless both sides name the same subject, use the same qualifier ("up to", production versus staging), the work item gives one value and the page a different one, and the page line is not history. Same Page cannot tell which side is right, so it offers no Apply for these: it names both ways to resolve it.
+
+A Jira administrator can move any rule between Blocker and Warning from **Same Page > Rules** in the panel, which also lists all ten rules even when nothing is found. Only Blockers can stop a transition.
 
 Notes that may be intentional history (near "rollback", "legacy", "migration", "deprecated") are listed but never block.
 
@@ -82,7 +96,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 - The AI-suggested fix on an ambiguous line, passing the same verification (run with the optional AI path switched on).
 - The sealed audit chain, shown as "Chain intact", and its anchor on the work item.
 - The pin guard commenting after the old version was edited back.
-- The Rovo agent end to end on a fresh site: it called both tools and quoted the evidence.
+- The Rovo agent end to end on a fresh site: it called both tools that existed then and quoted the evidence. Two more tools (a project brief and a rules list) were added later and have not been tried on a real site.
 
 ## Security and privacy
 
@@ -103,9 +117,10 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 ## Limits (please read)
 
 - **No real-world accuracy figure.** Precision and recall of 1.00 are on 30 fixtures written by the authors, which is a regression guard and not a measurement. We also ran the engine on 141 pages from public Apache projects ([docs/public-data-probe.md](docs/public-data-probe.md)): it raised 3 findings, all false positives (0 of 4 with the earlier Kafka run), and in 80 hand-read non-findings we saw no missed contradiction. Public wikis rarely state hard facts, so this shows the engine is quiet there and that its Fix Version and dated-log paths needed care; it is not a pilot. We added a skip for dated log lines, but a re-run on Hadoop (2026-11-05) raised the same finding, so none of the three is fixed; the Hadoop one is arguable (a frozen 2017 status log whose ticket is Done today). No real team has used the app yet; [docs/pilot-kit.md](docs/pilot-kit.md) is the plan for collecting honest numbers.
+- **R8 to R10 are new and tuned conservatively.** On the public Apache sample (Hadoop, Cassandra, Flink, ZooKeeper) they raised no finding, which says they are quiet there and says nothing about how many real number or date contradictions they miss. They match a subject by shared words, so a differently worded contradiction ("sessions last half an hour" against "timeout: 1h") is not caught. They have not been run on a team's own documents.
 - **Verification proves a fix is minimal, not that it is right.** An edit must be version-only and clear the flagged contradiction.
   It does not prove the new version is the correct one, so a human always reviews it.
-- R1 needs a target version on the work item (summary, a component, or set from the panel). Free-form version names are not matched.
+- R1 needs a target version on the work item (summary, a component, or set from the panel); without one, R1 is skipped and the panel says so, and the other rules still run. Free-form version names are not matched.
 - The Confluence byline finds work items only by Jira keys written in the page text, so a page that is linked from an epic but never names it shows "not checked".
 - R5 reads OpenAPI 3 **JSON** held in a linked Confluence page. It does not read attachments or YAML.
 - The gate works only in **company-managed** projects (Jira does not offer validators in team-managed ones).
@@ -118,10 +133,10 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 
 ## Plan and roadmap
 
-1. **Pilot first (1 to 3 teams, 1 to 2 weeks).** Teams install the app on a test project and label each finding real or false alarm. We report counts and precision with the sample size, whatever they are. Method: [docs/pilot-kit.md](docs/pilot-kit.md). No pilot has run yet.
-2. Run the agent check where people already work: a Rovo automation on transition to Done, and a scheduled summary.
-3. More deterministic rules (numeric facts such as timeouts and limits, owners, dates), only after the pilot says which false alarms to fix first.
-4. An optional AI tier that may only propose candidates, shown only when both quoted lines exist verbatim, warn-only and off by default.
+1. **Pilot first (1 to 3 teams, 1 to 2 weeks).** Teams install the app on a test project and label each finding real or false alarm. We report counts and precision with the sample size, whatever they are. Method: [docs/pilot-kit.md](docs/pilot-kit.md). No pilot has run yet, so no real-world precision or time-saved figure exists.
+2. Shipped but not yet seen on a real site: the soft gate, the weekly scan, R8 to R10, and the agent's project brief. Each has offline tests; the real-site check is the first thing to do.
+3. Next rules, chosen by what the pilot's false alarms and misses say: owners and on-call names, and wording-tolerant matching for numbers.
+4. An optional AI tier that may only propose candidates, shown only when both quoted lines exist verbatim, warn-only and off by default. Not built.
 
 ## Architecture
 
@@ -129,7 +144,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      235 tests and the 30-pair fixture set
+test/  fixtures/      254 tests and the 30-pair fixture set
 scripts/              live gate check, receipt verifier, payload capture
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -141,7 +156,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 235 tests: 231 pass, 4 skipped (see docs/tests.md)
+npm test            # 254 tests: 250 pass, 4 skipped (see docs/tests.md)
 npm run typecheck
 ```
 

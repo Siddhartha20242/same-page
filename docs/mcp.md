@@ -1,7 +1,7 @@
 # Same Page over MCP
 
 This is a separate surface for a different person: someone in an MCP client such as Claude Code or Cursor who wants to ask
-"do the docs for PAY-1 contradict the ticket?" without opening Jira. It exposes two read-only tools. It cannot apply a fix,
+"do the docs for PAY-1 contradict the ticket?" without opening Jira. It exposes four read-only tools. It cannot apply a fix,
 create a task, or change anything.
 
 ## Tools
@@ -9,6 +9,8 @@ create a task, or change anything.
 |---|---|---|---|
 | `check-issue-docs` | You want the contradictions for one work item. | `issueKey`, for example `PAY-123` | Findings with evidence (rule, the page line, what Jira says), notes on possible history, or the reason the item could not be checked. |
 | `scan-issues` | You want to know which of up to 10 work items have contradictions. | `issueKeys`, a JSON list such as `["PAY-1","PAY-2"]` | A coverage line (how many could be checked and why the rest could not), then the findings. |
+| `project-brief` | You want to know whether a whole project is out of step with its docs. | `projectKey`, for example `PAY` | A verdict per open epic and in-progress item, what could not be checked and why. |
+| `list-rules` | You want to know what Same Page looks for. | none | The ten rules, what each checks and its default severity. |
 
 ## Turn it on (site admin, once)
 External access is off by default. Atlassian Administration > Apps > Sites > your site > Connected apps > Same Page: allow
@@ -33,5 +35,4 @@ A live endpoint answers `401` with a `www-authenticate` header that points to it
 
 ## Status
 `rovo:mcp` is a Preview module. The endpoint is live and protected. A signed-in tool call from a third-party client has **not**
-been recorded yet, so this surface is described but not proven. The same two tools are used by the Rovo agent, and that path
-was verified end to end on a fresh site.
+been recorded yet, so this surface is described but not proven. The Rovo agent uses the same tools. `check-issue-docs` and `scan-issues` were verified end to end on a fresh site; `project-brief` and `list-rules` were added later and are covered by offline tests only.

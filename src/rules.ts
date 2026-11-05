@@ -10,9 +10,10 @@ const PHRASE_CONTEXT_RE = /\b(api|endpoint|service|sdk|client|release|protocol)\
 // Historical wording means the page may be describing the past on purpose. It counts only on the SAME line,
 // or on a heading-like line directly above (one with no version of its own), so a historical sentence
 // never silences a live instruction below it.
-const HISTORICAL_RE = /deprecat|migrat|rollback|roll back|legacy|sunset|retire|obsolete|no longer|end[- ]of[- ]life|\beol\b|formerly|previously|superseded|replaced/i;
 
 import type { Finding, Page, Pair, Rule, VersionHit, VersionRef } from './types.ts';
+import { DATED_BEFORE, HISTORICAL_RE } from './lineGuards.ts';
+import { durationDiffers, limitDiffers, dateDiffers } from './factRules.ts';
 import { extractOpenApi, judgeOperation, operationsInLine } from './spec.ts';
 
 // Every version reference in one line, as { version: 'v2', index, text, kind }.
@@ -131,7 +132,6 @@ const FINISHED = /\b(done|completed|shipped|released|resolved)\b/i;
 const FINISHED_BEFORE = /\b(shipped|released|completed|delivered|resolved)\s+(?:the\s+)?$/i;
 const NOT_STARTED_STATUSES = ['to do', 'todo', 'backlog', 'open', 'selected for development'];
 // A line that carries a date before the key is a log entry, true when it was written ("2017-10-31: waiting on HDFS-1"). Found on public data.
-const DATED_BEFORE = /(\d{4}-\d{2}-\d{2}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}\b|\b\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|\b\d{1,2}\/\d{1,2}\/\d{2,4}\b)/i;
 const WAS_WORDING = /\b(was|were|originally|previously|formerly|used to|had been)\b/i;
 export const statusClaim: Rule = {
   id: 'R4_STATUS_CLAIM_STALE',
@@ -311,4 +311,4 @@ export const pagesDisagree: Rule = {
   },
 };
 
-export const BUILT_IN_RULES: Rule[] = [versionMismatch, deprecatedDecision, missingRequiredField, statusClaim, specDisagrees, citedTicketClosed, pagesDisagree];
+export const BUILT_IN_RULES: Rule[] = [versionMismatch, deprecatedDecision, missingRequiredField, statusClaim, specDisagrees, citedTicketClosed, pagesDisagree, durationDiffers, limitDiffers, dateDiffers];

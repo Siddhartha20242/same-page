@@ -1,6 +1,9 @@
 import { buildPanelModel } from './panelModel';
 import type { PanelDeps, PanelFinding } from './panelModel';
 import { createJob, runBatch, finalizeJob } from './job';
+import { runOverview } from './overview';
+import type { OverviewDeps } from './overview';
+import { RULE_CATALOG } from './ruleCatalog';
 
 // Tools for AI agents (Rovo agents and, via rovo:mcp, third-party clients such as Cursor or Claude Code). READ-ONLY by design:
 // the docs say agents run by automation rules will not invoke actions with CREATE, UPDATE, DELETE or TRIGGER verbs.
@@ -57,4 +60,23 @@ export async function scanIssues({ issueKeys }: { issueKeys?: unknown }, deps: P
       : { issueKey: i.key, status: i.status, findings: (i.findings ?? []).map((f) => ({ rule: f.ruleId, severity: f.severity, summary: quote(f.summary), docTitle: quote(f.pageTitle) })) })),
     notice: NOTICE,
   };
+}
+
+// project_brief: where a project stands right now, in one call: its open epics and in-progress items, each with a verdict.
+// This is the "release readiness" question an agent is asked most: is anything in this project out of step with its docs?
+export async function projectBrief({ projectKey }: { projectKey?: unknown }, deps: OverviewDeps) {
+  const out = await runOverview(projectKey, deps);
+  if (out.status === 'error') return { status: 'error', reason: out.message, notice: NOTICE };
+  return {
+    status: 'ready', summary: out.summaryLine, coverage: out.coverageLine,
+    counts: { checked: out.checked, withContradictions: out.withContradictions, notChecked: out.unchecked },
+    items: out.rows.map((r) => ({ issueKey: r.key, summary: quote(r.summary), verdict: r.verdict, findings: r.findings, ...(r.reason ? { reasonNotChecked: r.reason } : {}) })),
+    note: 'Rules only, no AI in detection. A Not checked item is not a clean item.',
+    notice: NOTICE,
+  };
+}
+
+// list_rules: what Same Page checks, so an agent can answer "what do you look for?" without guessing.
+export function listRules() {
+  return { rules: RULE_CATALOG.map((r) => ({ id: r.short, name: r.name, checks: r.checks, defaultSeverity: r.defaultSeverity })), note: 'A site administrator can move a rule between block and warn. Rules cannot be switched off.' };
 }

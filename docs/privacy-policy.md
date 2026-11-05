@@ -21,6 +21,8 @@ In Forge storage for your installation:
 - Dismiss and snooze records: an identifier for the finding, the reason a person typed, their account ID, and the date.
 - An audit chain: one entry for each fix a person applied, with the rule, the work item key, the page ID, a short snippet (up to 200 characters) of the old and new line, a timestamp, and hashes.
 - Rule severity settings: if a Jira administrator moves a rule between Blocker and Warning, which rule and which setting. No names or text.
+- Soft-gate markers: for a work item that was moved to Done with a blocking contradiction, a short marker (which findings the notice covered and when), so the same notice is not posted twice.
+- A weekly scan summary: per project, how many open epics had contradictions, which work item keys, and when the scan ran. No page text or titles.
 - Counters: how many findings were shown, applied, dismissed, snoozed, turned into review tasks, and how many transitions were blocked. The counters hold no page text, titles, or names.
 - A short cache for the pre-ship gate, per work item: the blocking finding, page title, and the flagged line.
 - A cache of AI-reworded lines, only if the optional AI path is on.
@@ -29,7 +31,7 @@ In Forge storage for your installation:
 On your Jira and Confluence content:
 - A Confluence content property named same-page.pins on a page the app fixed, listing the work item keys it is pinned to.
 - Jira work item properties: same-page.lastReceipt (the audit entry number and hash) and same-page.targetVersion (if you save a target version).
-- Page versions, review tasks, and comments the app creates when a person clicks a button. The comment from the pin check names no page title or text.
+- Page versions, review tasks, and comments the app creates when a person clicks a button. The comment from the pin check names no page title or text. The soft-gate comment, posted by the app when a work item is moved to Done with a blocking contradiction open, names the rules and a count, never a page title or text.
 
 ## Why each permission is requested
 - Read Jira work and users: read work items, and show the approver's name in the page version message.

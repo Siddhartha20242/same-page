@@ -49,7 +49,7 @@ export async function checkPage(pageId: string, d: PageCheckDeps): Promise<PageC
     const transition = await d.getTransition(key);
     if (!apiVersion) { skipped.push({ key, reason: 'no target version on the work item' }); continue; }
     if (!transition) { skipped.push({ key, reason: 'no status change recorded' }); continue; }
-    const workItem: WorkItem = { ...issue, apiVersion, statusChangedAt: transition.at, statusChangedBy: transition.by };
+    const workItem: WorkItem = { ...issue, apiVersion, statusChangedAt: transition.at, statusChangedBy: transition.by, text: [issue.summary, issue.description].filter(Boolean).join('\n') };
     const cited = Object.fromEntries([...loaded].filter(([k, i]) => k !== key && i.status).map(([k, i]) => [k, { status: i.status }]));
     checked.push(key);
     for (const f of check({ workItem, page, siblings: [page], cited }).findings) {

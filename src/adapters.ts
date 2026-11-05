@@ -96,3 +96,23 @@ export function recommendSources(issues: IssueLike[]) {
   }).sort((a, b) => b.count - a.count);
   return { rows, suggested: rows.filter((r) => r.pct >= 30 && r.source !== 'fixVersion').map((r) => r.source) };
 }
+
+// Jira Cloud returns a description as Atlassian Document Format (a tree). This keeps its text, one paragraph, list item or heading per line,
+// and drops everything else (media, mentions keep their visible text). Capped so a huge description cannot slow a check.
+interface AdfNode { type?: string; text?: string; content?: AdfNode[]; attrs?: { text?: string } }
+const BLOCKS = new Set(['paragraph', 'heading', 'listItem', 'tableRow', 'codeBlock', 'blockquote', 'bulletList', 'orderedList', 'rule']);
+export function adfToText(doc: unknown, maxChars = 6000): string {
+  if (typeof doc === 'string') return doc.slice(0, maxChars);
+  let out = '';
+  const walk = (n: AdfNode | undefined) => {
+    if (!n || out.length > maxChars) return;
+    if (n.type === 'text') out += n.text ?? '';
+    else if (n.type === 'hardBreak') out += '\n';
+    else if (n.type === 'mention' || n.type === 'emoji') out += n.attrs?.text ?? '';
+    for (const c of n.content ?? []) walk(c);
+    if (n.type && BLOCKS.has(n.type) && !out.endsWith('\n')) out += '\n';
+    else if (n.type === 'tableCell' || n.type === 'tableHeader') out += ' | ';
+  };
+  walk(doc as AdfNode);
+  return out.replace(/\n{2,}/g, '\n').trim().slice(0, maxChars);
+}

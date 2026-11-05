@@ -13,6 +13,9 @@ export const RULE_CATALOG: RuleInfo[] = [
   { ruleId: 'R5_SPEC_DISAGREES', short: 'R5', name: 'API spec mismatch', checks: 'A doc line such as DELETE /api/v2/charge/42 disagrees with an OpenAPI 3 JSON spec in a linked page. Deprecated blocks, unknown warns.', pain: 'Integration: docs describe an endpoint the spec does not have.', defaultSeverity: 'block' },
   { ruleId: 'R6_CITED_TICKET_CLOSED', short: 'R6', name: 'Closed ticket cited as open', checks: 'A page treats another ticket as still open but Jira shows it Done or Closed.', pain: 'Planning: pages keep waiting on work that finished.', defaultSeverity: 'warn' },
   { ruleId: 'R7_PAGES_DISAGREE', short: 'R7', name: 'Pages disagree', checks: 'Two linked pages document the same endpoint or API at different versions and the work item cannot settle it.', pain: 'Onboarding: two pages give two answers.', defaultSeverity: 'warn' },
+  { ruleId: 'R8_DURATION_DIFFERS', short: 'R8', name: 'Duration differs', checks: 'The work item and a page give different times (a timeout, an expiry, a window) for the same thing, such as token expiry.', pain: 'Incident: someone configures or relies on the wrong time.', defaultSeverity: 'warn' },
+  { ruleId: 'R9_LIMIT_DIFFERS', short: 'R9', name: 'Limit or port differs', checks: 'The work item and a page give different limits, sizes, counts or ports for the same thing, such as a rate limit.', pain: 'Integration: clients are built against the wrong limit.', defaultSeverity: 'warn' },
+  { ruleId: 'R10_DATE_DIFFERS', short: 'R10', name: 'Date differs', checks: 'The work item and a page give different dates for the same milestone (release, deadline, freeze, cutover).', pain: 'Planning: people prepare for the wrong day.', defaultSeverity: 'warn' },
 ];
 
 export const ruleInfo = (ruleId: string) => RULE_CATALOG.find((r) => r.ruleId === ruleId);

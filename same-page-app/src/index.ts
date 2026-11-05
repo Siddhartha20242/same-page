@@ -6,7 +6,7 @@ import { buildPanelModel } from './core/panelModel';
 import { buildReviewTask } from './core/reviewTask';
 import { applySuggestion, triageFinding, loadTriage } from './core/panelActions';
 import type { KeyValueStore } from './core/panelActions';
-import { filterModelByTriage, loadNoisyRules, recordOutcome, withNoisyRules } from './core/triage';
+import { filterModelByTriage, loadNoisyRules, loadOutcomes, recordOutcome, withNoisyRules } from './core/triage';
 import { seedDemo } from './core/seed';
 import { createSeedDeps } from './core/seedDeps';
 import { forgeLlm } from './llm';
@@ -19,6 +19,9 @@ import type { LedgerEntry } from './core/ledger';
 import { decideTransition, gateKey, snapshotFromModel } from './core/gate';
 import type { CanView } from './core/gate';
 import { runOverview } from './core/overview';
+import { runSoftGate } from './core/softGate';
+import type { SoftGateEvent } from './core/softGate';
+import { runDriftScan, loadDrift } from './core/drift';
 import { RULE_CATALOG, loadSeverityOverrides, saveSeverity, withSeverities } from './core/ruleCatalog';
 import { checkPage, bylineTitle } from './core/pageCheck';
 import type { PageCheck } from './core/pageCheck';
@@ -174,7 +177,8 @@ const isJiraAdmin = async (): Promise<boolean> => {
 };
 resolver.define('getRules', async () => {
   const overrides = await loadSeverityOverrides(store);
-  return { canEdit: await isJiraAdmin(), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]) })) };
+  const outcomes = await loadOutcomes(store);
+  return { canEdit: await isJiraAdmin(), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 })) };
 });
 resolver.define('setRuleSeverity', async ({ payload }: Req<{ ruleId?: string; severity?: string }>) => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change a rule severity.' };
@@ -308,7 +312,8 @@ interface OverviewCtx { extension?: { project?: { key?: string } } }
 overviewResolver.define('getOverview', async ({ context }: { context?: OverviewCtx }) => {
   const deps = makeDeps();
   try {
-    return await runOverview(context?.extension?.project?.key, {
+    const projectKey = context?.extension?.project?.key;
+    const out = await runOverview(projectKey, {
       ...deps,
       searchIssues: async (jql, limit) => {
         const res = await api.asUser().requestJira(route`/rest/api/3/search/jql?jql=${jql}&fields=summary&maxResults=${limit}`);
@@ -316,6 +321,7 @@ overviewResolver.define('getOverview', async ({ context }: { context?: OverviewC
         return (((await res.json()) as { issues?: { key: string; fields?: { summary?: string } }[] }).issues ?? []).map((i) => ({ key: i.key, summary: i.fields?.summary }));
       },
     });
+    return out.status === 'ready' && projectKey ? { ...out, drift: await loadDrift(store, projectKey) } : out;
   } catch (e) {
     if (needsConsent(e)) throw e;
     const status = (e as { status?: number } | null)?.status;
@@ -353,4 +359,45 @@ export const bylineProps = async (arg: unknown, ctx?: unknown) => {
     const pageId = pageIdOf(arg) || pageIdOf((arg as { payload?: unknown } | undefined)?.payload) || pageIdOf(ctx);
     return { ...base, title: bylineTitle(await runPageCheck(pageId)) };
   } catch { return base; }
+};
+
+// ---- Soft gate: a status change to Done with an open blocker leaves one notice comment. Works in every project type and never blocks. ----
+const postCommentAsApp = async (key: string, text: string) => {
+  const res = await api.asApp().requestJira(route`/rest/api/3/issue/${key}/comment`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ body: { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] } }),
+  });
+  if (!res.ok) throw new Error(`comment failed (HTTP ${res.status})`);
+};
+
+export const statusWatch = async (event: SoftGateEvent) => {
+  if (process.env.SAME_PAGE_KILL === '1') return;
+  try {
+    const out = await runSoftGate(event, {
+      store,
+      postComment: postCommentAsApp,
+      blockers: async (issueKey) => {
+        const model = filterModelByTriage(withSeverities(await buildPanelModel(issueKey, appDeps()) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as { status?: string; findings?: { id: string; ruleId: string; severity: string }[] };
+        if (model.status === 'unchecked' || model.status === 'error') return null;
+        return (model.findings ?? []).filter((f) => f.severity === 'block').map((f) => ({ id: f.id, ruleId: f.ruleId }));
+      },
+    });
+    console.log(`same-page soft gate ${event?.issue?.key ?? '?'}: ${out}`);
+  } catch (e) { console.log(`same-page soft gate: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`); }
+};
+
+// ---- Weekly drift scan, as the app. Keeps counts and keys per project; the overview page shows the latest. ----
+export const driftScan = async () => {
+  if (process.env.SAME_PAGE_KILL === '1') return;
+  try {
+    const snap = await runDriftScan({
+      ...appDeps(),
+      searchIssues: async (jql, limit) => {
+        const res = await api.asApp().requestJira(route`/rest/api/3/search/jql?jql=${jql}&fields=summary&maxResults=${limit}`);
+        if (!res.ok) throw new Error(`search failed (HTTP ${res.status})`);
+        return (((await res.json()) as { issues?: { key: string; fields?: { summary?: string } }[] }).issues ?? []).map((i) => ({ key: i.key, summary: i.fields?.summary }));
+      },
+    }, store);
+    console.log(`same-page drift scan: ${snap.scanned} items, ${snap.notChecked} not checked`);
+  } catch (e) { console.log(`same-page drift scan: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`); }
 };

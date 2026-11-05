@@ -29,8 +29,8 @@ const spanOf = (line: string | undefined, want: (version: string) => boolean): S
 
 export type PanelModel =
   | { issueKey: string; status: 'unchecked'; reason: string; message?: undefined }
-  | { issueKey: string; status: 'clean'; pagesChecked: number; pageTitles?: string[]; hidden?: number }
-  | { issueKey: string; status: 'findings' | 'notes'; verdict: Verdict; pagesChecked: number; pageTitles?: string[]; findings: PanelFinding[]; notes: PanelFinding[]; hidden?: number; noisyRules?: NoisyRule[] }
+  | { issueKey: string; status: 'clean'; pagesChecked: number; pageTitles?: string[]; hidden?: number; skippedRules?: string[] }
+  | { issueKey: string; status: 'findings' | 'notes'; verdict: Verdict; pagesChecked: number; pageTitles?: string[]; findings: PanelFinding[]; notes: PanelFinding[]; hidden?: number; noisyRules?: NoisyRule[]; skippedRules?: string[] }
   | { issueKey?: string; status: 'error'; message: string };
 
 /** What buildPanelModel needs from Atlassian (and from fakes in tests). */
@@ -40,7 +40,7 @@ export type PanelDeps = Pick<AtlassianDeps, 'loadIssue' | 'getTransition' | 'get
 interface IssueCheck {
   status: 'unchecked' | 'clean' | 'notes' | 'findings';
   reason?: string; pagesChecked?: number;
-  findings: Finding[]; pages: Page[]; workItem: WorkItem;
+  findings: Finding[]; pages: Page[]; workItem: WorkItem; skippedRules?: string[];
 }
 
 // What the issue panel shows for one issue. Pure data in, plain view model out, so the UI stays thin and this stays testable.
@@ -55,7 +55,7 @@ export async function buildPanelModel(issueKey: string, deps: PanelDeps, { llm }
   const item = (await checkIssue(issue, run as never)) as unknown as IssueCheck;
   if (item.status === 'unchecked') return { issueKey, status: 'unchecked', reason: item.reason ?? '' };
   const pageTitles = (item.pages ?? []).map((p) => String(p.title ?? '')).filter(Boolean).slice(0, 8);
-  if (item.status === 'clean') return { issueKey, status: 'clean', pagesChecked: item.pagesChecked ?? 0, pageTitles };
+  if (item.status === 'clean') return { issueKey, status: 'clean', pagesChecked: item.pagesChecked ?? 0, pageTitles, ...(item.skippedRules?.length ? { skippedRules: item.skippedRules } : {}) };
 
   const pageById: Record<string, Page> = Object.fromEntries(item.pages.map((p) => [String(p.id), p]));
   const view: PanelFinding[] = [];
@@ -69,6 +69,11 @@ export async function buildPanelModel(issueKey: string, deps: PanelDeps, { llm }
         ? { before: p.before, after: p.after, method: p.method, note: p.note, pageId: p.pageId, line: p.line, target, beforeHighlight: spanOf(p.before, (v) => v !== target), afterHighlight: spanOf(p.after, (v) => v === target) }
         : { unavailable: p.reason };
     }
+    if (f.evidence.fact) {
+      // For a number or a date Same Page cannot tell which side is right, so it never offers Apply: it names both ways to resolve it.
+      const fact = f.evidence.fact;
+      suggestion = { unavailable: `Same Page cannot tell which side is right. If the work item is right, change the page to say ${fact.ticketValue} instead of ${fact.pageValue}. If the page is right, update the work item.` };
+    }
     const snippet = f.evidence.page?.snippet;
     const op = f.evidence.spec?.opText;
     const docHighlight = f.ruleId === 'R1_VERSION_MISMATCH' ? spanOf(snippet, (v) => v !== target)
@@ -78,7 +83,7 @@ export async function buildPanelModel(issueKey: string, deps: PanelDeps, { llm }
     view.push({
       id: fingerprint(f), ruleId: f.ruleId, severity: f.severity, summary: f.summary, why: f.why, foundBecause: f.foundBecause,
       pageId: f.pageId, pageTitle: f.pageTitle,
-      evidence: { docLine: f.evidence.page?.snippet, docHighlight, moreStale: f.evidence.page?.moreStale, sourceLabel: other ? 'Other page says' : spec ? 'Spec says' : 'Jira says', docModifiedAt: f.evidence.page?.modifiedAt, ticket: other ? `"${other.pageTitle ?? 'another page'}" says: ${other.snippet}` : f.evidence.cited ? `${f.evidence.cited.key} is ${f.evidence.cited.status} in Jira` : spec ? `The API spec "${spec.title ?? 'spec'}" ${spec.detail}` : ticketLine(issueKey, f.evidence.workItem), ticketChangedAt: f.evidence.workItem?.statusChangedAt, ticketChangedBy: f.evidence.workItem?.statusChangedBy ?? null },
+      evidence: { docLine: f.evidence.page?.snippet, docHighlight, moreStale: f.evidence.page?.moreStale, sourceLabel: other ? 'Other page says' : spec ? 'Spec says' : 'Jira says', docModifiedAt: f.evidence.page?.modifiedAt, ticket: f.evidence.fact ? `${issueKey} says: ${f.evidence.fact.ticketLine.slice(0, 200)}` : other ? `"${other.pageTitle ?? 'another page'}" says: ${other.snippet}` : f.evidence.cited ? `${f.evidence.cited.key} is ${f.evidence.cited.status} in Jira` : spec ? `The API spec "${spec.title ?? 'spec'}" ${spec.detail}` : ticketLine(issueKey, f.evidence.workItem), ticketChangedAt: f.evidence.workItem?.statusChangedAt, ticketChangedBy: f.evidence.workItem?.statusChangedBy ?? null },
       suggestion,
     });
   }
@@ -89,6 +94,7 @@ export async function buildPanelModel(issueKey: string, deps: PanelDeps, { llm }
     verdict: real.some((v) => v.severity === 'block') ? 'BLOCKED' : real.length ? 'WARN' : 'PASS',
     pagesChecked: item.pages.length,
     pageTitles,
+    ...(item.skippedRules?.length ? { skippedRules: item.skippedRules } : {}),
     findings: real,
     notes: view.filter((v) => v.severity === 'info'),
   };

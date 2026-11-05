@@ -9,7 +9,7 @@ const invoke = <T,>(name: string, payload?: Record<string, unknown>): Promise<T>
 // Thin view over the model built by the resolver. Native UI Kit only; props checked against @forge/react 11.17 types.
 const TONE: Record<string, 'removed' | 'moved' | 'default'> = { block: 'removed', warn: 'moved', info: 'default' };
 const LABEL: Record<string, string> = { block: 'Blocker', warn: 'Warning', info: 'Note' };
-const ruleShort = (id: string) => { const m = /^R(\d)_/.exec(id); const names: Record<string, string> = { '1': 'Stale version', '2': 'Deprecated decision', '3': 'Missing field', '4': 'Stale status claim', '5': 'API spec mismatch', '6': 'Closed ticket cited as open', '7': 'Pages disagree' }; return m ? `R${m[1]} ${names[m[1]!] ?? ''}`.trim() : 'Rule'; };
+const ruleShort = (id: string) => { const m = /^R(\d+)_/.exec(id); const names: Record<string, string> = { '8': 'Duration differs', '9': 'Limit or port differs', '10': 'Date differs', '1': 'Stale version', '2': 'Deprecated decision', '3': 'Missing field', '4': 'Stale status claim', '5': 'API spec mismatch', '6': 'Closed ticket cited as open', '7': 'Pages disagree' }; return m ? `R${m[1]} ${names[m[1]!] ?? ''}`.trim() : 'Rule'; };
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : 'an unknown date');
 
 type TaskState = { status: 'creating' } | { status: 'done'; key: string } | { status: 'error'; message: string };
@@ -52,7 +52,7 @@ const BeforeAfter = ({ s, done }: { s: NonNullable<PanelFinding['suggestion']>; 
   </Stack>
 );
 
-type RuleRow = { ruleId: string; short: string; name: string; checks: string; pain: string; severity: 'block' | 'warn'; changed: boolean };
+type RuleRow = { ruleId: string; short: string; name: string; checks: string; pain: string; severity: 'block' | 'warn'; changed: boolean; dismissed?: number; acted?: number };
 type RulesReply = { canEdit: boolean; rules: RuleRow[] };
 
 // The rule set, visible even when nothing is found. A Jira administrator can move a rule between Blocker and Warning;
@@ -76,7 +76,7 @@ const RulesList = () => {
   const { data } = view;
   return (
     <Stack space="space.100">
-      <Heading size="xsmall">The seven rules</Heading>
+      <Heading size="xsmall">The ten rules</Heading>
       <Text>{data.canEdit ? 'Blockers can stop a Jira transition when the validator is attached. You are a Jira administrator, so you can move a rule between Blocker and Warning.' : 'Blockers can stop a Jira transition when the validator is attached. Only a Jira administrator can change a severity.'}</Text>
       {data.rules.map((r) => (
         <Stack key={r.ruleId} space="space.050">
@@ -86,6 +86,7 @@ const RulesList = () => {
             {data.canEdit ? <Button onClick={() => change(r, r.severity === 'block' ? 'warn' : 'block')}>{r.severity === 'block' ? 'Make it a warning' : 'Make it a blocker'}</Button> : null}
           </Inline>
           <Text>{`${r.checks} ${r.pain}`}</Text>
+          {(r.dismissed ?? 0) + (r.acted ?? 0) > 0 ? <Text>{`On this site: acted on ${r.acted ?? 0}, dismissed ${r.dismissed ?? 0}.`}</Text> : null}
         </Stack>
       ))}
       {view.note ? <SectionMessage appearance="warning"><Text>{view.note}</Text></SectionMessage> : null}
@@ -94,11 +95,37 @@ const RulesList = () => {
   );
 };
 
+// A version can be set from here when R1 could not run. Optional: the number, limit and date rules (R8 to R10) need no version.
+const TargetForm = ({ onSaved }: { onSaved: () => void }) => {
+  const [v, setV] = useState('');
+  const [st, setSt] = useState<{ status: 'idle' | 'working' } | { status: 'error'; message: string }>({ status: 'idle' });
+  const save = async () => {
+    setSt({ status: 'working' });
+    try {
+      const r = await invoke<ActionReply>('setTargetVersion', { version: v });
+      if (r?.ok === false) { setSt({ status: 'error', message: r.reason ?? 'Not saved.' }); return; }
+      onSaved();
+    } catch (e) { setSt({ status: 'error', message: (e as Error)?.message ?? 'Unknown error.' }); }
+  };
+  return (
+    <Stack space="space.050">
+      <Inline space="space.100" alignBlock="center">
+        <Textfield placeholder="Target API version, for example v2" value={v} onChange={(e) => setV(e.target.value)} />
+        <Button isDisabled={!v.trim() || st.status === 'working'} onClick={save}>{st.status === 'working' ? 'Saving…' : 'Save target version'}</Button>
+      </Inline>
+      {st.status === 'error' ? <SectionMessage appearance="error" title="Not saved">{st.message}</SectionMessage> : null}
+    </Stack>
+  );
+};
+
 // The trust layer: what was read and which rules ran, always shown, in the same place whether or not anything was found.
-const Checked = ({ titles, count, found }: { titles?: string[]; count: number; found: number }) => (
+// Rules that could not run on this work item are named, so a result is never read as a full check when it was not.
+const Checked = ({ titles, count, found, skipped, onSaved }: { titles?: string[]; count: number; found: number; skipped?: string[]; onSaved?: () => void }) => (
   <Stack space="space.100">
     <Heading size="xsmall">What Same Page checked</Heading>
-    <Text>{`Read ${count} linked page${count === 1 ? '' : 's'}${titles?.length ? ` (${titles.join(', ')})` : ''}, ran 7 rules, found ${found} contradiction${found === 1 ? '' : 's'}.`}</Text>
+    <Text>{`Read ${count} linked page${count === 1 ? '' : 's'}${titles?.length ? ` (${titles.join(', ')})` : ''}, ran ${10 - (skipped?.length ? (skipped[0]!.includes('R4') ? 2 : 1) : 0)} of 10 rules, found ${found} contradiction${found === 1 ? '' : 's'}.`}</Text>
+    {skipped?.length ? <Text>{`Did not run: ${skipped.join('; ')}.`}</Text> : null}
+    {skipped?.some((x) => /target version/.test(x)) && onSaved ? <TargetForm onSaved={onSaved} /> : null}
     <Text>Rules only, no AI in detection, so every finding can be explained and repeated.</Text>
     <RulesList />
   </Stack>
@@ -319,7 +346,7 @@ const App = () => {
   if (m.status === 'clean') return (
     <Stack space="space.100">
       <SectionMessage appearance="success" title="Same page">{`No contradictions found across ${m.pagesChecked} linked page${m.pagesChecked === 1 ? '' : 's'}.${m.hidden ? ` ${m.hidden} finding(s) hidden by snooze or dismissal.` : ''}`}</SectionMessage>
-      <Checked titles={m.pageTitles} count={m.pagesChecked} found={0} />
+      <Checked titles={m.pageTitles} count={m.pagesChecked} found={0} skipped={m.skippedRules} onSaved={load} />
       <Button onClick={load}>Check again</Button>
       <AuditTrail />
     </Stack>
@@ -333,7 +360,7 @@ const App = () => {
     <Stack space="space.200">
       <Heading size="small">{m.status === 'findings' ? `${m.findings.length} contradiction(s) found` : 'Possible history, worth a look'}</Heading>
       {m.status === 'findings' ? <Text>{hasFix ? 'Start with the first one: it has a verified edit you can apply in one click. Then decide on the rest.' : 'Start with the first one. None has an automatic edit, so open the page or create a review task.'}</Text> : null}
-      <Checked titles={m.pageTitles} count={m.pagesChecked} found={m.findings.length} />
+      <Checked titles={m.pageTitles} count={m.pagesChecked} found={m.findings.length} skipped={m.skippedRules} onSaved={load} />
       {m.hidden ? <Text>{`${m.hidden} more finding(s) hidden by snooze or dismissal.`}</Text> : null}
       {(m.noisyRules ?? []).map((n) => <Text key={n.ruleId}>{n.message}</Text>)}
       {[...ordered, ...(m.notes ?? [])].map((f, i) => (<Finding key={f.id} first={i === 0 && m.status === 'findings'} f={f} task={tasks[f.id]} onCreateTask={createTask} act={acts[f.id]} onApply={apply} onSnooze={snooze} onDismiss={dismissIt} />))}

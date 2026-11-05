@@ -87,7 +87,7 @@ export interface NoisyRule { ruleId: string; dismissed: number; total?: number; 
 const OUTCOMES_KEY = 'noise:outcomes';
 const MAX_COUNT = 1000;
 
-const readOutcomes = async (store: OutcomeStore): Promise<Outcomes> => {
+export const loadOutcomes = async (store: OutcomeStore): Promise<Outcomes> => {
   const raw = (await store.get(OUTCOMES_KEY)) as Outcomes | null | undefined;
   return raw && typeof raw === 'object' ? raw : {};
 };
@@ -96,7 +96,7 @@ const readOutcomes = async (store: OutcomeStore): Promise<Outcomes> => {
 export async function recordOutcome(store: OutcomeStore, ruleId: string | undefined, outcome: 'dismissed' | 'acted'): Promise<void> {
   if (!ruleId) return;
   try {
-    const all = await readOutcomes(store);
+    const all = await loadOutcomes(store);
     const cur = all[ruleId] ?? { dismissed: 0, acted: 0 };
     await store.set(OUTCOMES_KEY, { ...all, [ruleId]: { ...cur, [outcome]: Math.min(MAX_COUNT, (Number(cur[outcome]) || 0) + 1) } });
   } catch { /* never break the caller */ }
@@ -105,7 +105,7 @@ export async function recordOutcome(store: OutcomeStore, ruleId: string | undefi
 /** Rules the existing detector calls noisy (ruleNoise defaults), with the wording the panel shows. Empty when there is no data. */
 export async function loadNoisyRules(store: OutcomeStore): Promise<NoisyRule[]> {
   try {
-    const all = await readOutcomes(store);
+    const all = await loadOutcomes(store);
     const history = Object.entries(all).slice(0, 50).flatMap(([ruleId, c]) => [
       ...Array.from({ length: Math.min(MAX_COUNT, Math.max(0, Math.floor(Number(c?.dismissed) || 0))) }, () => ({ ruleId, outcome: 'dismissed' as const })),
       ...Array.from({ length: Math.min(MAX_COUNT, Math.max(0, Math.floor(Number(c?.acted) || 0))) }, () => ({ ruleId, outcome: 'acted' as const })),

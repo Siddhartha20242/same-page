@@ -109,8 +109,8 @@ test('panel model for the demo scenario: R1 with a verified suggestion, R2 with 
 test('panel model explains why it cannot check, instead of showing an empty panel', async () => {
   const { deps } = fakeSite({ '/rest/api/3/issue/PAY-1?fields=': { key: 'PAY-1', fields: { summary: 'Improve search', status: { name: 'To Do' }, components: [] } } });
   const m = await buildPanelModel('PAY-1', deps);
-  assert.equal(m.status, 'unchecked');
-  assert.match(m.status === 'unchecked' ? m.reason : '', /no target version/);
+  assert.equal(m.status, 'clean');                                       // no version no longer stops the check, but the panel says what was skipped
+  assert.match(m.status === 'clean' ? (m.skippedRules?.[0] ?? '') : '', /names no target version/);
 });
 
 test('a linked page that search did not return is still checked, and an unreadable one is reported', async () => {

@@ -42,7 +42,7 @@ test('check_issue_docs returns evidence, a verified edit and the data-not-instru
 test('an unchecked issue says why, never "all clear"', async () => {
   const r = await docs({ issueKey: 'PAY-2' }, site());
   assert.equal(r.status, 'unchecked');
-  assert.match(must(r.reason), /no target version/);
+  assert.match(must(r.reason), /no related Confluence page/);
 });
 
 test('quoted wiki text is flattened, capped and defanged before it reaches an agent', () => {
@@ -77,4 +77,24 @@ test('scan_issues reports coverage and what it could not check', async () => {
 test('a scan that runs out of budget lists the unreached issues as unchecked instead of dropping them', async () => {
   const r = await scan({ issueKeys: ['PAY-1', 'PAY-2'] }, site(), { maxRequests: 10 });   // budget fits only the first issue
   assert.ok(must(r.issues).some((i) => /not reached/.test(i.reason ?? '')));
+});
+
+import { projectBrief, listRules } from '../src/tools.ts';
+
+test('project brief: a verdict per open item, what could not be checked, and no raw page text', async () => {
+  const s = site();
+  const r = await projectBrief({ projectKey: 'PAY' }, {
+    ...s,
+    searchIssues: async () => [{ key: 'PAY-1', summary: 'Migrate Payment API to v2' }, { key: 'PAY-2', summary: 'Improve search' }],
+  } as never) as { status: string; counts?: { withContradictions: number }; items?: { issueKey: string; verdict: string }[]; notice?: string };
+  assert.equal(r.status, 'ready');
+  assert.equal(r.items?.find((i) => i.issueKey === 'PAY-1')?.verdict, 'Blocked');
+  assert.ok(r.notice);
+  assert.equal((await projectBrief({ projectKey: 'PAY" OR 1=1' }, { ...s, searchIssues: async () => [] } as never) as { status: string }).status, 'error');
+});
+
+test('list rules names all ten with a default severity', () => {
+  const r = listRules();
+  assert.equal(r.rules.length, 10);
+  assert.ok(r.rules.every((x) => x.defaultSeverity === 'block' || x.defaultSeverity === 'warn'));
 });

@@ -73,13 +73,13 @@ console.log(`${project}: page bodies read ${scanned}, pages kept ${pages.size}`)
 const issues = new Map();
 async function issue(key) {
   if (issues.has(key)) return issues.get(key);
-  const it = await get(`${JIRA}/issue/${key}?fields=summary,status,resolutiondate,fixVersions,components&expand=changelog`);
+  const it = await get(`${JIRA}/issue/${key}?fields=summary,description,status,resolutiondate,fixVersions,components&expand=changelog`);
   let out = null;
   if (it?.fields) {
     const cat = it.fields.status?.statusCategory?.key;
     const t = lastStatusTransition(it.changelog?.histories ?? []);
     out = {
-      key, summary: it.fields.summary, rawStatus: it.fields.status?.name,
+      key, summary: it.fields.summary, description: typeof it.fields.description === 'string' ? it.fields.description.slice(0, 4000) : '', rawStatus: it.fields.status?.name,
       status: cat === 'done' ? 'Done' : cat === 'new' ? 'To Do' : 'In Progress',
       fixVersions: (it.fields.fixVersions ?? []).map((v) => v.name), components: (it.fields.components ?? []).map((c) => c.name),
       statusChangedAt: t?.at ?? it.fields.resolutiondate ?? undefined, statusChangedBy: t?.by ?? null,
@@ -106,7 +106,7 @@ for (const p of pages.values()) {
     stats.pairsWithTransition++;
     const older = new Date(p.modifiedAt) < new Date(it.statusChangedAt);
     if (older) stats.pageOlderThanTransition++;
-    const base = { key: k, summary: it.summary, status: it.status, requiredFields: [], fields: {}, components: it.components, fixVersions: it.fixVersions, statusChangedAt: it.statusChangedAt, statusChangedBy: it.statusChangedBy };
+    const base = { key: k, summary: it.summary, text: [it.summary, it.description].filter(Boolean).join('\n'), status: it.status, requiredFields: [], fields: {}, components: it.components, fixVersions: it.fixVersions, statusChangedAt: it.statusChangedAt, statusChangedBy: it.statusChangedBy };
     const fromSummary = deriveTargetVersion(base, { sources: ['component', 'summary'] });
     const fromFix = deriveTargetVersion(base, { sources: ['fixVersion'] });
     if (fromSummary) stats.r1TargetFromSummary++;
