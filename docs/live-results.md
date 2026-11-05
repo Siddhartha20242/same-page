@@ -105,3 +105,11 @@ Observed on a real Jira and Confluence site, in a team-managed project, with a t
 
 Not observed: R9 and R10 on a real site; the project brief and rules list agent actions; the new demo data (this site already held demo state, so seeding resumed instead of recreating); the soft gate in a company-managed project; the Rules tab as a non-administrator; the weekly summary line on the overview page; production.
 The test work item and page remain on the development site.
+
+## 2026-11-06: custom rules, evidence id and handling events (app version 7.16 to 7.17)
+Observed on the same development site, as a Jira administrator, on SCRUM-5:
+- **A bug the live site exposed.** Typing quickly into a text field kept only the last character, because the field was re-rendered from app state on every keystroke. This also affected the dismiss-reason and target-version fields. All text fields are now uncontrolled; after the fix the full text stayed in the three custom-rule fields.
+- **Custom rule, end to end.** The "Your team's rules" form appeared. A rule ("Token docs live test": page says "access tokens" while status is not "Never") was previewed ("On this work item, this rule would raise 1 finding (1 linked page read). Nothing was saved."), saved, and then showed as a second Warning labelled "Custom rule" next to the built-in R8 finding. Empty or too-short input showed a plain error. The rule was then deleted and the list returned to "No team rules yet."
+- **Evidence id.** Each finding in the panel showed "Evidence id: #xxxxxxxx" (for example #a45e3483). The gate refusal carries the same short id; that match is covered by a test, and was not re-run live in this session.
+- **Handling events.** The audit trail read "Chain intact" with "5 sealed entries" and listed the new event types. DISMISSED, SNOOZED and REVIEW_TASK events were not triggered live.
+Not observed: the weekly scan's "resolved" count, the project brief's weekly delta, custom rules in the gate or the soft gate, and a non-administrator seeing the saved rules read-only.
