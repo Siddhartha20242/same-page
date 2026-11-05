@@ -118,7 +118,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 230 tests: 225 pass, 4 skipped (they wait for captured real payloads)
+npm test            # 230 tests: 226 pass, 4 skipped (they wait for captured real payloads)
 npm run typecheck
 ```
 
