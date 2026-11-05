@@ -1,0 +1,34 @@
+{
+  "ranAt": "2026-11-05T15:50:00.066Z",
+  "seed": 1,
+  "stats": {
+    "project": "SPARK",
+    "pages": 1,
+    "pagesScanned": 44,
+    "pairs": 1,
+    "issueReadable": 1,
+    "pairsWithTransition": 1,
+    "pageOlderThanTransition": 0,
+    "r1TargetFromSummary": 0,
+    "r1TargetFromFixVersion": 0,
+    "findings": 0,
+    "byRule": {},
+    "requests": 5,
+    "nonFindingPairs": 1
+  },
+  "findings": [],
+  "nonFindingSample": [
+    {
+      "issue": "SPARK-1043",
+      "jiraStatus": "Resolved",
+      "statusChangedAt": "2014-01-28T21:32:55.844+0000",
+      "issueSummary": "Pyspark RDD's cannot deal with strings greater than 64K bytes.",
+      "page": "PySpark Internals",
+      "pageId": "34837410",
+      "pageModifiedAt": "2016-11-22T14:03:50.000Z",
+      "pageOlder": false,
+      "line": 34,
+      "snippet": "Even with only one serializer, there are still some subtleties here due to how PySpark handles text files. PySpark implements SparkContext.textFile() by directly calling its Java equivalent. This prod"
+    }
+  ]
+}

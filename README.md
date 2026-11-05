@@ -87,9 +87,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 
 ## Limits (please read)
 
-- **No real-world accuracy figure.** Precision and recall of 1.00 are on 30 fixtures written by the authors, which is a regression
-  guard and not a measurement. No real team has used it yet; [docs/pilot-kit.md](docs/pilot-kit.md) is the plan for collecting honest
-  numbers, and [docs/public-data-probe.md](docs/public-data-probe.md) is a small probe on public Apache Kafka data.
+- **No real-world accuracy figure.** Precision and recall of 1.00 are on 30 fixtures written by the authors, which is a regression guard and not a measurement. We also ran the engine on 141 pages from public Apache projects ([docs/public-data-probe.md](docs/public-data-probe.md)): it raised 3 findings, all false positives (0 of 4 with the earlier Kafka run), and in 80 hand-read non-findings we saw no missed contradiction. Public wikis rarely state hard facts, so this shows the engine is quiet there and that its Fix Version and dated-log paths needed care; it is not a pilot. One of the three false positives is fixed (dated log lines are now ignored). No real team has used the app yet; [docs/pilot-kit.md](docs/pilot-kit.md) is the plan for collecting honest numbers.
 - **Verification proves a fix is minimal, not that it is right.** An edit must be version-only and clear the flagged contradiction.
   It does not prove the new version is the correct one, so a human always reviews it.
 - R1 needs a target version on the work item (summary, a component, or set from the panel). Free-form version names are not matched.
@@ -108,7 +106,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      229 tests and the 30-pair fixture set
+test/  fixtures/      230 tests and the 30-pair fixture set
 scripts/              live gate check, receipt verifier, payload capture
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -120,7 +118,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 229 tests: 225 pass, 4 skipped (they wait for captured real payloads)
+npm test            # 230 tests: 225 pass, 4 skipped (they wait for captured real payloads)
 npm run typecheck
 ```
 

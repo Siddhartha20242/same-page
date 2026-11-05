@@ -1,0 +1,18 @@
+{
+  "labelledOn": "2026-11-05",
+  "labeller": "one person, by hand, reading the page line and the issue",
+  "findings": [
+    { "project": "HADOOP", "rule": "R6_CITED_TICKET_CLOSED", "issue": "HDFS-12682", "page": "Hadoop 3 release status updates", "label": "false positive",
+      "reason": "The line sits under the dated 2017-10-31 entry of a status log and says HDFS-12682 'should be in soon'; Jira resolved it on 2017-11-03. It was true when written. The page was edited later (2017-12-15) without touching that entry." },
+    { "project": "CASSANDRA", "rule": "R1_VERSION_MISMATCH (fixVersion opt-in, severity info)", "issue": "CASSANDRA-19918", "page": "CEP-37: Apache Cassandra Unified Repair Solution", "label": "false positive",
+      "reason": "'v1 implementation features' is the first iteration of a proposed feature, not an API version; the target v6 came from a Fix Version (release 6.x). Raised only as an info note." },
+    { "project": "FLINK", "rule": "R1_VERSION_MISMATCH (fixVersion opt-in, severity block)", "issue": "FLINK-38727", "page": "2.3 Release", "label": "false positive",
+      "reason": "'V1 is done, and spilling logic will be optimized later' is a delivery phase in a feature table at 100%; the issue is an unstable-test ticket with Fix Version 2.3.0, and v2 was read from that release number." }
+  ],
+  "nonFindingSamples": {
+    "HADOOP": { "sampled": 20, "true_miss": 0, "unclear": 0 },
+    "CASSANDRA": { "sampled": 20, "true_miss": 0, "unclear": 1, "unclear_items": [ { "issue": "CASSANDRA-18137", "page": "Build Lead", "reason": "Line is a long CI note that mentions the ticket (resolved 2025-09-25, page last edited 2023); the stored 200-character snippet does not show whether it calls the ticket open." } ] },
+    "FLINK": { "sampled": 20, "true_miss": 0, "unclear": 0 },
+    "ZOOKEEPER": { "sampled": 20, "true_miss": 0, "unclear": 1, "unclear_items": [ { "issue": "ZOOKEEPER-1430", "page": "HowToRelease - OUTDATED!", "reason": "Page warns the release process changed and the docs are not updated, linking a ticket closed in 2014. The page contradicts itself rather than the ticket, which no rule defines." } ] }
+  }
+}

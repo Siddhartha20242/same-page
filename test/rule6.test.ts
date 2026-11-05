@@ -59,3 +59,9 @@ test('an unreadable cited ticket is skipped, not fatal, and at most 5 are read',
   assert.ok(['clean', 'notes', 'findings'].includes(out.status));
   assert.ok(reads <= 5);
 });
+
+test('a dated log line is history, not a claim: R6 and R4 stay silent on it', () => {
+  assert.equal(run('2017-10-31: waiting on PAY-9 before we cut the release.', { 'PAY-9': { status: 'Done' } }).length, 0);
+  assert.equal(run('Oct 31 - blocked by PAY-9.', { 'PAY-9': { status: 'Done' } }).length, 0);
+  assert.equal(run('Rollout is blocked by PAY-9 (see 2017-10-31 notes).', { 'PAY-9': { status: 'Done' } }).length, 1);   // a date AFTER the key does not excuse it
+});

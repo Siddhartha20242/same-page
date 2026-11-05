@@ -130,6 +130,8 @@ const NOT_STARTED = /\b(planned|not started|to do|todo|backlog|upcoming|yet to s
 const FINISHED = /\b(done|completed|shipped|released|resolved)\b/i;
 const FINISHED_BEFORE = /\b(shipped|released|completed|delivered|resolved)\s+(?:the\s+)?$/i;
 const NOT_STARTED_STATUSES = ['to do', 'todo', 'backlog', 'open', 'selected for development'];
+// A line that carries a date before the key is a log entry, true when it was written ("2017-10-31: waiting on HDFS-1"). Found on public data.
+const DATED_BEFORE = /(\d{4}-\d{2}-\d{2}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}\b|\b\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|\b\d{1,2}\/\d{1,2}\/\d{2,4}\b)/i;
 const WAS_WORDING = /\b(was|were|originally|previously|formerly|used to|had been)\b/i;
 export const statusClaim: Rule = {
   id: 'R4_STATUS_CLAIM_STALE',
@@ -144,7 +146,7 @@ export const statusClaim: Rule = {
     const keyRe = new RegExp(`(?<![A-Za-z0-9-])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![0-9])`);   // PAY-1 must not match PAY-12
     page.text.split('\n').forEach((line, i) => {
       const at = keyRe.exec(line)?.index ?? -1;
-      if (at < 0) return;
+      if (at < 0 || DATED_BEFORE.test(line.slice(0, at))) return;
       const claim = line.slice(at + key.length, at + key.length + 70);          // the claim must sit right after THIS key, on the same line
       const justBefore = line.slice(Math.max(0, at - 25), at);                  // ...or be a completion verb directly before it ("we shipped PAY-1")
       const says = NOT_STARTED.test(claim) && !NOT_STARTED_STATUSES.includes(status) ? 'not started'
@@ -214,7 +216,7 @@ export const citedTicketClosed: Rule = {
       for (const key of keys) {
         const re = new RegExp(`(?<![A-Za-z0-9-])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![0-9])`);
         const at = re.exec(line)?.index ?? -1;
-        if (at < 0) continue;
+        if (at < 0 || DATED_BEFORE.test(line.slice(0, at))) continue;
         const after = line.slice(at + key.length, at + key.length + 60);
         const before = line.slice(Math.max(0, at - 25), at);
         if (!(OPEN_AFTER.test(after) || OPEN_BEFORE.test(before))) continue;
