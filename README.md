@@ -76,7 +76,7 @@ Notes that may be intentional history (near "rollback", "legacy", "migration", "
    **both** products and accept the consent screens.
 2. Open any Jira work item, then the **apps menu** (puzzle icon under the title) and choose **Same Page**.
 3. Click **Create demo data**. It creates a runbook page, a deprecated decision page, an epic and the links between them.
-4. Open the epic it names. You will see two contradictions with evidence. Click **Apply** on the runbook finding and check the
+4. Open the epic it names. You will see three contradictions with evidence (a stale runbook version, a deprecated decision, and a token expiry that the epic and the runbook state differently). Click **Apply** on the runbook version finding and check the
    Confluence page history: version 2 changes only the flagged line.
 5. Optional, needs a company-managed Jira project and a Jira admin: attach the gate to the Done transition by following
    [docs/gate-setup.md](docs/gate-setup.md), then try to move the epic to Done before fixing the page.
@@ -144,7 +144,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      254 tests and the 30-pair fixture set
+test/  fixtures/      255 tests and the 30-pair fixture set
 scripts/              live gate check, receipt verifier, payload capture
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -156,7 +156,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 254 tests: 250 pass, 4 skipped (see docs/tests.md)
+npm test            # 255 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

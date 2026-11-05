@@ -52,7 +52,7 @@ export function createSeedDeps(request: SeedRequest, siteUrl?: string) {
           }
           return { id: String(page.id) };
         },
-        createIssue: async ({ projectKey: key, type, summary }: { projectKey: string; type: string; summary: string }) => call('jira', '/rest/api/3/issue', { method: 'POST', headers: json, body: JSON.stringify({ fields: { project: { key }, issuetype: { name: type }, summary } }) }, 'Creating the demo epic'),
+        createIssue: async ({ projectKey: key, type, summary, description }: { projectKey: string; type: string; summary: string; description?: string }) => call('jira', '/rest/api/3/issue', { method: 'POST', headers: json, body: JSON.stringify({ fields: { project: { key }, issuetype: { name: type }, summary, ...(description ? { description: { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text: description }] }] } } : {}) } }) }, 'Creating the demo epic'),
         transitionIssue: async (issueKey: string, toName: string) => {
           const { transitions = [] } = await call('jira', `/rest/api/3/issue/${issueKey}/transitions`, undefined, 'Reading transitions');
           const t = transitions.find((x: { to?: { name?: string }; name?: string }) => x.to?.name === toName || x.name === toName);

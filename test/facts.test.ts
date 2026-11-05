@@ -112,3 +112,11 @@ test('a fact finding in the panel offers no Apply and names both ways to resolve
   assert.match(f.evidence.ticket ?? '', /PAY-1 says: Access token expiry should be 1 hour/);
   assert.match(m.skippedRules?.[0] ?? '', /names no target version/);
 });
+
+import { DEMO_EPIC_DESCRIPTION, DEMO_PAGE_HTML } from '../src/seed.ts';
+import { storageToText } from '../src/adapters.ts';
+test('the demo data holds a token-expiry contradiction that R8 finds without any version', () => {
+  const p = pair(DEMO_EPIC_DESCRIPTION, storageToText(DEMO_PAGE_HTML));
+  assert.deepEqual(ids(DEMO_EPIC_DESCRIPTION, storageToText(DEMO_PAGE_HTML)), ['R8_DURATION_DIFFERS']);
+  assert.equal(p.workItem.apiVersion, undefined);
+});

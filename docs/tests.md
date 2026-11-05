@@ -1,6 +1,6 @@
 # What the tests cover
 
-`npm test` runs 254 tests: 250 pass, 4 skipped, 0 fail. Everything runs offline against fakes of the Atlassian APIs.
+`npm test` runs 255 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|
@@ -13,12 +13,8 @@
 | Agent tools, overview, byline | `tools`, `overview`, `platform` | Tool answers, the project overview, the page check. |
 | Demo data | `seeddeps` | Demo creation and resume after a partial failure. |
 
-## The 4 skipped tests
-`test/payloads.test.ts` holds four contract tests that compare the adapters with real captured Atlassian responses
-(`payloads/jira-changelog.json`, `confluence-page.json`, `jira-remotelinks.json`, `confluence-search.json`, created by
-`scripts/capture-payloads.mjs`). They skip when those files are absent, and they are absent from this repository because they
-come from a private site. The same adapters were exercised against real Jira and Confluence sites by hand, and that is logged
-in [live-results.md](live-results.md). The skips are not hiding a known bug.
+## Contract tests against real responses
+`test/payloads.test.ts` checks the adapters against four real, redacted Atlassian responses captured from a live site on 2026-11-06 and kept in `payloads/`: a Jira changelog, a work item's remote links, a Confluence page and a Confluence search. People are replaced with aliases and the site name with a placeholder. The search response holds an empty result list, so it proves the shape only, not how results are read. Re-capture with `scripts/capture-payloads.mjs`.
 
 ## What the tests cannot show
 They do not run inside Forge. The panel rendering, the workflow validator, the byline and the Rovo agent were checked on real

@@ -1,15 +1,17 @@
 // Demo seeding. No backdating: the runbook page is created FIRST, the epic second, and the transition last,
 // so the page's last edit is genuinely older than the transition.
-// It seeds two findings the judge sees at once: R1 (stale runbook) and R2 (deprecated decision, active epic).
+// It seeds three findings the judge sees at once: R1 (stale runbook), R2 (deprecated decision, active epic) and R8 (token expiry: the epic says 1 hour, the runbook says 30 minutes).
 // Every step retries, and a failed run returns its partial state so a re-run (or the "Create demo data"
 // button) resumes instead of duplicating. Seeding can fail partway on a real site; callers must show
 // the failure, never an empty panel with no explanation.
 
 export const DEMO_EPIC_SUMMARY = 'Migrate Payment API to v2';
+export const DEMO_EPIC_DESCRIPTION = 'Access token expiry should be 1 hour';
 export const DEMO_PAGE_TITLE = 'Payment API Runbook (Same Page demo)';
 export const DEMO_PAGE_HTML =
   '<h2>Charging a card</h2><p>Call POST /api/v1/charge with the order id.</p>' +
-  '<p>Escalate to on-call if the call returns 5xx.</p>';
+  '<p>Escalate to on-call if the call returns 5xx.</p>' +
+  '<p>Access tokens expire after 30 minutes.</p>';
 export const DECISION_PAGE_TITLE = 'ADR-12: Route payment events through the legacy queue (Same Page demo)';
 export const DECISION_PAGE_HTML = '<p>Decision: payment events use the legacy queue.</p>';
 
@@ -20,7 +22,7 @@ export type SeedResult =
 
 export interface SeedDeps {
   createPage(a: { title: string; html: string; labels: string[] }): Promise<{ id: string }>;
-  createIssue(a: { projectKey: string; type: string; summary: string }): Promise<{ key: string }>;
+  createIssue(a: { projectKey: string; type: string; summary: string; description?: string }): Promise<{ key: string }>;
   transitionIssue(key: string, toName: string): Promise<void>;
   linkPageToIssue?(issueKey: string, pageId: string): Promise<void>;
   projectKey: string;
@@ -43,7 +45,7 @@ export async function seedDemo({ createPage, createIssue, transitionIssue, linkP
   const state: SeedState = { ...existing };
   const steps: [keyof SeedState, () => Promise<string | boolean>][] = [
     ['runbookId', async () => (await createPage({ title: DEMO_PAGE_TITLE, html: DEMO_PAGE_HTML, labels: [] })).id],
-    ['epicKey', async () => { await sleep(1500); return (await createIssue({ projectKey, type: 'Epic', summary: DEMO_EPIC_SUMMARY })).key; }],
+    ['epicKey', async () => { await sleep(1500); return (await createIssue({ projectKey, type: 'Epic', summary: DEMO_EPIC_SUMMARY, description: DEMO_EPIC_DESCRIPTION })).key; }],
     ['transitioned', async () => { await transitionIssue(state.epicKey as string, 'In Progress'); return true; }],
     ['decisionId', async () => (await createPage({ title: DECISION_PAGE_TITLE, html: DECISION_PAGE_HTML, labels: ['deprecated'] })).id],
   ];

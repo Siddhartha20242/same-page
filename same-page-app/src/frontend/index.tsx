@@ -70,7 +70,7 @@ const RulesList = () => {
       open();
     } catch { setView((v) => (v.phase === 'ready' ? { ...v, note: 'Not changed. Try again.' } : v)); }
   };
-  if (view.phase === 'closed') return <Button onClick={open}>Rules</Button>;
+  if (view.phase === 'closed') return <Button onClick={open}>Show the ten rules</Button>;
   if (view.phase === 'loading') return <Inline space="space.100" alignBlock="center"><Spinner size="small" /><Text>Loading the rules…</Text></Inline>;
   if (view.phase === 'error') return <SectionMessage appearance="error" title="Could not load the rules"><Text>Nothing was changed. Try again in a moment.</Text></SectionMessage>;
   const { data } = view;
@@ -90,7 +90,7 @@ const RulesList = () => {
         </Stack>
       ))}
       {view.note ? <SectionMessage appearance="warning"><Text>{view.note}</Text></SectionMessage> : null}
-      <Button onClick={() => setView({ phase: 'closed' })}>Hide rules</Button>
+      <Button onClick={() => setView({ phase: 'closed' })}>Hide the rules</Button>
     </Stack>
   );
 };
@@ -109,6 +109,7 @@ const TargetForm = ({ onSaved }: { onSaved: () => void }) => {
   };
   return (
     <Stack space="space.050">
+      <Text>Target API version (optional, lets rule R1 run)</Text>
       <Inline space="space.100" alignBlock="center">
         <Textfield placeholder="Target API version, for example v2" value={v} onChange={(e) => setV(e.target.value)} />
         <Button isDisabled={!v.trim() || st.status === 'working'} onClick={save}>{st.status === 'working' ? 'Saving…' : 'Save target version'}</Button>
@@ -159,7 +160,7 @@ const AuditTrail = () => {
     setView({ phase: 'loading' });
     invoke<LedgerView>('ledgerView').then((ledger) => setView({ phase: 'ready', ledger })).catch((e: Error) => setView({ phase: 'error', message: e?.message ?? 'Could not read the audit trail.' }));
   };
-  if (view.phase === 'closed') return <Button onClick={open}>Audit trail</Button>;
+  if (view.phase === 'closed') return <Button onClick={open}>Show the audit trail</Button>;
   if (view.phase === 'loading') return <Inline space="space.100" alignBlock="center"><Spinner /><Text>Verifying the chain…</Text></Inline>;
   if (view.phase === 'error') return <SectionMessage appearance="error" title="Audit trail unavailable">{view.message}</SectionMessage>;
   const l = view.ledger;
@@ -173,7 +174,7 @@ const AuditTrail = () => {
       {l.counts ? <Text>{`Impact on this site so far: ${l.counts.seen} finding(s) shown · ${l.counts.applied} fix(es) applied · ${l.counts.dismissed} dismissed · ${l.counts.snoozed} snoozed · ${l.counts.reviewTasks} review task(s) · ${l.counts.gateBlocks} transition(s) blocked.`}</Text> : null}
       {l.recent.map((e) => <Code key={e.seq}>{`#${e.seq} ${e.ruleId} ${e.issueKey ?? ''}  ${e.prevHash}… → ${e.entryHash}…`}</Code>)}
       <Text>Each applied fix is hashed together with the one before it, so changing or deleting an old entry breaks every hash after it. This detects tampering; it cannot stop someone with access to the app's storage from rewriting the whole chain.</Text>
-      <Button onClick={() => setView({ phase: 'closed' })}>Hide</Button>
+      <Button onClick={() => setView({ phase: 'closed' })}>Hide the audit trail</Button>
     </Stack>
   );
 };
@@ -235,11 +236,12 @@ const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismi
     <Text>{`Why it matters: ${f.why}`}</Text>
     {f.foundBecause?.length ? <Text>{`Found because: ${f.foundBecause.join(', ')}`}</Text> : null}
     <Inline space="space.100" alignBlock="center">
-      <Button onClick={() => onSnooze(f)} isDisabled={busy}>Snooze 7 days</Button>
-      <Button onClick={() => setAsking(!asking)} isDisabled={busy}>Dismiss…</Button>
+      <Button onClick={() => onSnooze(f)} isDisabled={busy}>Snooze for 7 days</Button>
+      <Button onClick={() => setAsking(!asking)} isDisabled={busy}>Dismiss with a reason…</Button>
     </Inline>
     {asking ? (
       <Stack space="space.050">
+        <Text>Reason for dismissing this finding (required)</Text>
         <Textfield placeholder="Why is this not a problem? (required)" value={reason} onChange={(e) => setReason(e.target.value)} />
         <Button appearance="danger" isDisabled={!reason.trim()} onClick={() => onDismiss(f, reason)}>Dismiss with this reason</Button>
       </Stack>
@@ -333,7 +335,7 @@ const App = () => {
         </Stack>
       ) : null}
       {seed.status === 'done' && seed.linked
-        ? <SectionMessage appearance="success" title="Demo data created">{`Open ${seed.epicKey} (the epic it names), then the Same Page panel in its apps menu. You should see 2 contradictions. Start with the runbook one: it has a verified fix you can Apply, and you can then watch the page change in Confluence.`}</SectionMessage>
+        ? <SectionMessage appearance="success" title="Demo data created">{`Open ${seed.epicKey} (the epic it names), then the Same Page panel in its apps menu. You should see 3 contradictions. Start with the runbook version one: it has a verified fix you can Apply, and you can then watch the page change in Confluence. The token expiry one (1 hour against 30 minutes) has no Apply, because Same Page cannot tell which side is right.`}</SectionMessage>
         : (
           <>
             {seed.status === 'done' ? <SectionMessage appearance="warning" title="Demo data created, but the page link failed">{`${seed.linkNote ?? 'The pages were not linked to the epic.'} Click Create demo data again to retry the link.`}</SectionMessage> : null}
@@ -358,7 +360,7 @@ const App = () => {
   const hasFix = ordered.some((f) => f.suggestion?.after);
   return (
     <Stack space="space.200">
-      <Heading size="small">{m.status === 'findings' ? `${m.findings.length} contradiction(s) found` : 'Possible history, worth a look'}</Heading>
+      <Heading size="small">{m.status === 'findings' ? `${m.findings.length} ${m.findings.length === 1 ? 'contradiction' : 'contradictions'} found` : 'Possible history, worth a look'}</Heading>
       {m.status === 'findings' ? <Text>{hasFix ? 'Start with the first one: it has a verified edit you can apply in one click. Then decide on the rest.' : 'Start with the first one. None has an automatic edit, so open the page or create a review task.'}</Text> : null}
       <Checked titles={m.pageTitles} count={m.pagesChecked} found={m.findings.length} skipped={m.skippedRules} onSaved={load} />
       {m.hidden ? <Text>{`${m.hidden} more finding(s) hidden by snooze or dismissal.`}</Text> : null}
