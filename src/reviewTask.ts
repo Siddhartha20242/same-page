@@ -26,7 +26,7 @@ export function buildReviewTask({ issueKey, finding }: { issueKey: string; findi
     `Doc: "${finding.pageTitle}" (last edited ${finding.evidence.docModifiedAt ?? 'unknown'})`,
     // Some rules (a deprecated decision page) have no single quoted line; say nothing rather than print "undefined".
     ...(finding.evidence.docLine ? [`Doc says: ${finding.evidence.docLine}`] : []),
-    `Ticket: ${finding.evidence.ticket}`,
+    `${finding.evidence.sourceLabel === 'Other page says' ? 'Other page' : 'Ticket'}: ${finding.evidence.ticket}`,
     `Why it matters: ${finding.why}`,
   ];
   if (finding.suggestion?.after) lines.push(`Suggested edit: "${finding.suggestion.before}" -> "${finding.suggestion.after}" (${finding.suggestion.note})`);

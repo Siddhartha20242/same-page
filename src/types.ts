@@ -35,6 +35,8 @@ export interface Evidence {
   page?: { id?: string; modifiedAt?: string; line?: number; snippet?: string; labels?: string[]; moreStale?: number };
   /** The other artifact the page was compared with (rule R6): what the API spec says, and the exact text in the page that disagrees. */
   spec?: { title?: string; detail: string; opText: string };
+  /** The other page that states a different version of the same endpoint or API (rule R7): its title and the exact line. */
+  other?: { pageId?: string; pageTitle?: string; line?: number; snippet: string };
   /** A ticket the page mentions (rule R6) and the status Jira reports for it. */
   cited?: { key: string; status: string };
   workItem: { key?: string; apiVersion?: string; statusChangedAt?: string; statusChangedBy?: string | null; status?: string; missingField?: string };

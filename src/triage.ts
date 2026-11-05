@@ -15,7 +15,7 @@ type Fingerprintable = Pick<Finding, 'ruleId' | 'evidence'> & { pageId?: string 
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
-export const fingerprint = (f: Fingerprintable) => sha([f.ruleId, f.pageId ?? f.evidence?.page?.id ?? '', f.evidence?.page?.snippet ?? '', f.evidence?.workItem?.apiVersion ?? '', f.evidence?.workItem?.key ?? ''].join('|'));
+export const fingerprint = (f: Fingerprintable) => sha([f.ruleId, f.pageId ?? f.evidence?.page?.id ?? '', f.evidence?.page?.snippet ?? '', f.evidence?.workItem?.apiVersion ?? '', f.evidence?.workItem?.key ?? '', ...(f.evidence?.other ? [f.evidence.other.snippet] : [])].join('|'));   // R7: a changed line on the OTHER page makes it a new finding
 
 export function dismiss(records: TriageRecords, finding: Fingerprintable, reason: unknown, by: string | undefined, at = new Date().toISOString()): TriageRecords {
   if (!String(reason ?? '').trim()) throw new Error('a reason is required to dismiss a finding');
@@ -72,4 +72,54 @@ export function ruleNoise(history: { ruleId: string; outcome: 'dismissed' | 'act
   return Object.entries(byRule).map(([ruleId, { dismissed, total }]) => ({
     ruleId, samples: total, rate: dismissed / total, noisy: total >= minSamples && dismissed / total >= threshold,
   }));
+}
+
+// ---- dismissal learning ----
+// Per installation, each rule keeps two counters: findings people dismissed, and findings they acted on (Apply or a review task).
+// ruleNoise() above judges them. The result is only ever a calm line in the panel. It must NOT hide findings, lower a severity or
+// suppress anything automatically, least of all a blocker: a rule that is usually wrong can still be right this once, and silent
+// suppression would let a real contradiction through. Only a person, with a reason, dismisses a finding.
+
+export interface OutcomeStore { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<unknown> }
+export type Outcomes = Record<string, { dismissed: number; acted: number }>;
+export interface NoisyRule { ruleId: string; dismissed: number; message: string }
+
+const OUTCOMES_KEY = 'noise:outcomes';
+const MAX_COUNT = 1000;
+
+const readOutcomes = async (store: OutcomeStore): Promise<Outcomes> => {
+  const raw = (await store.get(OUTCOMES_KEY)) as Outcomes | null | undefined;
+  return raw && typeof raw === 'object' ? raw : {};
+};
+
+/** Counts one outcome for a rule. Best effort: a storage problem never breaks the action that called it. */
+export async function recordOutcome(store: OutcomeStore, ruleId: string | undefined, outcome: 'dismissed' | 'acted'): Promise<void> {
+  if (!ruleId) return;
+  try {
+    const all = await readOutcomes(store);
+    const cur = all[ruleId] ?? { dismissed: 0, acted: 0 };
+    await store.set(OUTCOMES_KEY, { ...all, [ruleId]: { ...cur, [outcome]: Math.min(MAX_COUNT, (Number(cur[outcome]) || 0) + 1) } });
+  } catch { /* never break the caller */ }
+}
+
+/** Rules the existing detector calls noisy (ruleNoise defaults), with the wording the panel shows. Empty when there is no data. */
+export async function loadNoisyRules(store: OutcomeStore): Promise<NoisyRule[]> {
+  try {
+    const all = await readOutcomes(store);
+    const history = Object.entries(all).slice(0, 50).flatMap(([ruleId, c]) => [
+      ...Array.from({ length: Math.min(MAX_COUNT, Math.max(0, Math.floor(Number(c?.dismissed) || 0))) }, () => ({ ruleId, outcome: 'dismissed' as const })),
+      ...Array.from({ length: Math.min(MAX_COUNT, Math.max(0, Math.floor(Number(c?.acted) || 0))) }, () => ({ ruleId, outcome: 'acted' as const })),
+    ]);
+    return ruleNoise(history).filter((r) => r.noisy).map((r) => {
+      const dismissed = Math.round(r.rate * r.samples);
+      return { ruleId: r.ruleId, dismissed, message: `Rule ${r.ruleId.split('_')[0]} was dismissed ${dismissed} times on this site. If it is usually wrong for your team, tell us with a reason.` };
+    });
+  } catch { return []; }
+}
+
+/** Adds the hint for noisy rules that appear in this panel. Findings, severities and the verdict are carried through untouched. */
+export function withNoisyRules<M extends { findings?: { ruleId?: string }[]; notes?: { ruleId?: string }[] }>(model: M, noisy: NoisyRule[]): M & { noisyRules?: NoisyRule[] } {
+  const present = new Set([...(model.findings ?? []), ...(model.notes ?? [])].map((f) => f.ruleId));
+  const hints = noisy.filter((n) => present.has(n.ruleId));
+  return hints.length ? { ...model, noisyRules: hints } : model;
 }

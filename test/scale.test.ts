@@ -61,3 +61,11 @@ test('a 200-issue release makes a bounded number of requests per issue and cache
   assert.ok(counts.body <= 5, `page bodies are read once each and cached, not 200 x 5: got ${counts.body}`);
   assert.ok(ms < 5000, `release took ${ms.toFixed(0)} ms`);
 });
+
+test('R7 compares two 50,000-line pages in well under a second, and caps its findings', () => {
+  const big = (v: string, id: string) => ({ id, title: `Big ${id}`, text: Array.from({ length: 50000 }, (_, i) => `Call POST /api/${v}/res${i} now`).join('\n'), modifiedAt: '2026-10-01T00:00:00Z', labels: [] as string[] });
+  const a = big('v1', 'a'); const b = big('v2', 'b');
+  const { out, ms } = timed(() => check({ workItem: { key: 'PAY-1', apiVersion: 'v3', status: 'In Progress', statusChangedAt: '2026-11-02T00:00:00Z' } as never, page: a, siblings: [a, b] }, BUILT_IN_RULES));
+  assert.equal(out.findings.filter((f) => f.ruleId === 'R7_PAGES_DISAGREE').length, 5);
+  assert.ok(ms < 2000, `took ${ms.toFixed(0)} ms`);
+});

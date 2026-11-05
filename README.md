@@ -26,6 +26,7 @@ endpoint. The contradiction was detectable for weeks and nobody checked, because
 | Record | Every Apply is sealed into a hash-chained audit log; the hash is also anchored on the Jira work item. |
 | Guard | After a fix, the page is pinned. If someone edits the old version back in, Same Page comments on the work item. |
 | Gate | A Jira workflow validator refuses the transition with the evidence packet. It fails open on any error. |
+| Overview | A project page, **Same Page overview**, lists the open epics and in-progress work items (up to 20) with a verdict, finding count and the reason for anything it could not check. Read-only. |
 | Agent | A Rovo agent and MCP tools let you ask "do the docs for PAY-1 contradict the ticket?" and get the stored evidence quoted back. |
 
 ### The rules
@@ -38,6 +39,7 @@ endpoint. The contradiction was detectable for weeks and nobody checked, because
 | R4 stale status claim | A page calls a work item "planned" or "shipped" when Jira says otherwise. |
 | R5 spec mismatch | A doc line such as `DELETE /api/v2/charge/42` disagrees with an OpenAPI 3 JSON spec held in a linked page (deprecated is a block, unknown is a warning). |
 | R6 closed ticket | A page treats another ticket as still open ("blocked by PAY-9") but Jira says that ticket is Done or Closed. It only warns and never blocks a transition. |
+| R7 pages disagree | Two linked pages document the same endpoint or API at different versions (`POST /api/v1/charge` vs `/api/v2/charge`, or "Payments API v1" vs "v2") and the ticket cannot settle it: it has no target version, or targets neither. It shows both lines, only warns, and stays silent if the target matches one page (R1 handles that) or the wording is historical. |
 
 Notes that may be intentional history (near "rollback", "legacy", "migration", "deprecated") are listed but never block.
 
@@ -91,11 +93,13 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 - **Verification proves a fix is minimal, not that it is right.** An edit must be version-only and clear the flagged contradiction.
   It does not prove the new version is the correct one, so a human always reviews it.
 - R1 needs a target version on the work item (summary, a component, or set from the panel). Free-form version names are not matched.
+- The Confluence byline finds work items only by Jira keys written in the page text, so a page that is linked from an epic but never names it shows "not checked".
 - R5 reads OpenAPI 3 **JSON** held in a linked Confluence page. It does not read attachments or YAML.
 - The gate works only in **company-managed** projects (Jira does not offer validators in team-managed ones).
 - The audit log is **tamper-evident, not tamper-proof**. It detects rewritten history; it cannot stop someone with storage write
   access from rewriting the whole chain.
 - Third-party MCP clients are untested. The Rovo agent path is verified.
+- A rule that people mostly dismiss (the existing noise detector: at least 5 outcomes, half or more dismissed) adds one calm line to the panel. It never hides findings, changes severity, or suppresses a blocker.
 - Not covered by any rule yet: environment-name mismatches. R6 reads the status of at most 5 tickets a page mentions, by status name only.
 
 ## Architecture
@@ -104,19 +108,19 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      208 tests and the 30-pair fixture set
+test/  fixtures/      229 tests and the 30-pair fixture set
 scripts/              live gate check, receipt verifier, payload capture
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
 
-Forge modules: `jira:issuePanel`, `jira:workflowValidator`, `confluence:contentBylineItem`, `trigger` (pin guard), `action` x2,
+Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, `confluence:contentBylineItem`, `trigger` (pin guard), `action` x2,
 `rovo:agent`, `rovo:mcp`, `llm`. Language: TypeScript (strict), UI Kit native.
 
 ## Run the tests
 
 ```bash
 npm install
-npm test            # 208 tests: 199 pass, 4 skipped (they wait for captured real payloads)
+npm test            # 229 tests: 225 pass, 4 skipped (they wait for captured real payloads)
 npm run typecheck
 ```
 

@@ -1,6 +1,6 @@
 import { applyProposal, buildPageUpdate } from './apply';
 import { storageToText } from './adapters';
-import { dismissById, snoozeById } from './triage';
+import { dismissById, recordOutcome, snoozeById } from './triage';
 import type { TriageRecords } from './triage';
 import type { PanelFinding, PanelModel } from './panelModel';
 import type { PageSource } from './atlassianDeps';
@@ -56,13 +56,15 @@ export async function triageFinding(
   { issueKey, findingId, kind, reason, until, by }: { issueKey: string; findingId?: string; kind: 'dismiss' | 'snooze'; reason?: string; until?: string; by?: string },
   { buildModel, store }: { buildModel(issueKey: string): Promise<PanelModel>; store: KeyValueStore },
 ): Promise<ActionResult> {
-  if (!find(await buildModel(issueKey), findingId)) return { ok: false, reason: 'That finding is no longer present. Refresh the panel.' };
+  const target = find(await buildModel(issueKey), findingId);
+  if (!target) return { ok: false, reason: 'That finding is no longer present. Refresh the panel.' };
   const records = ((await store.get(key(issueKey))) ?? {}) as TriageRecords;
   let next: TriageRecords;
   try {
     next = (kind === 'snooze' ? snoozeById(records, findingId as string, until as string, by) : dismissById(records, findingId as string, reason, by));
   } catch (e) { return { ok: false, reason: e instanceof Error ? e.message : String(e) }; }
   await store.set(key(issueKey), next);
+  if (kind === 'dismiss') await recordOutcome(store, target.ruleId, 'dismissed');       // feeds the calm "noisy rule" line; never hides anything
   return { ok: true };
 }
 

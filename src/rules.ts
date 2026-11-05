@@ -12,7 +12,7 @@ const PHRASE_CONTEXT_RE = /\b(api|endpoint|service|sdk|client|release|protocol)\
 // never silences a live instruction below it.
 const HISTORICAL_RE = /deprecat|migrat|rollback|roll back|legacy|sunset|retire|obsolete|no longer|end[- ]of[- ]life|\beol\b|formerly|previously|superseded|replaced/i;
 
-import type { Finding, Pair, Rule, VersionHit, VersionRef } from './types.ts';
+import type { Finding, Page, Pair, Rule, VersionHit, VersionRef } from './types.ts';
 import { extractOpenApi, judgeOperation, operationsInLine } from './spec.ts';
 
 // Every version reference in one line, as { version: 'v2', index, text, kind }.
@@ -233,4 +233,80 @@ export const citedTicketClosed: Rule = {
   },
 };
 
-export const BUILT_IN_RULES: Rule[] = [versionMismatch, deprecatedDecision, missingRequiredField, statusClaim, specDisagrees, citedTicketClosed];
+// R7: two pages loaded for the same work item document the same endpoint or API at different versions ("POST /api/v1/charge" on one,
+// "POST /api/v2/charge" on the other; "Payments API v1" vs "Payments API v2"). R1 compares each page with the ticket; this compares the
+// pages with EACH OTHER, so it adds information only where R1 cannot decide: the work item has no target version, or its target matches
+// neither page's version. If the target matches one of them, R1 already reports the other page, so R7 stays silent.
+// Silent when unsure: historical lines are ignored, and a page that itself names two versions of the same thing (a migration guide) is skipped.
+// Warn only. It reports a disagreement between documents, not a fact about the ticket, so it must never block a transition.
+// Work is bounded: each page is read once (cached per page object), at most MAX_R7_LINES lines of MAX_R7_LINE chars, MAX_R7_STEMS stems,
+// at most MAX_R7_SIBLINGS other pages, and at most MAX_R7_FINDINGS findings per page.
+const MAX_R7_LINES = 20000; const MAX_R7_LINE = 400; const MAX_R7_STEMS = 500; const MAX_R7_SIBLINGS = 8; const MAX_R7_FINDINGS = 5;
+const VERSION_SEG = /^v(\d+)$/i;
+const NAMED_API = /\b([A-Z][A-Za-z0-9]{2,})\s+(API|Service|SDK)\s+v(\d+)(?:\.\d+)*\b/g;
+interface Surface { stem: string; label: string; versions: Set<string>; line: number; snippet: string }
+const surfaces = new WeakMap<Page, Map<string, Surface>>();
+function surfacesOf(page: Page): Map<string, Surface> {
+  const cached = surfaces.get(page);
+  if (cached) return cached;
+  const found = new Map<string, Surface>();
+  const add = (stem: string, label: string, version: string, line: number, snippet: string) => {
+    const s = found.get(stem);
+    if (s) s.versions.add(version);
+    else if (found.size < MAX_R7_STEMS) found.set(stem, { stem, label, versions: new Set([version]), line, snippet });
+  };
+  const lines = (page.text ?? '').split('\n', MAX_R7_LINES);
+  lines.forEach((raw, i) => {
+    const line = raw.slice(0, MAX_R7_LINE);
+    if (HISTORICAL_RE.test(line)) return;
+    for (const op of operationsInLine(line)) {
+      const parts = op.path.split('/').filter(Boolean);
+      const at = parts.map((p, k) => (VERSION_SEG.test(p) ? k : -1)).filter((k) => k >= 0);
+      if (at.length !== 1 || parts.length < 2) continue;                                  // no version segment, or ambiguous: not comparable
+      const k = at[0] as number;
+      const rest = parts.map((p, j) => (j === k ? '{version}' : /^\d+$/.test(p) || /^\{[^}]+\}$|^:\w+$|^<[^>]+>$/.test(p) ? '{id}' : p.toLowerCase()));
+      add(`${op.method} /${rest.join('/')}`, `${op.method} /${rest.join('/')}`, `v${VERSION_SEG.exec(parts[k] as string)?.[1]}`, i + 1, line.trim());
+    }
+    for (const m of line.matchAll(NAMED_API)) add(`named ${m[1]!.toLowerCase()} ${m[2]!.toLowerCase()}`, `${m[1]} ${m[2]}`, `v${m[3]}`, i + 1, line.trim());
+  });
+  surfaces.set(page, found);
+  return found;
+}
+
+export const pagesDisagree: Rule = {
+  id: 'R7_PAGES_DISAGREE',
+  severity: 'warn',
+  why: 'Two pages about the same work item describe the same API at different versions, and the ticket cannot say which one is right, so a reader may follow either.',
+  run({ workItem, page, siblings }: Pair): Finding[] {
+    if (!siblings || siblings.length < 2) return [];
+    const mine = surfacesOf(page);
+    if (!mine.size) return [];
+    const target = workItem.apiVersion;
+    const out: Finding[] = [];
+    for (const other of siblings.slice(0, MAX_R7_SIBLINGS)) {
+      if (other.id === page.id || String(page.id) > String(other.id)) continue;           // each pair is reported once, by the page with the lower id
+      const theirs = surfacesOf(other);
+      for (const [stem, a] of mine) {
+        const b = theirs.get(stem);
+        if (!b || a.versions.size !== 1 || b.versions.size !== 1) continue;               // a page naming two versions of one thing is ambiguous: stay silent
+        const va = [...a.versions][0] as string; const vb = [...b.versions][0] as string;
+        if (va === vb || (target && (target === va || target === vb))) continue;          // equal, or R1 can already judge the page that disagrees with the ticket
+        out.push({
+          ruleId: this.id,
+          severity: this.severity,
+          why: this.why,
+          summary: `"${page.title}" documents ${va} but "${other.title}" documents ${vb} for ${a.label}${target ? `, and ${workItem.key} targets ${target}` : `; ${workItem.key} has no target version`}`,
+          evidence: {
+            page: { id: page.id, modifiedAt: page.modifiedAt, line: a.line, snippet: a.snippet },
+            other: { pageId: other.id, pageTitle: other.title, line: b.line, snippet: b.snippet },
+            workItem: { key: workItem.key, apiVersion: target },
+          },
+        });
+        if (out.length >= MAX_R7_FINDINGS) return out;
+      }
+    }
+    return out;
+  },
+};
+
+export const BUILT_IN_RULES: Rule[] = [versionMismatch, deprecatedDecision, missingRequiredField, statusClaim, specDisagrees, citedTicketClosed, pagesDisagree];

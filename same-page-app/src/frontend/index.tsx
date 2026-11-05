@@ -292,6 +292,7 @@ const App = () => {
       <Heading size="small">{m.status === 'findings' ? `${m.findings.length} contradiction(s) found` : 'Possible history, worth a look'}</Heading>
       {m.status === 'findings' ? <Text>{hasFix ? 'Start with the first one: it has a verified edit you can apply in one click. Then decide on the rest.' : 'Start with the first one. None has an automatic edit, so open the page or create a review task.'}</Text> : null}
       {m.hidden ? <Text>{`${m.hidden} more finding(s) hidden by snooze or dismissal.`}</Text> : null}
+      {(m.noisyRules ?? []).map((n) => <Text key={n.ruleId}>{n.message}</Text>)}
       {[...ordered, ...(m.notes ?? [])].map((f, i) => (<Finding key={f.id} first={i === 0 && m.status === 'findings'} f={f} task={tasks[f.id]} onCreateTask={createTask} act={acts[f.id]} onApply={apply} onSnooze={snooze} onDismiss={dismissIt} />))}
       <Inline space="space.100" alignBlock="center" shouldWrap>
         <Button onClick={load}>Check again</Button>

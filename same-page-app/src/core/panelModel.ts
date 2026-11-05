@@ -6,8 +6,9 @@ import type { Finding, Issue, Page, Severity, Verdict, WorkItem } from './types'
 import type { Llm } from './propose';
 import type { AtlassianDeps } from './atlassianDeps';
 import type { PanelFinding } from './reviewTask';
+import type { NoisyRule } from './triage';
 
-export type { PanelFinding };
+export type { PanelFinding, NoisyRule };
 
 /** A character range inside a line the panel shows, so it can draw the stale (or fixed) token highlighted. */
 export interface Span { start: number; end: number }
@@ -29,7 +30,7 @@ const spanOf = (line: string | undefined, want: (version: string) => boolean): S
 export type PanelModel =
   | { issueKey: string; status: 'unchecked'; reason: string; message?: undefined }
   | { issueKey: string; status: 'clean'; pagesChecked: number; pageTitles?: string[]; hidden?: number }
-  | { issueKey: string; status: 'findings' | 'notes'; verdict: Verdict; pagesChecked: number; pageTitles?: string[]; findings: PanelFinding[]; notes: PanelFinding[]; hidden?: number }
+  | { issueKey: string; status: 'findings' | 'notes'; verdict: Verdict; pagesChecked: number; pageTitles?: string[]; findings: PanelFinding[]; notes: PanelFinding[]; hidden?: number; noisyRules?: NoisyRule[] }
   | { issueKey?: string; status: 'error'; message: string };
 
 /** What buildPanelModel needs from Atlassian (and from fakes in tests). */
@@ -73,10 +74,11 @@ export async function buildPanelModel(issueKey: string, deps: PanelDeps, { llm }
     const docHighlight = f.ruleId === 'R1_VERSION_MISMATCH' ? spanOf(snippet, (v) => v !== target)
       : op && snippet?.includes(op) ? { start: snippet.indexOf(op), end: snippet.indexOf(op) + op.length } : undefined;
     const spec = f.evidence.spec;
+    const other = f.evidence.other;
     view.push({
       id: fingerprint(f), ruleId: f.ruleId, severity: f.severity, summary: f.summary, why: f.why, foundBecause: f.foundBecause,
       pageId: f.pageId, pageTitle: f.pageTitle,
-      evidence: { docLine: f.evidence.page?.snippet, docHighlight, moreStale: f.evidence.page?.moreStale, sourceLabel: spec ? 'Spec says' : 'Jira says', docModifiedAt: f.evidence.page?.modifiedAt, ticket: f.evidence.cited ? `${f.evidence.cited.key} is ${f.evidence.cited.status} in Jira` : spec ? `The API spec "${spec.title ?? 'spec'}" ${spec.detail}` : ticketLine(issueKey, f.evidence.workItem), ticketChangedAt: f.evidence.workItem?.statusChangedAt, ticketChangedBy: f.evidence.workItem?.statusChangedBy ?? null },
+      evidence: { docLine: f.evidence.page?.snippet, docHighlight, moreStale: f.evidence.page?.moreStale, sourceLabel: other ? 'Other page says' : spec ? 'Spec says' : 'Jira says', docModifiedAt: f.evidence.page?.modifiedAt, ticket: other ? `"${other.pageTitle ?? 'another page'}" says: ${other.snippet}` : f.evidence.cited ? `${f.evidence.cited.key} is ${f.evidence.cited.status} in Jira` : spec ? `The API spec "${spec.title ?? 'spec'}" ${spec.detail}` : ticketLine(issueKey, f.evidence.workItem), ticketChangedAt: f.evidence.workItem?.statusChangedAt, ticketChangedBy: f.evidence.workItem?.statusChangedBy ?? null },
       suggestion,
     });
   }

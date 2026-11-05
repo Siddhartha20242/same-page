@@ -6,7 +6,7 @@ import { buildPanelModel } from './core/panelModel';
 import { buildReviewTask } from './core/reviewTask';
 import { applySuggestion, triageFinding, loadTriage } from './core/panelActions';
 import type { KeyValueStore } from './core/panelActions';
-import { filterModelByTriage } from './core/triage';
+import { filterModelByTriage, loadNoisyRules, recordOutcome, withNoisyRules } from './core/triage';
 import { seedDemo } from './core/seed';
 import { createSeedDeps } from './core/seedDeps';
 import { forgeLlm } from './llm';
@@ -18,6 +18,9 @@ import type { KV } from './core/ledgerStore';
 import type { LedgerEntry } from './core/ledger';
 import { decideTransition, gateKey, snapshotFromModel } from './core/gate';
 import type { CanView } from './core/gate';
+import { runOverview } from './core/overview';
+import { checkPage, bylineTitle } from './core/pageCheck';
+import type { PageCheck } from './core/pageCheck';
 
 // Everything runs AS THE VIEWING USER (asUser), so Jira and Confluence permissions decide what is visible and what can be created.
 // The engine under ./core is a synced copy of the tested code in the repo's ./src (scripts/sync-core.mjs).
@@ -85,7 +88,8 @@ resolver.define('getPanel', async ({ context }: Req) => {
     await markSeen(store, [...(shown.findings ?? []), ...(shown.notes ?? [])].map((f) => f.id));
     const snap = snapshotFromModel(model);
     if (snap) { try { await store.set(gateKey(issueKey), snap); } catch { /* best effort */ } }
-    return model;
+    // Dismissal learning: a calm hint only. Findings, severities and blockers are never hidden or changed because a rule is noisy.
+    return withNoisyRules(model as never, await loadNoisyRules(store));
   } catch (e) {
     if (needsConsent(e)) throw e;
     // Say what happened in plain words; never show an empty panel.
@@ -109,6 +113,7 @@ resolver.define('createReviewTask', async ({ payload, context }: Req<{ findingId
   });
   if (!res.ok) throw new Error(`Jira did not create the task (HTTP ${res.status}).`);
   await bump(store, 'reviewTasks');
+  await recordOutcome(store, (finding as { ruleId?: string }).ruleId, 'acted');
   return { key: ((await res.json()) as { key: string }).key };
 });
 
@@ -122,6 +127,7 @@ resolver.define('applyFix', async ({ payload, context }: Req<{ findingId?: strin
   if (!out.ok) return out;
   await clearGate(issueKey);
   await bump(store, 'applied');
+  await recordOutcome(store, out.ruleId, 'acted');
   // Seal the applied fix into the tamper-evident chain and anchor its hash on the Jira issue. Best effort: the page edit already happened,
   // so a storage hiccup must not turn a successful Apply into an error.
   try {
@@ -273,4 +279,58 @@ export const pageUpdated = async (event: { page?: { id?: string | number }; cont
     onError: (key, e) => console.log(`same-page pin ${key} on page ${pageId}: could not re-check: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`),
   });
   console.log(`same-page pin page ${pageId}: checked ${out.checked}, alerted ${out.alerted}`);
+};
+
+// ---- Jira project overview page (jira:projectPage). Read-only: one JQL search and the same checks as the panel, all as the viewer. ----
+const overviewResolver = new Resolver();
+interface OverviewCtx { extension?: { project?: { key?: string } } }
+
+overviewResolver.define('getOverview', async ({ context }: { context?: OverviewCtx }) => {
+  const deps = makeDeps();
+  try {
+    return await runOverview(context?.extension?.project?.key, {
+      ...deps,
+      searchIssues: async (jql, limit) => {
+        const res = await api.asUser().requestJira(route`/rest/api/3/search/jql?jql=${jql}&fields=summary&maxResults=${limit}`);
+        if (!res.ok) { const e = new Error(`HTTP ${res.status}`) as Error & { status?: number }; e.status = res.status; throw e; }
+        return (((await res.json()) as { issues?: { key: string; fields?: { summary?: string } }[] }).issues ?? []).map((i) => ({ key: i.key, summary: i.fields?.summary }));
+      },
+    });
+  } catch (e) {
+    if (needsConsent(e)) throw e;
+    const status = (e as { status?: number } | null)?.status;
+    return { status: 'error', message: status === 429 ? 'Atlassian is rate limiting this app. Try again in a minute.' : status === 403 || status === 401 ? 'You may not have permission to search this project.' : 'Something went wrong while loading the overview.' };
+  }
+});
+export const overview = overviewResolver.getDefinitions();
+
+// ---- Confluence byline: check the page being viewed against the work items it names. Read-only, as the viewer. ----
+const bylineResolver = new Resolver();
+const pageIdOf = (x: unknown) => String((x as { extension?: { content?: { id?: string | number } } } | undefined)?.extension?.content?.id ?? '');
+const runPageCheck = async (pageId: string): Promise<PageCheck> => {
+  const d = makeDeps();
+  if (!PAGE_ID.test(pageId)) return { status: 'unchecked', reason: 'this item must be opened from a Confluence page' };
+  return checkPage(pageId, { loadPage: (id) => d.getPageBody(id), loadIssue: (k) => d.loadIssue(k), getTransition: (k) => d.getTransition(k) });
+};
+
+bylineResolver.define('pageCheck', async ({ context }: { context?: unknown }) => {
+  try { return await runPageCheck(pageIdOf(context)); } catch (e) {
+    if (needsConsent(e)) throw e;
+    const status = (e as { status?: number } | null)?.status;
+    return { status: 'error', message: status === 429 ? 'Atlassian is rate limiting this app. Try again in a minute.' : status === 403 ? 'You may not have permission to read something this check needs.' : 'Something went wrong while checking this page.' };
+  }
+});
+bylineResolver.define('confluenceCheck', async () => {
+  const r = await api.asUser().requestConfluence(route`/wiki/api/v2/spaces?limit=1`);
+  return { ok: r.ok, status: r.status };
+});
+export const byline = bylineResolver.getDefinitions();
+
+// Sets the byline title shown on the page itself. Any failure (including no consent yet) leaves the plain default title.
+export const bylineProps = async (arg: unknown, ctx?: unknown) => {
+  const base = { title: 'Same Page', tooltip: 'Checked against the Jira work items this page names' };
+  try {
+    const pageId = pageIdOf(arg) || pageIdOf((arg as { payload?: unknown } | undefined)?.payload) || pageIdOf(ctx);
+    return { ...base, title: bylineTitle(await runPageCheck(pageId)) };
+  } catch { return base; }
 };

@@ -12,14 +12,24 @@ modules:
       render: native
       resolver:
         function: panel-resolver
+  jira:projectPage:
+    - key: same-page-overview
+      title: Same Page overview
+      resource: overview
+      render: native
+      resolver:
+        function: overview-resolver
   confluence:contentBylineItem:
     - key: same-page-byline
       title: Same Page
       tooltip: Checked against linked Jira work items
       resource: byline
       render: native
+      viewportContainer: modal
+      dynamicProperties:
+        function: byline-props
       resolver:
-        function: panel-resolver
+        function: byline-resolver
   action:
     - key: check-issue-docs
       name: Check an issue against its docs
@@ -79,6 +89,12 @@ modules:
   function:
     - key: panel-resolver
       handler: index.panel
+    - key: overview-resolver
+      handler: index.overview
+    - key: byline-resolver
+      handler: index.byline
+    - key: byline-props
+      handler: index.bylineProps
     - key: pin-guard-fn
       handler: index.pageUpdated
     - key: gate-validator
@@ -92,6 +108,8 @@ resources:
     path: src/frontend/index.tsx
   - key: byline
     path: src/frontend/byline.tsx
+  - key: overview
+    path: src/frontend/overview.tsx
 permissions:
   scopes:
     - read:jira-work
