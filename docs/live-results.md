@@ -1,0 +1,96 @@
+# What happened on a real Atlassian site (2026-11-05)
+
+First deploy and run on a real dev site (Jira + Confluence, Standard plans). Everything below was observed, not assumed.
+
+## Works, observed live
+- `forge lint`, `forge deploy -e development`, `forge install` on Jira and Confluence.
+- The issue panel (UI Kit native) renders in Jira and calls the resolver. It lives under the work item's **app actions** menu (the puzzle icon under the title), not in the right sidebar.
+- Create demo data: runbook page, deprecated ADR page, epic, status transition, and absolute-URL remote links all created as the viewing user.
+- Detection on live data: R1 (runbook says v1, epic targets v2) and R2 (ADR deprecated, epic In Progress) both fired.
+- Apply: the runbook became Confluence page version 2 with only the flagged line changed (`/api/v1/charge` to `/api/v2/charge`) and the message "Same Page: version fix for SCRUM-2, approved by ...". A re-check then showed only R2.
+- Create review task: a Jira Task with the evidence packet.
+- The pre-ship gate, both ways. A company-managed project (PAY) with the "Same Page contradiction check" rule on its Done transition: moving PAY-1 to Done while the runbook said v1 was REFUSED with HTTP 400 in about 3 s and the evidence message; after Apply fixed the page, the same transition returned 204 and the issue went Done. Server logs: `BLOCK (live)` then `allow (live)`, so reading Confluence as the app works.
+- Model-written fix (Forge LLM, `claude-sonnet-5`): a line the mechanical rewrite refuses (`/api/v1.4/charge`) got an AI-suggested edit labelled as such, passed the same verification, and Apply changed only that token.
+- The approver's display name in the page-version message (needs `read:jira-user`): "approved by <display name>".
+- Snooze 7 days and Dismiss (an empty reason is refused; with a reason the panel says "N finding(s) hidden by snooze or dismissal").
+- `rovo:agent`, `rovo:mcp` and `action` modules are accepted by lint and deploy.
+- Production environment deployed, and installed on a SECOND, fresh site (`forge site provision` demo site, production build): panel, Create demo data, both findings, the proposed fix. That is the judge's experience.
+- The Rovo agent, end to end, on that fresh site: `@Same Page do the docs for MOBL-58 contradict the ticket?` Rovo showed "Invoking tool: Scan several issues for doc contradictions" and "Check an issue against its docs", the production logs show our handlers ran (`scan-issues`, `check-issue-docs` for each key), and the answer said "MOBL-58 has stale documentation, while SPD-1 could not be checked" with the quoted evidence.
+
+## Fixed because of the real site
+| Symptom | Cause | Fix |
+|---|---|---|
+| `TypeScript emitted no output` on deploy | `noEmit: true` in the app tsconfig; Forge's bundler needs output | removed it (type checking still runs with `tsc --noEmit`) |
+| `NEEDS_AUTHENTICATION_ERR` / "Authentication Required" on the first Confluence call, then an endless "Allow access" loop | The Confluence v2 endpoints need GRANULAR scopes; we declared only classic ones. Forge reports the 401 as a consent problem, and consenting never fixes it | added `read:space`, `read:page`, `write:page`, `read:label`, `write:label` (all `:confluence`) |
+| Consent prompt never appeared | resolvers caught the consent error and returned a message | rethrow `NEEDS_AUTHENTICATION_ERR` (`needsConsent` in `src/index.ts` and `src/atlassianDeps.ts`) so the platform can show its prompt |
+| Remote link POST returned HTTP 400 | Jira only accepts ABSOLUTE urls; we sent a path | `createSeedDeps(request, siteUrl)` with the site url from the resolver context |
+| Seed reported success though linking failed, and never retried | link failure was stored as final | retry until `linked === true`; panel says so |
+| "targets n/a (unknown date)" on the R2 card | the ticket line always assumed a target version | text depends on the rule (`ticketLine` in `src/panelModel.ts`) |
+| Review task said "Doc says: undefined" | no quoted line for R2 | line omitted when absent |
+| "approved by <accountId>" | `/rest/api/3/myself` needs `read:jira-user` | scope added (display name expected; not re-checked after the upgrade) |
+
+## Facts worth remembering
+- ANY scope change is a major version: `forge deploy --approve MAJOR_VERSION_RULE`, then `forge install --upgrade -s SITE -p Jira` and `-p Confluence`.
+- Jira and Confluence are separate installations; both must be upgraded.
+- Forge logs: `forge logs -e development`. Nothing is logged unless the code logs it, so the seed wrapper logs every failed call.
+- Workflow validators need a COMPANY-MANAGED project. The demo space here is team-managed (`style: next-gen`), so the gate cannot be attached there.
+- Changing the panel code needs only `forge deploy`; adding a scope also needs the install upgrade.
+
+## More fixes found while verifying
+| Symptom | Fix |
+|---|---|
+| A snoozed or dismissed finding vanished without a trace when other findings remained | the hidden count is now shown with the visible findings |
+| A model-reworded edit could differ between what the panel showed and what Apply wrote | Apply sends the edit the person saw and refuses if the rebuilt edit differs; model answers are also cached 24 h |
+| Forge CLI 15 refused Node 24.14 | needs Node >= 24.22.1 (installed 24.22.2 with nvm and use `nvm use 24.22.2` before any forge command) |
+
+## More facts
+- New module types need an approval too: `llm` triggers MAJOR_VERSION_RULE (deploy with `--approve MAJOR_VERSION_RULE`, then `forge install --upgrade` for Jira and Confluence).
+- A panel loaded in Jira never saw an R1 finding for a page created AFTER the last status change. That is the rule working: R1 needs the page to be older. To stage a stale page, create the page first and move the epic afterwards.
+- Workflow validators: Jira settings > Work items > Workflows > Edit > select the transition > Validate details > add. The rule appears by the manifest `name`, also under "Marketplace rules".
+- Team-managed projects cannot use it; create a company-managed project (`projectTemplateKey: com.pyxis.greenhopper.jira:gh-scrum-template`).
+- The Forge LLM costs money billed to the developer. `src/llm.ts` caps it at 40 calls per day per installation.
+| Demo seed put the epic in the first project it found (a service-desk project cannot hold an Epic; on the demo site it also landed in someone else's "Mobile Dev") | the project the panel is opened in wins when it is a software project; otherwise only software projects are searched |
+
+## Still unverified (from round 1; see round 2 below for what changed)
+- The Atlassian MCP path used by a third-party client (OAuth from, say, Claude.ai against `https://mcp.atlassian.com/forge/<appId>`): needs an org admin to enable external access and a client to authenticate. The same actions work through the Rovo agent.
+- Rovo agents on the original dev site: that org shows no Rovo chat entry. The fresh demo site has Rovo and works.
+- Running the app as someone other than its developer (consent for a second user, a site where the installer is not the app owner).
+- Marketplace listing, privacy policy, terms, install guide, demo video, customer evidence.
+- Distribution: the console says "Not sharing". Set it to Sharing (Edit on the Distribution page) with Jira and Confluence ticked, and fill company, support contact, privacy policy, terms. An app listed on Marketplace can no longer use installation links, so decide before submitting.
+
+---
+
+# Round 2 (2026-11-05, later): the 15 gaps, worked through
+
+Everything below was run on the real dev site, and on a fresh demo site for the production build, unless marked otherwise.
+
+## Done and verified live
+| Gap | What was built | Verified how |
+|---|---|---|
+| Gate leaks page text | the gate asks Confluence whether the PERSON MAKING THE TRANSITION can read each page (permission-check API) and withholds title and line unless the answer is a clear yes; fails closed | blocked message quoted evidence for a reader; the endpoint answered `hasPermission:true` for the owner and 404 for an unknown user; unit tests for no checker, a throwing checker, partial visibility |
+| Evidence was a text list | "Page says / Jira says" columns, the stale token highlighted, a lifecycle bar (Detected, Fix proposed, Applied), "Found by rules - no AI" on every finding | screenshot of the live panel |
+| Stuck first run | "Save target version" form (stored as a Jira issue property the engine reads first), and guidance that depends on what is actually missing | typed v2 on SCRUM-1; property confirmed through the REST API |
+| Messy pages | table cells separated; code-macro text read; Apply edits just the changed token when the line is split by inline formatting (smallest context that matches exactly once, else refuses); a URL may change by its version only | 10 unit tests; a live table-cell Apply changed only that cell |
+| Only three rules | R4 (a page says a work item is planned or shipped while Jira says otherwise) and R5 (a doc line like `DELETE /api/v2/charge/42` against an OpenAPI 3 JSON spec held in a linked page: deprecated operations block, unknown operations warn) | both fired on a live epic; R5 shows the "Spec says" column |
+| Fix one line, the rest vanish | R1 now says how many OTHER lines on the page also name an old version, and the Apply message warns that the page now counts as edited | unit test |
+| Ledger not connected | each Apply is sealed into the hash chain and its hash anchored on the Jira issue (`same-page.lastReceipt`); Audit trail view re-verifies on request; `scripts/verify-receipt.mjs` re-verifies a receipt offline | entries #0 to #3 written live; "Chain intact"; the anchor matched; tampering caught in tests |
+| One-time only | pin guard: after Apply, the page is pinned (a content property on the page); when a pinned page is edited and the old version is back, the app comments on the work item (no page title or text in the comment) | edited a pinned page live; log `checked 1, alerted 1` and the comment appeared |
+| No measured value | per-installation counters (shown, applied, dismissed, snoozed, review tasks, gate blocks) in the Audit trail, plus pilot-kit.md | counters visible live |
+| No scale test | `test/scale.test.ts`: a 3 MB page, pathological text, a 5,000-operation spec against a 5,000-line doc, a 200-issue release with bounded requests | found and fixed a 4.7 s slow path (now 31 ms) |
+| No live testing, no off switch | `scripts/live-gate-check.mjs` (REST-only end-to-end check of the gate), `SAME_PAGE_KILL=1` environment variable that allows every transition, timing in every gate log line | the script parses; it needs an API token to run, so it was NOT run by the assistant |
+| Gate admin help | message says where to look and how to override; gate-setup.md | text verified in a real blocked transition |
+
+## Bugs the real sites exposed this round
+- Forge storage is PER INSTALLATION and Jira and Confluence are separate installations: a value written in Jira (Apply) is invisible to a Confluence trigger. Anything shared between the two must live in a product object (the pin lives on the page).
+- The Confluence v1 content-property endpoint answers the APP with HTTP 410; the v2 properties API works.
+- Content properties need their own scopes (`read:confluence-props`, `write:confluence-props` and the granular names), the permission check needs `read:confluence-content.permission`. Missing scopes surface as "Authentication Required".
+- The validator event carries `user.accountId`; that is what makes a permission-aware message possible.
+- `forge deploy` + two `forge install --upgrade` can take several minutes; run them in the background.
+
+## NOT done, and why
+- **Real-world accuracy and a pilot**: no real team has used it. pilot-kit.md is how to get one. The 1.00 precision is still on fixtures written here.
+- **Team-managed reach (Jira automation action)**: researched, not built. An automation rule runs after the transition, so it could comment or revert but not block, and the action needs its own config screen.
+- **Environment-name rule** and **"linked ticket is closed" rule**: not built (they need data the demo epics do not carry and extra lookups).
+- **Attached files**: R5 reads an OpenAPI JSON spec that is IN a linked Confluence page (a code block). Attachments and YAML are not read.
+- **A decorative "AI phrasing off" switch**: not built on purpose. Detection never calls a model; only an ambiguous line (for example `v1.4`) does, and it is labelled "AI-suggested".
+- **Third-party MCP**: unchanged, unverified. The Rovo agent runs end to end.
