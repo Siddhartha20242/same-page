@@ -28,7 +28,7 @@ const makeDeps = () => createDeps({
   requestConfluence: (path) => api.asUser().requestConfluence(assumeTrustedRoute(path)),
 });
 
-// Triage records live in Forge KVS, one small record per issue. VERIFY the @forge/kvs get/set signatures on a real install.
+// Triage records live in Forge KVS, one small record per issue.
 const store: KeyValueStore = { get: (k) => kvs.get(k), set: (k, v) => kvs.set(k, v) };
 
 // When the user has not yet allowed the app to act for them in a product, Forge throws NEEDS_AUTHENTICATION_ERR. It must NOT be caught
