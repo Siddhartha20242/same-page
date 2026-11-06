@@ -35,7 +35,9 @@ test('the on-call agent says "no contradiction found" is not proof, and the docs
   const oncall = agents.find((a) => a.key === 'same-page-oncall-agent')!;
   assert.match(oncall.prompt, /not that the runbook is correct/i);
   assert.match(oncall.prompt, /could not be checked/i);
-  assert.match(oncall.prompt, /do not add that caveat/i);                 // seen live: the caveat was wrongly added after a contradiction was reported
+  assert.match(oncall.prompt, /do not add that caveat/i);
+  assert.match(oncall.prompt, /what is blocking a work item from Done/i);      // the Rovo "what is blocking this ticket" question
+  assert.ok(agents.find((a) => a.key === 'same-page-oncall-agent')!.conversationStarters.some((c) => /blocking .* from Done/i.test(c)));                 // seen live: the caveat was wrongly added after a contradiction was reported
   const docs = agents.find((a) => a.key === 'same-page-docs-owner-agent')!.prompt;
   assert.match(docs, /Group what the tools return by\s+page/i);
   assert.match(docs, /order the pages/i);                                 // seen live: it grouped by page but did not rank them
