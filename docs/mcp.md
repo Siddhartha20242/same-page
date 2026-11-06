@@ -1,7 +1,7 @@
 # Same Page over MCP
 
 This is a separate surface for a different person: someone in an MCP client such as Claude Code or Cursor who wants to ask
-"do the docs for PAY-1 contradict the ticket?" without opening Jira. It exposes seven read-only tools. It cannot apply a fix,
+"do the docs for PAY-1 contradict the ticket?" without opening Jira. It exposes eight read-only tools. It cannot apply a fix,
 create a task, or change anything.
 
 ## Tools
@@ -13,6 +13,7 @@ create a task, or change anything.
 | `list-rules` | You want to know what Same Page looks for. | none | The ten rules, what each checks and its default severity. |
 | `finding-history` | You want to know what happened to the contradictions on a work item. | `issueKey` | The events in order (first found, dismissed, snoozed, review task, fixed) with the rule and any reason. Never the people involved. |
 | `rule-health` | You want to know how the rules are doing on this site. | none | Each rule's severity, how it was handled, a noisy hint, and the team's own rules. |
+| `canon-check` | You want to know which pages anywhere on the site disagree with a declared fact. | none | The declared facts, the pages and lines that state a different value, and how many pages were read. |
 | `impact-summary` | You want to know what Same Page has done on this site. | none | Counters, and an hours figure only if an administrator set one. |
 
 ## Turn it on (site admin, once)

@@ -138,3 +138,10 @@ test('number words count only right before a unit, and rates and other prose are
   assert.deepEqual(ids('Rate limit is 100 requests a day', 'The rate limit is 100 requests per day.'), []);
   assert.deepEqual(ids('Token expiry is 1 hour', 'One of the pages says tokens expire soon. Only one user can log in.'), []);
 });
+
+test('an audience or environment word anywhere in either line makes them about different things', () => {
+  assert.deepEqual(ids('Access token expiry is 1 hour', 'Access tokens last 2 hours for admin users.'), []);
+  assert.deepEqual(ids('Access token expiry is 1 hour', 'Access tokens expire after 30 minutes in staging.'), []);
+  assert.deepEqual(ids('Access token expiry is 1 hour for admin users', 'Access tokens expire after 30 minutes for admin users.'), ['R8_DURATION_DIFFERS']);
+  assert.deepEqual(ids('Access token expiry is 1 hour', 'Access tokens expire after 30 minutes.'), ['R8_DURATION_DIFFERS']);
+});

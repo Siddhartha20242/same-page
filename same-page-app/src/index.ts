@@ -7,7 +7,7 @@ import { buildReviewTask } from './core/reviewTask';
 import { applySuggestion, triageFinding, loadTriage } from './core/panelActions';
 import type { KeyValueStore } from './core/panelActions';
 import { filterModelByTriage, loadNoisyRules, loadOutcomes, recordOutcome, withNoisyRules } from './core/triage';
-import { seedDemo } from './core/seed';
+import { seedDemo, DEMO_CANON } from './core/seed';
 import { createSeedDeps } from './core/seedDeps';
 import { forgeLlm } from './llm';
 import { appendToStore, headOf, verifyStored } from './core/ledgerStore';
@@ -32,6 +32,8 @@ import { tuningHint } from './core/tuning';
 import { parsePageLink } from './core/linkPage';
 import { loadReviewCounts } from './core/review';
 import { buildPilotReport } from './core/pilotReport';
+import { addCanon, checkCanon, deleteCanon, loadCanon } from './core/canon';
+import { canonDeps } from './canonDeps';
 import { checkPage, bylineTitle } from './core/pageCheck';
 import type { PageCheck } from './core/pageCheck';
 
@@ -201,7 +203,7 @@ resolver.define('getRules', async () => {
   const overrides = await loadSeverityOverrides(store);
   const outcomes = await loadOutcomes(store);
   const reviews = await loadReviewCounts(store);
-  return { canEdit: await isJiraAdmin(), gateMode: toGateMode(await store.get(GATE_MODE_KEY).catch(() => null)), templates: TEMPLATES, custom: await loadCustomDefs(store), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0, markedReal: reviews[r.ruleId]?.real ?? 0, markedFalse: reviews[r.ruleId]?.false ?? 0, hint: tuningHint({ severity: overrides[r.ruleId] ?? r.defaultSeverity, real: reviews[r.ruleId]?.real ?? 0, falseAlarm: reviews[r.ruleId]?.false ?? 0, dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 }) })) };
+  return { canEdit: await isJiraAdmin(), gateMode: toGateMode(await store.get(GATE_MODE_KEY).catch(() => null)), canon: await loadCanon(store), templates: TEMPLATES, custom: await loadCustomDefs(store), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0, markedReal: reviews[r.ruleId]?.real ?? 0, markedFalse: reviews[r.ruleId]?.false ?? 0, hint: tuningHint({ severity: overrides[r.ruleId] ?? r.defaultSeverity, real: reviews[r.ruleId]?.real ?? 0, falseAlarm: reviews[r.ruleId]?.false ?? 0, dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 }) })) };
 });
 resolver.define('setRuleSeverity', async ({ payload }: Req<{ ruleId?: string; severity?: string }>) => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change a rule severity.' };
@@ -230,6 +232,25 @@ resolver.define('pilotReport', async () => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can create the pilot report.' };
   const text = buildPilotReport({ impact: await loadImpact(store as KV), reviews: await loadReviewCounts(store), gateMode: toGateMode(await store.get(GATE_MODE_KEY).catch(() => null)), customRules: (await loadCustomDefs(store)).length, on: new Date().toISOString().slice(0, 10) });
   return { ok: true, text };
+});
+resolver.define('saveCanonFact', async ({ payload }: Req<{ subject?: unknown; value?: unknown }>) => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change the facts.' };
+  const out = await addCanon(store, payload ?? {});
+  return out.ok ? { ok: true } : out;
+});
+resolver.define('deleteCanonFact', async ({ payload }: Req<{ id?: string }>) => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change the facts.' };
+  return deleteCanon(store, String(payload?.id ?? ''));
+});
+// Checks every declared fact against the pages Confluence returns for it, as the person asking. Read-only.
+resolver.define('checkCanon', async () => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can run the site check.' };
+  const facts = await loadCanon(store);
+  if (!facts.length) return { ok: false, reason: 'Add a fact first.' };
+  try {
+    const out = await checkCanon(facts, canonDeps());
+    return { ok: true, ...out };
+  } catch (e) { if (needsConsent(e)) throw e; return { ok: false, reason: 'The check could not finish. Try again.' }; }
 });
 resolver.define('exportCustomRules', async () => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can export custom rules.' };
@@ -333,6 +354,7 @@ resolver.define('seedDemo', async ({ context }: Req) => {
     const existing = ((await store.get('seed:state')) ?? {}) as NonNullable<Parameters<typeof seedDemo>[0]['existing']>;
     const out = await seedDemo({ ...sd.makeDeps(await sd.findPlace(issueKeyOf(context)?.split('-')[0])), existing });
     await store.set('seed:state', out.state);
+    if (out.ok && !(await loadCanon(store)).length) await addCanon(store, DEMO_CANON);      // one declared fact, so the site-wide check has something to show
     return out.ok ? { ok: true, epicKey: out.epicKey, linked: out.state.linked === true, linkNote: out.state.linkNote } : { ok: false, reason: `${out.error} (stopped at: ${out.failedAt}). Click again to resume.` };
   } catch (e) {
     if (needsConsent(e)) throw e;

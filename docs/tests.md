@@ -1,12 +1,13 @@
 # What the tests cover
 
-`npm test` runs 286 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
+`npm test` runs 293 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|
 | Rules and engine | `engine`, `rules2`, `rule6`, `rule7`, `limits`, `messy`, `weakness`, `roast`, `scale` | Each rule fires on its case and stays silent on near misses, dated and historical lines, real-world version formats, batching and rate-limit retries. |
 | Panel, actions, triage | `app`, `actions`, `apply`, `propose`, `noisy`, `metrics`, `release` | The panel model, Apply (re-verified before writing), snooze and dismiss, the noisy-rule hint, counters. |
 | Numbers, dates, descriptions | `facts` | R8 to R10 fire on the review's own example and stay silent on equal values in other units, other subjects, qualifiers, ranges, history and defaults; ADF descriptions become text; the panel shows no Apply for them. |
+| Fact registry | `canon`, `facts` | A declared fact must read as exactly one value; the site-wide check finds disagreeing pages that were never linked, skips history, defaults and other audiences, respects the page and time limits, and its search words keep synonyms such as "lasts" findable. |
 | Custom rules | `custom` | The three templates, plain-text matching, history skipping, input checks, the cap of ten, stable ids, a preview that saves nothing, and the evidence id in a gate refusal. |
 | Handling timeline | `handling` | Events join the same verified chain, record who and why only where a person acted, break the chain if edited, and never throw. |
 | Agent actions and impact | `agents` | The finding history lists events without account ids, rule health shows severity, handling and noisy hints, and the impact figures never invent a time-saved number. |

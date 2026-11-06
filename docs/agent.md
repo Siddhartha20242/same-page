@@ -9,9 +9,9 @@ answers carry the same evidence and are never generated from memory.
 | Same Page | anyone | "Do the docs for PAY-1 contradict the ticket?" | check-issue-docs, scan-issues, project-brief, list-rules |
 | Same Page release check | a release owner | "Is project PAY ready to ship?" | project-brief, scan-issues, check-issue-docs |
 | Same Page audit trail | a compliance or engineering lead | "What happened to the contradictions on PAY-1?" | finding-history, impact-summary, check-issue-docs |
-| Same Page rule coach | a Jira administrator | "Which rules look noisy on this site?" | rule-health, list-rules |
+| Same Page rule coach | a Jira administrator | "Which rules look noisy on this site?", "Which pages disagree about our declared facts?" | rule-health, list-rules, canon-check |
 
-All seven actions are read-only. They return events, rules and counts, never the people involved, and every quoted line is flattened and marked as data.
+All eight actions are read-only. They return events, rules and counts, never the people involved, and every quoted line is flattened and marked as data.
 
 ## How an agent decides to call an action
 Rovo chooses an action from its description and the user's wording. The descriptions in `same-page-app/manifest.yml` say when to use each, for example:

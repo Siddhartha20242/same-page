@@ -1,6 +1,6 @@
 // Demo seeding. No backdating: the runbook page is created FIRST, the epic second, and the transition last,
 // so the page's last edit is genuinely older than the transition.
-// It seeds three findings the judge sees at once: R1 (stale runbook), R2 (deprecated decision, active epic) and R8 (token expiry: the epic says 1 hour, the runbook says 30 minutes).
+// It seeds three findings the judge sees at once (plus one page that is NOT linked, found only by the site-wide fact check): R1 (stale runbook), R2 (deprecated decision, active epic) and R8 (token expiry: the epic says 1 hour, the runbook says 30 minutes).
 // Every step retries, and a failed run returns its partial state so a re-run (or the "Create demo data"
 // button) resumes instead of duplicating. Seeding can fail partway on a real site; callers must show
 // the failure, never an empty panel with no explanation.
@@ -15,7 +15,12 @@ export const DEMO_PAGE_HTML =
 export const DECISION_PAGE_TITLE = 'ADR-12: Route payment events through the legacy queue (Same Page demo)';
 export const DECISION_PAGE_HTML = '<p>Decision: payment events use the legacy queue.</p>';
 
-export interface SeedState { runbookId?: string; epicKey?: string; transitioned?: boolean; decisionId?: string; linked?: boolean; linkNote?: string }
+export const DEMO_GUIDE_TITLE = 'New starter guide (Same Page demo)';
+export const DEMO_GUIDE_HTML = '<p>Welcome. Sign in with your work account.</p><p>Access tokens last 2 hours.</p>';
+/** The fact the demo declares, so "Check the whole site now" finds pages that were never linked to the epic. */
+export const DEMO_CANON = { subject: 'access token expiry', value: '1 hour' };
+
+export interface SeedState { guideId?: string; runbookId?: string; epicKey?: string; transitioned?: boolean; decisionId?: string; linked?: boolean; linkNote?: string }
 export type SeedResult =
   | { ok: true; state: SeedState; pageId: string | undefined; epicKey: string | undefined }
   | { ok: false; failedAt: keyof SeedState; error: string; state: SeedState };
@@ -48,6 +53,7 @@ export async function seedDemo({ createPage, createIssue, transitionIssue, linkP
     ['epicKey', async () => { await sleep(1500); return (await createIssue({ projectKey, type: 'Epic', summary: DEMO_EPIC_SUMMARY, description: DEMO_EPIC_DESCRIPTION })).key; }],
     ['transitioned', async () => { await transitionIssue(state.epicKey as string, 'In Progress'); return true; }],
     ['decisionId', async () => (await createPage({ title: DECISION_PAGE_TITLE, html: DECISION_PAGE_HTML, labels: ['deprecated'] })).id],
+    ['guideId', async () => (await createPage({ title: DEMO_GUIDE_TITLE, html: DEMO_GUIDE_HTML, labels: [] })).id],      // never linked to the epic: only the site-wide fact check finds it
   ];
   for (const [key, run] of steps) {
     if (state[key] !== undefined) continue;

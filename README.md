@@ -6,7 +6,7 @@
 - **What it is:** a Forge app for Jira and Confluence that checks a work item against the pages linked to it.
 - **What is different:** it can refuse a Jira transition (for example to Done) while a blocking contradiction is open, and the refusal shows the proof: the page's own line next to Jira's own field.
 - **No model in detection.** Fixed rules decide, so every finding can be repeated and explained. A person approves every fix.
-- **What it catches:** a stale API version, a deprecated decision, a closed ticket still cited as open, and times, limits and dates that differ, plus rules your own admin adds.
+- **What it catches:** a stale API version, a deprecated decision, a closed ticket still cited as open, and times, limits and dates that differ, plus rules and declared facts your own admin adds, anywhere on the site.
 - **What is proven:** it runs on real Jira and Confluence sites and in Rovo. **What is not:** no real team has used it yet, so its accuracy on real documents is unmeasured. Every finding has real / false-alarm buttons for that.
 - **Try it in five minutes:** see [Try it](#try-it).
 
@@ -60,6 +60,7 @@ Tools such as code-to-docs generators start from the code and use a model to dra
 | Guard | After a fix, the page is pinned. If someone edits the old version back in, Same Page comments on the work item. |
 | Gate (optional) | A Jira workflow validator refuses the transition and names the rule, the page, the next step and a short **evidence id** that is the same id the panel shows for that finding. It fails open on any error. The panel and review tasks work without it. |
 | Your team's rules | A Jira administrator can add up to 10 rules of their own from three fixed templates (a phrase on the page while the status is, or is not, a value; a phrase while the work item has a label or component; a label that needs a phrase). They are plain-text matches, with a preview of what a rule would find on the current work item before it is saved. They run in the panel, the gate, the soft gate, the weekly scan and the agent. Rules can be copied as text and pasted into another site, and every imported rule is checked like a typed one. |
+| Facts everyone should agree on | An administrator declares a fact once ("access token expiry" is "1 hour", "api rate limit" is "100 requests per minute"), and **Check the whole site now** searches Confluence for pages that state it differently. It needs no Jira link, so it reaches pages nobody connected to a work item. It reports and never edits. The same matching as rules R8 to R10: same kind of value, same unit, two shared subject words, and history, dated log lines, examples, defaults and different audiences ("for admin users", "in staging") skipped. |
 | Try the gate safely | An administrator can set the gate to **watch only**: it allows every transition and only counts the ones it would have refused, shown on the overview. Switch to enforcing when the team trusts it. |
 | Pilot report | One button produces a plain-text summary of what Same Page found on a site and what the team marked, with the caveats built in and no page text or names, ready to paste into a message. |
 | Catch it as it happens | Editing a work item's summary or description into a contradiction leaves one notice comment right then, and so does moving it to Done with a blocking one open. Notices name rules and a count, never page text, and never block. |
@@ -68,7 +69,7 @@ Tools such as code-to-docs generators start from the code and use a model to dra
 | Soft gate | When a work item is moved to Done with a blocking contradiction open, Same Page leaves one notice comment on it. It works in every project type, including team-managed ones, and never blocks. |
 | Weekly scan | Once a week the app checks open epics and the project overview shows how many have contradictions and how many are new since the last scan. |
 | Overview | A project page, **Same Page overview**, lists the open epics and in-progress work items (up to 20) with a verdict, finding count and the reason for anything it could not check. Read-only. |
-| Agents | Four read-only Rovo agents for four different people, sharing seven checks that are also exposed as MCP tools: a general one, a **release check** (is project PAY ready to ship?), an **audit trail** agent (what happened to the contradictions on PAY-1?) and a **rule coach** (which rules look noisy on this site?). They answer from the same evidence as the panel and cannot change anything. See [docs/agent.md](docs/agent.md). |
+| Agents | Four read-only Rovo agents for four different people, sharing eight checks that are also exposed as MCP tools: a general one, a **release check** (is project PAY ready to ship?), an **audit trail** agent (what happened to the contradictions on PAY-1?) and a **rule coach** (which rules look noisy on this site?). They answer from the same evidence as the panel and cannot change anything. See [docs/agent.md](docs/agent.md). |
 | Real or false alarm | Every finding in the panel has "Yes, it is real" and "No, false alarm" buttons. The marks are counted per rule and shown on the overview page and to the agents, with a warning while the sample is under 10. This turns normal use into a precision figure. Marking never hides or changes a finding. |
 | Impact on this site | The overview page shows what Same Page has done here: contradictions found, fixed, sent to owners, dismissed, transitions refused. A time-saved figure appears only if a Jira administrator types their own minutes-per-fix estimate. See [docs/impact.md](docs/impact.md). |
 
@@ -145,6 +146,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
   It does not prove the new version is the correct one, so a human always reviews it.
 - R1 needs a target version on the work item (summary, a component, or set from the panel); without one, R1 is skipped and the panel says so, and the other rules still run. Free-form version names are not matched.
 - The Confluence byline finds work items only by Jira keys written in the page text, so a page that is linked from an epic but never names it shows "not checked".
+- The site-wide fact check reads at most 8 pages per fact (the first Confluence returns for the subject's nouns) and 5 facts per run, so a clean result means those pages agree, not every page. It finds only times, limits and dates, and only a differently worded line that uses the same unit and shares two subject words.
 - Custom rules are plain-text matches from three templates, not a pattern language, and they run everywhere except the Confluence byline. A phrase that contains history wording (for example "legacy") is skipped on that line, like the built-in rules.
 - R5 reads OpenAPI 3 **JSON** held in a linked Confluence page. It does not read attachments or YAML.
 - The gate works only in **company-managed** projects (Jira does not offer validators in team-managed ones).
@@ -168,7 +170,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      286 tests and the 30-pair fixture set
+test/  fixtures/      293 tests and the 30-pair fixture set
 scripts/              live gate check, receipt verifier, payload capture
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -180,7 +182,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 286 tests, all passing (see docs/tests.md)
+npm test            # 293 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

@@ -3,8 +3,9 @@ import { kvs } from '@forge/kvs';
 import { BUILT_IN_RULES } from './core/rules';
 import { loadCustomRules } from './core/customRules';
 import { loadDrift } from './core/drift';
+import { canonDeps } from './canonDeps';
 import { createDeps } from './core/atlassianDeps';
-import { checkIssueDocs as check, scanIssues as scan, projectBrief as brief, listRules as rules, findingHistory as history, ruleHealth as health, impactSummary as impact } from './core/tools';
+import { checkIssueDocs as check, scanIssues as scan, projectBrief as brief, listRules as rules, canonCheckTool as canonCheck, findingHistory as history, ruleHealth as health, impactSummary as impact } from './core/tools';
 
 // Action functions behind the Rovo agent and rovo:mcp (see ../../manifest.mcp.draft.yml). NOT referenced by manifest.yml yet.
 // UNVERIFIED: the exact handler signature Forge passes to action functions, and that asUser resolves to the invoking user here.
@@ -45,3 +46,4 @@ export const findingHistory = async (payload?: { issueKey?: string }) => {
 };
 export const ruleHealth = async () => { console.log('same-page tool rule-health'); return health(kv); };
 export const impactSummary = async () => { console.log('same-page tool impact-summary'); return impact(kv); };
+export const canonCheckAction = async () => { console.log('same-page tool canon-check'); return canonCheck(kv, canonDeps()); };

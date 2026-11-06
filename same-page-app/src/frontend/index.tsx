@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import ForgeReconciler, { Button, Code, Heading, Inline, Lozenge, SectionMessage, Spinner, Stack, Strike, Text, TextArea, Textfield } from '@forge/react';
+import ForgeReconciler, { Button, Code, Heading, Inline, Link, Lozenge, SectionMessage, Spinner, Stack, Strike, Text, TextArea, Textfield } from '@forge/react';
 import { invoke as bridgeInvoke } from '@forge/bridge';
 import type { PanelFinding, PanelModel, Span } from '../core/panelModel';
 
@@ -55,7 +55,66 @@ const BeforeAfter = ({ s, done }: { s: NonNullable<PanelFinding['suggestion']>; 
 type RuleRow = { ruleId: string; short: string; name: string; checks: string; pain: string; severity: 'block' | 'warn'; changed: boolean; dismissed?: number; acted?: number; markedReal?: number; markedFalse?: number; hint?: string | null };
 type CustomDef = { id: string; name: string; template: string; phrase: string; value: string; severity: 'block' | 'warn' };
 type TemplateInfo = { id: string; label: string; sentence: string };
-type RulesReply = { canEdit: boolean; gateMode?: 'enforce' | 'watch'; rules: RuleRow[]; custom?: CustomDef[]; templates?: TemplateInfo[] };
+type CanonDef = { id: string; subject: string; value: string };
+type CanonResult = { id: string; subject: string; value: string; pagesRead: number; agreeing: number; pages: { pageId: string; title: string; found: { line: number; snippet: string; pageValue: string }[] }[]; note?: string };
+type RulesReply = { canEdit: boolean; gateMode?: 'enforce' | 'watch'; canon?: CanonDef[]; rules: RuleRow[]; custom?: CustomDef[]; templates?: TemplateInfo[] };
+
+// Facts everyone should agree on: declare a value once, then check every page on the site against it. Needs no Jira link.
+const CanonFacts = ({ facts, onChanged }: { facts: CanonDef[]; onChanged: () => void }) => {
+  const [subject, setSubject] = useState('');
+  const [value, setValue] = useState('');
+  const [formKey, setFormKey] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [results, setResults] = useState<{ list: CanonResult[]; stoppedEarly: boolean } | null>(null);
+  const call = async <T,>(fn: string, payload?: Record<string, unknown>): Promise<T & ActionReply> => {
+    setBusy(true); setMsg(null);
+    try { return await invoke<T & ActionReply>(fn, payload); } catch { return { ok: false, reason: 'Something went wrong. Try again.' } as T & ActionReply; } finally { setBusy(false); }
+  };
+  const add = async () => { const r = await call<object>('saveCanonFact', { subject, value }); if (r.ok === false) setMsg(r.reason ?? 'Not saved.'); else { setSubject(''); setValue(''); setFormKey((k) => k + 1); onChanged(); } };
+  const remove = async (id: string) => { const r = await call<object>('deleteCanonFact', { id }); if (r.ok === false) setMsg(r.reason ?? 'Not deleted.'); else { setResults(null); onChanged(); } };
+  const check = async () => {
+    const r = await call<{ results?: CanonResult[]; stoppedEarly?: boolean }>('checkCanon');
+    if (r.ok === false) setMsg(r.reason ?? 'The check did not run.'); else setResults({ list: r.results ?? [], stoppedEarly: Boolean(r.stoppedEarly) });
+  };
+  return (
+    <Stack space="space.100">
+      <Heading size="xsmall">Facts everyone should agree on</Heading>
+      <Text>Declare a value once, for example "access token expiry" is "1 hour". Same Page then searches every Confluence page you can read for pages that state it differently, with no Jira link needed. It reports; it never edits.</Text>
+      {facts.length ? facts.map((f) => (
+        <Inline key={f.id} space="space.100" alignBlock="center" shouldWrap>
+          <Text>{`${f.subject} = ${f.value}`}</Text>
+          <Button isDisabled={busy} onClick={() => remove(f.id)}>Delete this fact</Button>
+        </Inline>
+      )) : <Text>No facts declared yet.</Text>}
+      <Text>What the fact is about (at least two words)</Text>
+      <Textfield key={`s${formKey}`} placeholder="For example: access token expiry" onChange={(e) => setSubject(e.target.value)} />
+      <Text>The value everyone should state</Text>
+      <Textfield key={`v${formKey}`} placeholder="For example: 1 hour, or 100 requests per minute, or port 8080" onChange={(e) => setValue(e.target.value)} />
+      <Inline space="space.100" shouldWrap>
+        <Button appearance="primary" isDisabled={busy} onClick={add}>Add this fact</Button>
+        {facts.length ? <Button isDisabled={busy} onClick={check}>{busy ? 'Checking the site…' : 'Check the whole site now'}</Button> : null}
+      </Inline>
+      {msg ? <Text>{msg}</Text> : null}
+      {results ? (
+        <Stack space="space.100">
+          {results.list.map((r) => (
+            <Stack key={r.id} space="space.050">
+              <Text>{`${r.subject} = ${r.value}: read ${r.pagesRead} page${r.pagesRead === 1 ? '' : 's'}, ${r.pages.length} disagree${r.pages.length === 1 ? 's' : ''}, ${r.agreeing} line${r.agreeing === 1 ? '' : 's'} agree.`}</Text>
+              {r.pages.map((p) => (
+                <Stack key={p.pageId} space="space.025">
+                  <Link href={`/wiki/pages/viewpage.action?pageId=${p.pageId}`}>{p.title || `Page ${p.pageId}`}</Link>
+                  {p.found.map((d) => <Text key={`${p.pageId}${d.line}`}>{`Line ${d.line} says ${d.pageValue}: ${d.snippet}`}</Text>)}
+                </Stack>
+              ))}
+            </Stack>
+          ))}
+          <Text>{results.stoppedEarly ? 'The check stopped early because of its time limit; run it again.' : 'Only the first 8 pages Confluence returns for each fact are read, so a clean result means those pages agree, not that every page on the site does.'}</Text>
+        </Stack>
+      ) : null}
+    </Stack>
+  );
+};
 
 // Gate mode and the pilot report: admin tools for trying the gate safely and for reporting what a pilot found.
 const AdminTools = ({ mode, onChanged }: { mode: 'enforce' | 'watch'; onChanged: () => void }) => {
@@ -221,6 +280,7 @@ const RulesList = () => {
           {(r.dismissed ?? 0) + (r.acted ?? 0) > 0 ? <Text>{`On this site: acted on ${r.acted ?? 0}, dismissed ${r.dismissed ?? 0} (${Math.round((100 * (r.dismissed ?? 0)) / ((r.dismissed ?? 0) + (r.acted ?? 0)))}% dismissed).`}</Text> : null}
         </Stack>
       ))}
+      {data.canEdit ? <CanonFacts facts={data.canon ?? []} onChanged={open} /> : null}
       {data.canEdit ? <AdminTools mode={data.gateMode ?? 'enforce'} onChanged={open} /> : null}
       <CustomRules data={data} onChanged={open} />
       {view.note ? <SectionMessage appearance="warning"><Text>{view.note}</Text></SectionMessage> : null}
@@ -509,7 +569,7 @@ const App = () => {
       ) : null}
       <LinkPage onLinked={load} />
       {seed.status === 'done' && seed.linked
-        ? <SectionMessage appearance="success" title="Demo data created">{`Open ${seed.epicKey} (the epic it names), then the Same Page panel in its apps menu. You should see 3 contradictions. Start with the runbook version one: it has a verified fix you can Apply, and you can then watch the page change in Confluence. The token expiry one (1 hour against 30 minutes) has no Apply, because Same Page cannot tell which side is right.`}</SectionMessage>
+        ? <SectionMessage appearance="success" title="Demo data created">{`Open ${seed.epicKey} (the epic it names), then the Same Page panel in its apps menu. You should see 3 contradictions. Start with the runbook version one: it has a verified fix you can Apply, and you can then watch the page change in Confluence. The token expiry one (1 hour against 30 minutes) has no Apply, because Same Page cannot tell which side is right. A fact "access token expiry = 1 hour" was also declared: open Show the ten rules and click Check the whole site now to find a starter guide that was never linked to any work item and says 2 hours.`}</SectionMessage>
         : (
           <>
             {seed.status === 'done' ? <SectionMessage appearance="warning" title="Demo data created, but the page link failed">{`${seed.linkNote ?? 'The pages were not linked to the epic.'} Click Create demo data again to retry the link.`}</SectionMessage> : null}

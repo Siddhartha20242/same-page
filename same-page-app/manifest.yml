@@ -96,6 +96,13 @@ modules:
       description: >
         Use when someone asks which Same Page rules are noisy, which severities were changed, what team rules exist, or how people
         have handled each rule's findings on this site.
+    - key: canon-check
+      name: Which pages disagree with the site's declared facts
+      function: canon-check-fn
+      actionVerb: GET
+      description: >
+        Use when someone asks which Confluence pages state a value differently from what the team declared, for example the access token
+        expiry or a rate limit, anywhere on the site. Returns the pages and the lines that disagree.
     - key: impact-summary
       name: What Same Page has done on this site
       function: impact-summary-fn
@@ -114,6 +121,7 @@ modules:
         - finding-history
         - rule-health
         - impact-summary
+        - canon-check
   rovo:agent:
     - key: same-page-agent
       name: Same Page
@@ -175,9 +183,11 @@ modules:
         - Which Same Page rules look noisy on this site?
         - What do the ten rules check?
         - Do we have any team rules, and what do they match?
+        - Which pages disagree about our declared facts?
       actions:
         - rule-health
         - list-rules
+        - canon-check
   llm:
     - key: same-page-llm
       model:
@@ -227,6 +237,8 @@ modules:
       handler: tools.ruleHealth
     - key: impact-summary-fn
       handler: tools.impactSummary
+    - key: canon-check-fn
+      handler: tools.canonCheckAction
 resources:
   - key: main
     path: src/frontend/index.tsx

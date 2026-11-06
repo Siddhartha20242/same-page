@@ -13,6 +13,9 @@ On every site it counts, with no page text, titles or names:
 
 These appear on the project overview page ("What Same Page has done on this site"), and in the audit trail. The Rovo audit agent and the MCP `impact-summary` tool report the same numbers.
 
+## Reach beyond linked pages
+The fact registry lets an administrator declare a value once and check every page they can read for a different one, with no Jira link. On a real site it found both a page linked to a work item and a starter guide that nobody had linked. This widens who benefits: a team with no Jira discipline around linking can still find where a documented number has drifted. It does not tell us how often that happens on real sites; that still needs a pilot.
+
 ## Precision from real use
 Every finding in the panel has two buttons: "Yes, it is real" and "No, false alarm". A mark is counted once per finding (changing it replaces the old one) and stored as a count per rule, with no page text, titles or names. The overview page shows the total (for example "10 findings reviewed by your team: 8 real, 2 false alarms (80% real)"), the Rules list and the agents show it per rule, and below 10 marks the line says the sample is too small to say anything. A mark never hides or changes a finding.
 

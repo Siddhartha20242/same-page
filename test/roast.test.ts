@@ -67,7 +67,7 @@ test('a hard failure reports where it stopped, and a re-run resumes without dupl
   const before = pages;
   const resumed = await seedDemo({ ...deps, createPage: async (a: Parameters<SeedDeps['createPage']>[0]) => { pages++; return deps.createPage(a); }, existing: failed.state });
   assert.equal(resumed.ok, true);
-  assert.equal(pages - before, 1, 'only the decision page is created on resume; the runbook is not duplicated');
+  assert.equal(pages - before, 2, 'only the decision page and the starter guide are created on resume; the runbook is not duplicated');
 });
 
 test('a link failure is not fatal and is recorded', async () => {

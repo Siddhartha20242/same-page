@@ -150,3 +150,9 @@ Not observed: rule export and import, the tuning suggestions (they need at least
 ## 2026-11-06: gate mode and the pilot report (app version 7.23)
 Observed on the development site as a Jira administrator: the Rules list showed a Gate mode section. Choosing Watch only changed its text to "Watch only: the gate allows every transition and only counts the ones it would have refused…", and choosing Enforce changed it back ("Enforcing: the gate refuses a transition while a blocking contradiction is open…"). "Show the pilot report" printed "Same Page pilot report (2026-11-06)" with the site's real counts ("Contradictions found: 6").
 Not observed: a real transition refused or allowed under watch only (the offline test covers the logic, and the validator needs a company-managed project), and the report's per-rule marks.
+
+## 2026-11-06: the fact registry (app version 7.24 to 7.25)
+Observed on the development site, as a Jira administrator: the Rules list showed "Facts everyone should agree on". The fact "access token expiry" is "1 hour" was added. "Check the whole site now" then returned "access token expiry = 1 hour: read 2 pages, 2 disagree, 0 lines agree", listing the linked test runbook ("Line 1 says 30 minutes") and a starter guide that had been created for the test and never linked to any work item ("Line 2 says 2 hours: Access tokens last 2 hours").
+A bug the live site exposed: the first run found only the linked runbook, because the search required the word "expiry" on every page and the guide says "lasts". The matcher already treats those as one idea; the search now leaves such words out and narrows by the nouns. Covered by a test.
+Not observed: the agent action `canon-check`, the demo data declaring the fact on a fresh site, and a non-administrator trying to run the check (it is refused by design).
+The declared fact and the unlinked test page stay on the development site.

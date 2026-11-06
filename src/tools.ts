@@ -11,6 +11,8 @@ import type { KV } from './ledgerStore.ts';
 import { loadImpact } from './impact.ts';
 import { loadReviewCounts } from './review.ts';
 import { tuningHint } from './tuning.ts';
+import { checkCanon, loadCanon } from './canon.ts';
+import type { CanonDeps } from './canon.ts';
 
 // Tools for AI agents (Rovo agents and, via rovo:mcp, third-party clients such as Cursor or Claude Code). READ-ONLY by design:
 // the docs say agents run by automation rules will not invoke actions with CREATE, UPDATE, DELETE or TRIGGER verbs.
@@ -139,4 +141,20 @@ export async function ruleHealth(kv: KV) {
 export async function impactSummary(kv: KV) {
   const i = await loadImpact(kv);
   return { summary: i.line, review: i.review.line, reviewed: { real: i.review.real, falseAlarm: i.review.false, realPercent: i.review.realPercent }, counts: i.counts, estimatedHoursSaved: i.estimatedHoursSaved, minutesPerFixSetByAdmin: i.minutesPerFix, note: i.estimatedHoursSaved === null ? 'No time-saved figure: an administrator has not set minutes per fix. We do not guess one.' : 'The hours figure is the administrator\'s own estimate times the number of applied fixes.', notice: NOTICE };
+}
+
+// canon_check: pages anywhere on the site that state a declared fact with a different value. Needs no Jira link.
+export async function canonCheckTool(kv: KV, deps: CanonDeps) {
+  const facts = await loadCanon(kv);
+  if (!facts.length) return { status: 'no facts', note: 'No facts have been declared on this site. A Jira administrator can add them under Same Page > Show the ten rules > Facts everyone should agree on.', notice: NOTICE };
+  const { results, stoppedEarly } = await checkCanon(facts, deps);
+  return {
+    status: 'checked', stoppedEarly,
+    facts: results.map((r) => ({
+      fact: `${quote(r.subject)} = ${quote(r.value)}`, pagesRead: r.pagesRead, linesThatAgree: r.agreeing,
+      pagesThatDisagree: r.pages.map((p) => ({ pageTitle: quote(p.title), lines: p.found.map((d) => ({ quotedLine: quote(d.snippet), saysValue: quote(d.pageValue) })) })),
+    })),
+    note: 'Pages are found by search and only the first 8 per fact are read, so a clean result means those pages agree, not that every page on the site does. Rules only, no AI.',
+    notice: NOTICE,
+  };
 }

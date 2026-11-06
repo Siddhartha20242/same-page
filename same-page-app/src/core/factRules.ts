@@ -20,6 +20,9 @@ const SYN: Record<string, string> = { expires: 'expire', expiry: 'expire', expir
 const GENERIC = new Set(['date', 'planned', 'target', 'expected', 'scheduled', 'final', 'current']);
 const ENV = new Set('production prod staging stage dev development test testing sandbox qa admin free pro enterprise premium basic standard trial internal external mobile desktop'.split(' '));
 
+/** Audience, environment and plan words anywhere in a line ('for admin users', 'in staging'). Lines that name different ones are about different things. */
+export const envOf = (line: string): string => [...new Set(wordsOf(line).filter((w) => ENV.has(w)))].sort().join(',');
+
 const stem = (w: string): string => {
   const s = SYN[w] ?? w;
   return s.length > 3 && s.endsWith('s') && !s.endsWith('ss') ? s.slice(0, -1) : s;
@@ -162,6 +165,36 @@ const same = (a: Fact, b: Fact) => a.kind === b.kind && a.unit === b.unit && a.q
 
 const show = (f: Fact) => f.text.trim();
 
+// ---- canonical facts: one declared value, checked against any text ----
+export interface CanonFact { kind: Kind; unit: string; value: number; text: string; subject: string[]; qual: string; env: string }
+export interface Disagreement { line: number; snippet: string; pageValue: string }
+
+/** A declared fact such as ("access token expiry", "1 hour"). Null unless the sentence holds exactly one time, limit or dated milestone. */
+export function canonFromSentence(subject: string, value: string): CanonFact | null {
+  const facts = factsInLine(normalizeWording(`${subject} ${value}`));
+  if (facts.length !== 1) return null;
+  const f = facts[0]!;
+  return f.subject.size >= (f.kind === 'date' ? 1 : 2) ? { kind: f.kind, unit: f.unit, value: f.value, text: f.text.trim(), subject: [...f.subject], qual: f.qual, env: envOf(`${subject} ${value}`) } : null;
+}
+
+/** Lines of `text` that state the same thing as the canon (same kind, unit, qualifier and at least two shared subject words) with a different value. */
+export function disagreements(canon: CanonFact, text: string): { disagree: Disagreement[]; agree: number } {
+  const c: Fact = { ...canon, index: 0, subject: new Set(canon.subject) };
+  const canonEnv = canon.env ?? '';
+  const disagree: Disagreement[] = [];
+  let agree = 0;
+  text.split('\n').forEach((raw, i) => {
+    if (HISTORICAL_RE.test(raw) || /\bdefault|\be\.g\.|\bfor example|\bexample\b/i.test(raw) || envOf(raw) !== canonEnv) return;
+    for (const f of factsInLine(normalizeWording(raw))) {
+      if (f.kind !== canon.kind || !same(c, f)) continue;
+      if (f.kind !== 'date' && DATED_BEFORE.test(raw.slice(0, Math.max(0, raw.toLowerCase().indexOf(f.text.toLowerCase()))))) continue;
+      if (f.value === canon.value) agree++;
+      else disagree.push({ line: i + 1, snippet: raw.trim().slice(0, 240), pageValue: show(f) });
+    }
+  });
+  return { disagree: disagree.slice(0, 5), agree };
+}
+
 function makeRule(id: string, kind: Kind, label: string, why: string): Rule {
   return {
     id, severity: 'warn', why,
@@ -178,7 +211,7 @@ function makeRule(id: string, kind: Kind, label: string, why: string): Rule {
         const line = p.line;
         if (HISTORICAL_RE.test(line) || /\bdefault|\be\.g\.|\bfor example|\bexample\b/i.test(line)) continue;
         if (kind !== 'date' && DATED_BEFORE.test(line.slice(0, p.f.index))) continue;
-        const matches = ticket.filter((t) => same(t.f, p.f));
+        const matches = ticket.filter((t) => same(t.f, p.f) && envOf(t.line) === envOf(line));
         if (!matches.length) continue;
         const values = new Set(matches.map((t) => t.f.value));
         if (values.size !== 1 || values.has(p.f.value)) continue;                                   // the ticket is unambiguous, and the page disagrees
