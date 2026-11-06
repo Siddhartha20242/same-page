@@ -156,3 +156,5 @@ Observed on the development site, as a Jira administrator: the Rules list showed
 A bug the live site exposed: the first run found only the linked runbook, because the search required the word "expiry" on every page and the guide says "lasts". The matcher already treats those as one idea; the search now leaves such words out and narrows by the nouns. Covered by a test.
 Not observed: the agent action `canon-check`, the demo data declaring the fact on a fresh site, and a non-administrator trying to run the check (it is refused by design).
 The declared fact and the unlinked test page stay on the development site.
+
+After the fact registry was deployed to production, on the demo site in Rovo chat, the "Same Page rule coach" agent was asked "Which pages disagree about our declared facts?". It called the new `canon-check` action and answered honestly that no facts have been declared on that site yet, and told an administrator where to add them. This checks the action is wired in production and its empty case. The case with a declared fact was observed in the Jira panel on the development site, not through the agent.
