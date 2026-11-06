@@ -156,7 +156,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 ## Plan and roadmap
 
 1. **Pilot first (1 to 3 teams, 1 to 2 weeks).** Teams install the app on a test project and label each finding real or false alarm. We report counts and precision with the sample size, whatever they are. Method: [docs/pilot-kit.md](docs/pilot-kit.md). No pilot has run yet, so no real-world precision or time-saved figure exists.
-2. Shipped but not yet seen on a real site: the soft gate, the weekly scan, R8 to R10, and the agent's project brief. Each has offline tests; the real-site check is the first thing to do.
+2. Seen on a real site: the soft gate, the change notices, the weekly scan, R8, custom rules, link a page, the review buttons and the four agents ([docs/live-results.md](docs/live-results.md)). Not yet seen on a real site: R9 and R10, rule export and import, and the tuning suggestions.
 3. Next rules, chosen by what the pilot's false alarms and misses say: owners and on-call names, and wording-tolerant matching for numbers.
 4. An optional AI tier that may only propose candidates, shown only when both quoted lines exist verbatim, warn-only and off by default. Not built.
 
