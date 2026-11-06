@@ -10,7 +10,7 @@ const invoke = <T,>(name: string, payload?: Record<string, unknown>): Promise<T>
 // Thin view over the model built by the resolver. Native UI Kit only; props checked against @forge/react 11.17 types.
 const TONE: Record<string, 'removed' | 'moved' | 'default'> = { block: 'removed', warn: 'moved', info: 'default' };
 const LABEL: Record<string, string> = { block: 'Blocker', warn: 'Warning', info: 'Note' };
-const ruleShort = (id: string) => { const m = /^R(\d+)_/.exec(id); const names: Record<string, string> = { '8': 'Duration differs', '9': 'Limit or port differs', '10': 'Date differs', '1': 'Stale version', '2': 'Deprecated decision', '3': 'Missing field', '4': 'Stale status claim', '5': 'API spec mismatch', '6': 'Closed ticket cited as open', '7': 'Pages disagree' }; return m ? `R${m[1]} ${names[m[1]!] ?? ''}`.trim() : /^C\d+_CUSTOM$/.test(id) ? 'Custom rule' : 'Rule'; };
+const ruleShort = (id: string) => { const m = /^R(\d+)_/.exec(id); const names: Record<string, string> = { '8': 'Duration differs', '9': 'Limit or port differs', '10': 'Date differs', '1': 'Stale version', '2': 'Deprecated decision', '3': 'Missing field', '4': 'Stale status claim', '5': 'API spec mismatch', '6': 'Closed ticket cited as open', '7': 'Pages disagree' }; return m ? `R${m[1]} ${names[m[1]!] ?? ''}`.trim() : /^C\d+_CUSTOM$/.test(id) ? 'Custom rule' : id === 'GATE' ? 'Transition gate' : 'Rule'; };
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : 'an unknown date');
 
 // Card and panel styling. Atlassian design tokens only, so light and dark themes both work.
@@ -455,7 +455,7 @@ const AuditTrail = ({ autoOpen }: { autoOpen?: boolean }) => {
   if (view.phase === 'loading') return <Inline space="space.100" alignBlock="center"><Spinner /><Text>Verifying the chain…</Text></Inline>;
   if (view.phase === 'error') return <SectionMessage appearance="error" title="Audit trail unavailable">{view.message}</SectionMessage>;
   const l = view.ledger;
-  const EVENT: Record<string, string> = { APPLIED: 'Fix applied', DISCOVERED: 'First found', DISMISSED: 'Dismissed', SNOOZED: 'Snoozed', REVIEW_TASK: 'Review task created' };
+  const EVENT: Record<string, string> = { APPLIED: 'Fix applied', DISCOVERED: 'First found', DISMISSED: 'Dismissed', SNOOZED: 'Snoozed', REVIEW_TASK: 'Review task created', OVERRIDE: 'Break glass granted', OVERRIDE_USED: 'Passed through break glass' };
   const rows = l.recent.map((e) => {
     const [r, kind] = e.ruleId.split(':');
     return { key: String(e.seq), cells: [

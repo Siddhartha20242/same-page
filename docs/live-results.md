@@ -175,3 +175,13 @@ Observed on the development site as a Jira administrator:
 - **Playground.** With the sample work item "Migrate Payment API to v2. Access token expiry should be 1 hour" and the sample page "Call POST /api/v1/charge. Access tokens last half an hour." it listed R1 Stale version and R8 Duration differs, and the note that nothing was read or saved.
 Not observed on a real site: severity chips (this item has a single severity), the patch preview with context lines (no version finding on this item), YAML specs, legacy-section skipping, the audit export button, the warm gate cache, and a non-administrator trying break glass.
 PAY-3 is back in In Progress; test overrides were revoked. SCRUM-5 and PAY-3 test data remain.
+
+## Severity chips, audit trail and audit export (dev site, Nov 6)
+
+| Check | Observed |
+|---|---|
+| Severity chips on PAY-3 | "All (3)", "Blockers (2)", "Warnings (1)"; choosing Warnings showed only the R4 card |
+| Audit trail | "Chain intact", 9 sealed entries; break-glass entries now read "Break glass granted" and "Passed through break glass" under "Transition gate" (before the fix they read "Recorded / Rule") |
+| Audit export | The panel's export text, copied from the live page, passed `node scripts/verify-export.mjs` (9 entries, head f360b40b9aaa…). Changing one field of entry 6 made it fail with "BROKEN at entry 6: entry was altered" |
+| Leftover test override | A break-glass override from an earlier test was still active on SCRUM-5; it was revoked from the panel |
+
