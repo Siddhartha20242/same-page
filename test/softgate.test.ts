@@ -98,9 +98,9 @@ test('change nudge: an edit that leaves a contradiction gets one notice with rul
 
 test('change nudge: stays quiet for other edits, a move to Done, the app\'s own edits, a clean item, and an unreadable one', async () => {
   const mk = (f: { id: string; ruleId: string }[] | null) => ({ store: mem(), findings: async () => f, postComment: async () => { throw new Error('should not comment'); } });
-  assert.equal(await runChangeNudge({ ...edit, changelog: { items: [{ field: 'labels' }] } }, mk([{ id: 'a', ruleId: 'R8_DURATION_DIFFERS' }])), 'ignored');
+  assert.equal(await runChangeNudge({ ...edit, changelog: { items: [{ field: 'labels', toString: 'x' }] } }, mk([{ id: 'a', ruleId: 'R8_DURATION_DIFFERS' }])), 'ignored');
   assert.equal(await runChangeNudge({ ...edit, selfGenerated: true }, mk([{ id: 'a', ruleId: 'R8_DURATION_DIFFERS' }])), 'ignored');
-  assert.equal(await runChangeNudge({ issue: { key: 'PAY-1' }, changelog: { items: [{ field: 'description' }, { field: 'status', toString: 'Done' }] } }, mk([{ id: 'a', ruleId: 'R8_DURATION_DIFFERS' }])), 'ignored');
+  assert.equal(await runChangeNudge({ issue: { key: 'PAY-1' }, changelog: { items: [{ field: 'description', toString: 'x' }, { field: 'status', toString: 'Done' }] } }, mk([{ id: 'a', ruleId: 'R8_DURATION_DIFFERS' }])), 'ignored');
   assert.equal(await runChangeNudge(edit, mk([])), 'clean');
   assert.equal(await runChangeNudge(edit, mk(null)), 'unchecked');
 });

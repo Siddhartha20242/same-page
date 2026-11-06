@@ -36,6 +36,9 @@ workflow validator named **Same Page contradiction check**. Verified on a real s
 ## Turning it off
 Remove the rule in the same workflow editor (Validate details > the rule > delete), then **Update workflow**.
 
+## Try it without risk: watch only
+Before you let the gate stop anyone, open **Same Page > Show the ten rules** in the panel (as a Jira administrator) and choose **Watch only** under Gate mode. The validator then allows every transition and only counts the ones it would have refused; the overview shows "N would have been refused in watch-only mode". After a week or two, review those and the findings behind them, then choose **Enforce**. Enforce is the default.
+
 ## If the validator is unavailable
 `jira:workflowValidator` is a Preview Forge module. Same Page is designed so that nothing important depends on it:
 - **Not attached, or not available on your site:** the panel still finds and explains every contradiction. **Create review task**

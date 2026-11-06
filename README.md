@@ -60,6 +60,8 @@ Tools such as code-to-docs generators start from the code and use a model to dra
 | Guard | After a fix, the page is pinned. If someone edits the old version back in, Same Page comments on the work item. |
 | Gate (optional) | A Jira workflow validator refuses the transition and names the rule, the page, the next step and a short **evidence id** that is the same id the panel shows for that finding. It fails open on any error. The panel and review tasks work without it. |
 | Your team's rules | A Jira administrator can add up to 10 rules of their own from three fixed templates (a phrase on the page while the status is, or is not, a value; a phrase while the work item has a label or component; a label that needs a phrase). They are plain-text matches, with a preview of what a rule would find on the current work item before it is saved. They run in the panel, the gate, the soft gate, the weekly scan and the agent. Rules can be copied as text and pasted into another site, and every imported rule is checked like a typed one. |
+| Try the gate safely | An administrator can set the gate to **watch only**: it allows every transition and only counts the ones it would have refused, shown on the overview. Switch to enforcing when the team trusts it. |
+| Pilot report | One button produces a plain-text summary of what Same Page found on a site and what the team marked, with the caveats built in and no page text or names, ready to paste into a message. |
 | Catch it as it happens | Editing a work item's summary or description into a contradiction leaves one notice comment right then, and so does moving it to Done with a blocking one open. Notices name rules and a count, never page text, and never block. |
 | Link a page | Paste the address of a Confluence page on the same site into the panel to link it to the work item. The page must be readable by you. |
 | Rules | Lists all ten rules with their severity and, once people use them, how often each was acted on or dismissed on this site. |
@@ -166,7 +168,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      284 tests and the 30-pair fixture set
+test/  fixtures/      286 tests and the 30-pair fixture set
 scripts/              live gate check, receipt verifier, payload capture
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -178,7 +180,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 284 tests, all passing (see docs/tests.md)
+npm test            # 286 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

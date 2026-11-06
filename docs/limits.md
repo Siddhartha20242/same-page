@@ -26,6 +26,9 @@ Every limit below is a constant in the code. Where a limit is hit, the app says 
 | Matching | plain text, ignoring case; first matching line per page; history-worded lines skipped |
 | Where they run | the panel, the gate, the soft gate, the weekly scan, the agent and MCP tools. Not the Confluence byline. |
 
+## Gate mode and pilot report
+Watch only changes only the answer the validator gives (always allow) and adds one counter; findings, the panel and the soft gate notices are unchanged. The pilot report holds counts only and is built on demand for an administrator; it is not stored.
+
 ## Review marks
 One mark per finding id, at most 30 ids read per panel load, counts capped at 100,000 per rule. A finding whose evidence changes gets a new id and so a new mark.
 

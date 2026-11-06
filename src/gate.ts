@@ -26,6 +26,18 @@ export interface GateDecision {
 
 export const gateKey = (issueKey: string) => `gate:${issueKey}`;
 
+// Watch-only mode lets a team attach the gate with no risk: it records what it WOULD have refused and allows every transition.
+// Enforce is the default. Only a Jira administrator changes it.
+export type GateMode = 'enforce' | 'watch';
+export const GATE_MODE_KEY = 'gate:mode';
+export const toGateMode = (v: unknown): GateMode => (v === 'watch' ? 'watch' : 'enforce');
+
+/** What the validator finally answers. In watch mode a refusal becomes an allow, and `watched` says it was one. */
+export function applyGateMode(d: GateDecision, mode: GateMode): { result: boolean; errorMessage?: string; watched: boolean } {
+  if (!d.result && mode === 'watch') return { result: true, watched: true };
+  return d.result ? { result: true, watched: false } : { result: false, errorMessage: d.errorMessage, watched: false };
+}
+
 /** Reduce a panel model (AFTER triage filtering) to what the gate needs. Null when the issue could not be checked. */
 export function snapshotFromModel(model: PanelModel, now: () => number = Date.now, blockOn: Severity[] = ['block']): GateSnapshot | null {
   if (model.status === 'unchecked' || model.status === 'error') return null;

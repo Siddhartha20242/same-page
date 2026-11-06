@@ -55,7 +55,34 @@ const BeforeAfter = ({ s, done }: { s: NonNullable<PanelFinding['suggestion']>; 
 type RuleRow = { ruleId: string; short: string; name: string; checks: string; pain: string; severity: 'block' | 'warn'; changed: boolean; dismissed?: number; acted?: number; markedReal?: number; markedFalse?: number; hint?: string | null };
 type CustomDef = { id: string; name: string; template: string; phrase: string; value: string; severity: 'block' | 'warn' };
 type TemplateInfo = { id: string; label: string; sentence: string };
-type RulesReply = { canEdit: boolean; rules: RuleRow[]; custom?: CustomDef[]; templates?: TemplateInfo[] };
+type RulesReply = { canEdit: boolean; gateMode?: 'enforce' | 'watch'; rules: RuleRow[]; custom?: CustomDef[]; templates?: TemplateInfo[] };
+
+// Gate mode and the pilot report: admin tools for trying the gate safely and for reporting what a pilot found.
+const AdminTools = ({ mode, onChanged }: { mode: 'enforce' | 'watch'; onChanged: () => void }) => {
+  const [report, setReport] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const setMode = async (m: 'enforce' | 'watch') => {
+    try { const r = await invoke<ActionReply>('setGateMode', { mode: m }); if (r?.ok === false) setMsg(r.reason ?? 'Not changed.'); else { setMsg(null); onChanged(); } } catch { setMsg('Not changed. Try again.'); }
+  };
+  const makeReport = async () => {
+    try { const r = await invoke<{ ok?: boolean; text?: string; reason?: string }>('pilotReport'); if (r?.ok) { setReport(r.text ?? ''); setMsg(null); } else setMsg(r?.reason ?? 'No report.'); } catch { setMsg('No report. Try again.'); }
+  };
+  return (
+    <Stack space="space.100">
+      <Heading size="xsmall">Gate mode</Heading>
+      <Text>{mode === 'watch' ? 'Watch only: the gate allows every transition and only counts the ones it would have refused. Switch to Enforce when you trust it.' : 'Enforcing: the gate refuses a transition while a blocking contradiction is open (if the validator is attached to a workflow).'}</Text>
+      <Inline space="space.100" shouldWrap>
+        <Button appearance={mode === 'enforce' ? 'primary' : 'default'} onClick={() => setMode('enforce')}>Enforce</Button>
+        <Button appearance={mode === 'watch' ? 'primary' : 'default'} onClick={() => setMode('watch')}>Watch only</Button>
+      </Inline>
+      <Heading size="xsmall">Pilot report</Heading>
+      <Text>A plain-text summary of what Same Page found on this site and what your team marked. Counts only, no page text or names. Copy it into a message.</Text>
+      <Button onClick={makeReport}>Show the pilot report</Button>
+      {report !== null ? <Code>{report}</Code> : null}
+      {msg ? <Text>{msg}</Text> : null}
+    </Stack>
+  );
+};
 
 // Team-defined rules: pick one of three templates, type a phrase and a value, preview what it would find on this work item, then save.
 // Nothing is saved by a preview. Only a Jira administrator sees the form; everyone can see the saved rules.
@@ -194,6 +221,7 @@ const RulesList = () => {
           {(r.dismissed ?? 0) + (r.acted ?? 0) > 0 ? <Text>{`On this site: acted on ${r.acted ?? 0}, dismissed ${r.dismissed ?? 0} (${Math.round((100 * (r.dismissed ?? 0)) / ((r.dismissed ?? 0) + (r.acted ?? 0)))}% dismissed).`}</Text> : null}
         </Stack>
       ))}
+      {data.canEdit ? <AdminTools mode={data.gateMode ?? 'enforce'} onChanged={open} /> : null}
       <CustomRules data={data} onChanged={open} />
       {view.note ? <SectionMessage appearance="warning"><Text>{view.note}</Text></SectionMessage> : null}
       <Button onClick={() => setView({ phase: 'closed' })}>Hide the rules</Button>

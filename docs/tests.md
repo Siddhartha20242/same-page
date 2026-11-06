@@ -1,6 +1,6 @@
 # What the tests cover
 
-`npm test` runs 284 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
+`npm test` runs 286 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|
@@ -11,6 +11,7 @@
 | Handling timeline | `handling` | Events join the same verified chain, record who and why only where a person acted, break the chain if edited, and never throw. |
 | Agent actions and impact | `agents` | The finding history lists events without account ids, rule health shows severity, handling and noisy hints, and the impact figures never invent a time-saved number. |
 | Change notices, tuning, sharing, linking | `softgate`, `tuning`, `linkpage` | An edit that leaves a contradiction gets one notice and stays quiet otherwise; hints come only from enough marks; exported rules import with every rule checked; page addresses on other sites are refused. |
+| Gate mode and pilot report | `gatemode` | Watch mode allows every transition and says it would have refused; enforce is the default; the pilot report carries the counts, per-rule marks and caveats and no keys, names or addresses. |
 | Review marks | `review` | One mark per finding (changing it replaces the old one), per-rule counts, a summary that warns below ten, and no time-saved number made from marks. |
 | Soft gate and weekly scan | `softgate` | Only a move to Done counts, one notice per set of blockers, names rules and a count and never page text; the scan keeps per-project counts and marks what is new. |
 | Gate | `gate`, `ruleCatalog` | Fail-open behaviour, cache rules, the refusal message, page-text redaction, per-rule severity settings. |

@@ -2,10 +2,10 @@
 // no page text, no titles, no people. Best effort: a storage hiccup must never break the panel or the gate, so nothing here throws.
 
 export interface MetricStore { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<unknown> }
-export interface Counts { seen: number; applied: number; dismissed: number; snoozed: number; reviewTasks: number; gateBlocks: number }
+export interface Counts { seen: number; applied: number; dismissed: number; snoozed: number; reviewTasks: number; gateBlocks: number; /** Transitions the gate would have refused while in watch-only mode. */ gateWouldBlock: number }
 
 const KEY = 'metrics:counts';
-const ZERO: Counts = { seen: 0, applied: 0, dismissed: 0, snoozed: 0, reviewTasks: 0, gateBlocks: 0 };
+const ZERO: Counts = { seen: 0, applied: 0, dismissed: 0, snoozed: 0, reviewTasks: 0, gateBlocks: 0, gateWouldBlock: 0 };
 const MAX_NEW_PER_CALL = 25;
 
 export async function readCounts(store: MetricStore): Promise<Counts> {

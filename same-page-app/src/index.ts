@@ -17,7 +17,7 @@ import { addPin, PIN_PROPERTY, processPageUpdate } from './core/pin';
 import type { Pin } from './core/pin';
 import type { KV } from './core/ledgerStore';
 import type { LedgerEntry } from './core/ledger';
-import { decideTransition, gateKey, snapshotFromModel } from './core/gate';
+import { decideTransition, gateKey, snapshotFromModel, applyGateMode, toGateMode, GATE_MODE_KEY } from './core/gate';
 import type { CanView } from './core/gate';
 import { runOverview } from './core/overview';
 import { runSoftGate, runChangeNudge } from './core/softGate';
@@ -31,6 +31,7 @@ import { TEMPLATES, addCustomRule, deleteCustomRule, exportRules, importRules, l
 import { tuningHint } from './core/tuning';
 import { parsePageLink } from './core/linkPage';
 import { loadReviewCounts } from './core/review';
+import { buildPilotReport } from './core/pilotReport';
 import { checkPage, bylineTitle } from './core/pageCheck';
 import type { PageCheck } from './core/pageCheck';
 
@@ -200,7 +201,7 @@ resolver.define('getRules', async () => {
   const overrides = await loadSeverityOverrides(store);
   const outcomes = await loadOutcomes(store);
   const reviews = await loadReviewCounts(store);
-  return { canEdit: await isJiraAdmin(), templates: TEMPLATES, custom: await loadCustomDefs(store), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0, markedReal: reviews[r.ruleId]?.real ?? 0, markedFalse: reviews[r.ruleId]?.false ?? 0, hint: tuningHint({ severity: overrides[r.ruleId] ?? r.defaultSeverity, real: reviews[r.ruleId]?.real ?? 0, falseAlarm: reviews[r.ruleId]?.false ?? 0, dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 }) })) };
+  return { canEdit: await isJiraAdmin(), gateMode: toGateMode(await store.get(GATE_MODE_KEY).catch(() => null)), templates: TEMPLATES, custom: await loadCustomDefs(store), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0, markedReal: reviews[r.ruleId]?.real ?? 0, markedFalse: reviews[r.ruleId]?.false ?? 0, hint: tuningHint({ severity: overrides[r.ruleId] ?? r.defaultSeverity, real: reviews[r.ruleId]?.real ?? 0, falseAlarm: reviews[r.ruleId]?.false ?? 0, dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 }) })) };
 });
 resolver.define('setRuleSeverity', async ({ payload }: Req<{ ruleId?: string; severity?: string }>) => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change a rule severity.' };
@@ -219,6 +220,16 @@ resolver.define('saveCustomRule', async ({ payload }: Req<Record<string, unknown
 resolver.define('deleteCustomRule', async ({ payload }: Req<{ id?: string }>) => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change custom rules.' };
   return deleteCustomRule(store, String(payload?.id ?? ''));
+});
+resolver.define('setGateMode', async ({ payload }: Req<{ mode?: string }>) => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change the gate mode.' };
+  await store.set(GATE_MODE_KEY, toGateMode(payload?.mode));
+  return { ok: true };
+});
+resolver.define('pilotReport', async () => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can create the pilot report.' };
+  const text = buildPilotReport({ impact: await loadImpact(store as KV), reviews: await loadReviewCounts(store), gateMode: toGateMode(await store.get(GATE_MODE_KEY).catch(() => null)), customRules: (await loadCustomDefs(store)).length, on: new Date().toISOString().slice(0, 10) });
+  return { ok: true, text };
 });
 resolver.define('exportCustomRules', async () => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can export custom rules.' };
@@ -368,8 +379,10 @@ export const validator = async (event: { issue?: { key?: string }; user?: { acco
     live: async () => snapshotFromModel(filterModelByTriage(withSeverities(await buildPanelModel(issueKey, { ...appDeps(), rules: await rulesNow() }) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as never),
   });
   console.log(`same-page gate ${issueKey}: ${d.result ? 'allow' : 'BLOCK'} (${d.basis}) ${Date.now() - started}ms${d.note ? ` ${d.note}` : ''}`);
-  if (!d.result) await bump(store, 'gateBlocks');
-  return d.result ? { result: true } : { result: false, errorMessage: d.errorMessage };
+  const final = applyGateMode(d, toGateMode(await store.get(GATE_MODE_KEY).catch(() => null)));
+  if (final.watched) { await bump(store, 'gateWouldBlock'); console.log(`same-page gate ${issueKey}: WATCH ONLY, would have refused`); }
+  else if (!final.result) await bump(store, 'gateBlocks');
+  return final.result ? { result: true } : { result: false, errorMessage: final.errorMessage };
 };
 
 // Pin guard: a Confluence page was updated. If a person fixed that page for a work item earlier (Apply), re-check that pair and comment on the

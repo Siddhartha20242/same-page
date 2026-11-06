@@ -6,7 +6,7 @@ const mem = () => { const m = new Map<string, unknown>(); return { m, get: async
 
 test('counters start at zero, add up, and ignore garbage in storage', async () => {
   const s = mem();
-  assert.deepEqual(await readCounts(s), { seen: 0, applied: 0, dismissed: 0, snoozed: 0, reviewTasks: 0, gateBlocks: 0 });
+  assert.deepEqual(await readCounts(s), { seen: 0, applied: 0, dismissed: 0, snoozed: 0, reviewTasks: 0, gateBlocks: 0, gateWouldBlock: 0 });
   await bump(s, 'applied'); await bump(s, 'applied'); await bump(s, 'gateBlocks', 3);
   assert.equal((await readCounts(s)).applied, 2);
   assert.equal((await readCounts(s)).gateBlocks, 3);

@@ -26,7 +26,7 @@ export async function loadImpact(store: ImpactStore): Promise<Impact> {
   let minutes: number | null = null;
   try { const v = Number(await store.get(KEY)); if (Number.isFinite(v) && v > 0 && v <= MAX_MINUTES) minutes = v; } catch { /* unset */ }
   const hours = minutes === null ? null : Math.round((counts.applied * minutes) / 6) / 10;
-  const parts = [`${counts.seen} contradiction${counts.seen === 1 ? '' : 's'} found`, `${counts.applied} fixed on the page`, `${counts.reviewTasks} sent to a page owner`, `${counts.dismissed} dismissed`, `${counts.gateBlocks} transition${counts.gateBlocks === 1 ? '' : 's'} refused`];
+  const parts = [`${counts.seen} contradiction${counts.seen === 1 ? '' : 's'} found`, `${counts.applied} fixed on the page`, `${counts.reviewTasks} sent to a page owner`, `${counts.dismissed} dismissed`, `${counts.gateBlocks} transition${counts.gateBlocks === 1 ? '' : 's'} refused`, ...(counts.gateWouldBlock ? [`${counts.gateWouldBlock} would have been refused in watch-only mode`] : [])];
   const line = parts.join(' · ');
   return { counts, minutesPerFix: minutes, estimatedHoursSaved: hours, line, review: reviewSummary(await loadReviewCounts(store)) };
 }
