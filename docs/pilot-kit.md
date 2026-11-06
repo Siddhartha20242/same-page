@@ -22,7 +22,7 @@ These are plain counters in the app's own storage. They hold no page text, title
 chain, which you can re-verify with `node scripts/verify-receipt.mjs`.
 
 ## What you still have to ask people (the counters cannot)
-Record these per finding, in a spreadsheet, with the person's own words:
+Each finding in the panel has "Yes, it is real" and "No, false alarm" buttons, so the first row below is recorded by the app as people work. Record the rest per finding, in a spreadsheet, with the person's own words:
 | Question | Why |
 |---|---|
 | Was this a real contradiction, or a false alarm? (yes / no / unsure) | the only honest precision number |

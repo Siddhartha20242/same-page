@@ -4,6 +4,8 @@ import type { Suggestion, Span } from './panelModel.ts';
 // The description is Atlassian Document Format (ADF); every piece of page text goes in as a plain text node, never markup.
 
 export interface PanelFinding {
+  /** What a person on this site marked it: a real contradiction or a false alarm. Added by the app; the rules never set it. */
+  reviewed?: 'real' | 'false';
   id: string;
   ruleId: string;
   severity: Severity;

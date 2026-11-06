@@ -21,6 +21,7 @@ In Forge storage for your installation:
 - Dismiss and snooze records: an identifier for the finding, the reason a person typed, their account ID, and the date.
 - An audit chain: one entry for each fix a person applied and for each step in a finding's handling (first shown, dismissed with the reason, snoozed, review task created). Entries for a person's actions name that person's account ID. Nothing records who merely viewed a finding. Each entry holds the rule, the work item key, the page ID, a short snippet (up to 200 characters) of the old and new line (or of the reason or task key for a handling step) line, a timestamp, and hashes.
 - Custom rules a Jira administrator wrote: the rule name, one of three templates, a phrase and a status or label. Treat them as visible to every user of the app on your site.
+- Review marks: for each finding a person marked, whether they said it was a real contradiction or a false alarm, kept under an identifier for the finding, plus a count per rule. No person is recorded with a mark.
 - One number if an administrator sets it: how many minutes they estimate one applied fix saves. It is used only to show their own estimate on the overview page.
 - Rule severity settings: if a Jira administrator moves a rule between Blocker and Warning, which rule and which setting. No names or text.
 - Soft-gate markers: for a work item that was moved to Done with a blocking contradiction, a short marker (which findings the notice covered and when), so the same notice is not posted twice.

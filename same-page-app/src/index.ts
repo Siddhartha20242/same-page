@@ -24,6 +24,7 @@ import { runSoftGate } from './core/softGate';
 import type { SoftGateEvent } from './core/softGate';
 import { runDriftScan, loadDrift } from './core/drift';
 import { loadImpact, setMinutesPerFix } from './core/impact';
+import { markFinding, loadReviewMarks } from './core/review';
 import { RULE_CATALOG, loadSeverityOverrides, saveSeverity, withSeverities } from './core/ruleCatalog';
 import { BUILT_IN_RULES } from './core/rules';
 import { TEMPLATES, addCustomRule, deleteCustomRule, loadCustomDefs, loadCustomRules, previewRule } from './core/customRules';
@@ -103,6 +104,10 @@ resolver.define('getPanel', async ({ context }: Req) => {
     }
     const snap = snapshotFromModel(model);
     if (snap) { try { await store.set(gateKey(issueKey), snap); } catch { /* best effort */ } }
+    // Marks a person made on these findings (real or false alarm), so the panel can show them. Counts only; findings are never changed by a mark.
+    const lists = model as { findings?: { id: string; reviewed?: string }[]; notes?: { id: string; reviewed?: string }[] };
+    const marks = await loadReviewMarks(store, [...(lists.findings ?? []), ...(lists.notes ?? [])].map((f) => f.id));
+    for (const f of [...(lists.findings ?? []), ...(lists.notes ?? [])]) if (marks[f.id]) f.reviewed = marks[f.id];
     // Dismissal learning: a calm hint only. Findings, severities and blockers are never hidden or changed because a rule is noisy.
     return withNoisyRules(model as never, await loadNoisyRules(store));
   } catch (e) {
@@ -222,6 +227,16 @@ resolver.define('previewCustomRule', async ({ payload, context }: Req<Record<str
     if (m.status === 'unchecked' || m.status === 'error') return { ok: true, count: 0, note: `This work item could not be checked (${m.reason ?? 'unknown reason'}), so there is nothing to preview against.` };
     return { ok: true, count: (m.findings ?? []).length, pagesChecked: m.pagesChecked ?? 0 };
   } catch (e) { if (needsConsent(e)) throw e; return { ok: false, reason: 'The preview could not run. Try again.' }; }
+});
+
+// A person marks a finding as a real contradiction or a false alarm. The finding is rebuilt here from its id; the browser sends nothing else.
+resolver.define('reviewFinding', async ({ payload, context }: Req<{ findingId?: string; verdict?: string }>) => {
+  const issueKey = issueKeyOf(context) as string;
+  const model = await buildPanelModel(issueKey, { ...makeDeps(), rules: await rulesNow() });
+  const lists = model as { findings?: { id: string; ruleId: string }[]; notes?: { id: string; ruleId: string }[] };
+  const f = [...(lists.findings ?? []), ...(lists.notes ?? [])].find((x) => x.id === payload?.findingId);
+  if (!f) return { ok: false, reason: 'That finding is no longer present. Refresh the panel.' };
+  return markFinding(store, { id: f.id, ruleId: f.ruleId, verdict: payload?.verdict });
 });
 
 resolver.define('triage', async ({ payload, context }: Req<{ findingId?: string; kind?: string; reason?: string }>) => {

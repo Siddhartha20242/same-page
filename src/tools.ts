@@ -9,6 +9,7 @@ import { loadOutcomes, ruleNoise } from './triage.ts';
 import { headOf } from './ledgerStore.ts';
 import type { KV } from './ledgerStore.ts';
 import { loadImpact } from './impact.ts';
+import { loadReviewCounts } from './review.ts';
 
 // Tools for AI agents (Rovo agents and, via rovo:mcp, third-party clients such as Cursor or Claude Code). READ-ONLY by design:
 // the docs say agents run by automation rules will not invoke actions with CREATE, UPDATE, DELETE or TRIGGER verbs.
@@ -70,7 +71,9 @@ export async function scanIssues({ issueKeys }: { issueKeys?: unknown }, deps: P
 // project_brief: where a project stands right now, in one call: its open epics and in-progress items, each with a verdict.
 // This is the "release readiness" question an agent is asked most: is anything in this project out of step with its docs?
 export async function projectBrief({ projectKey }: { projectKey?: unknown }, deps: OverviewDeps, weekly?: { at: string; project: { withContradictions: number; checked: number; newSincePrevious: number; resolvedSincePrevious?: number } | null } | null) {
-  const out = await runOverview(projectKey, deps);
+  // A larger request budget than the overview page, but a time limit that still fits inside the default function timeout (Forge does not allow a
+  // longer one on action functions). Whichever limit is reached first stops the run, and the items not reached are reported as not checked.
+  const out = await runOverview(projectKey, deps, { maxMs: 22000, maxRequests: 100 });
   if (out.status === 'error') return { status: 'error', reason: out.message, notice: NOTICE };
   return {
     status: 'ready', summary: out.summaryLine, coverage: out.coverageLine,
@@ -110,6 +113,7 @@ export async function findingHistory({ issueKey }: { issueKey?: string }, kv: KV
 export async function ruleHealth(kv: KV) {
   const overrides = await loadSeverityOverrides(kv);
   const outcomes = await loadOutcomes(kv);
+  const reviews = await loadReviewCounts(kv);
   const history = Object.entries(outcomes).flatMap(([ruleId, c]) => [
     ...Array.from({ length: Math.min(1000, Number(c?.dismissed) || 0) }, () => ({ ruleId, outcome: 'dismissed' as const })),
     ...Array.from({ length: Math.min(1000, Number(c?.acted) || 0) }, () => ({ ruleId, outcome: 'acted' as const })),
@@ -118,7 +122,8 @@ export async function ruleHealth(kv: KV) {
   const row = (ruleId: string, name: string, defaultSeverity: string) => {
     const o = outcomes[ruleId] ?? { dismissed: 0, acted: 0 };
     const total = (o.dismissed || 0) + (o.acted || 0);
-    return { id: ruleId.split('_')[0], name, severity: overrides[ruleId] ?? defaultSeverity, changedOnThisSite: Boolean(overrides[ruleId]), acted: o.acted || 0, dismissed: o.dismissed || 0, dismissedPercent: total ? Math.round((100 * (o.dismissed || 0)) / total) : null, looksNoisy: noisy.has(ruleId) };
+    const rv = reviews[ruleId] ?? { real: 0, false: 0 };
+    return { id: ruleId.split('_')[0], name, severity: overrides[ruleId] ?? defaultSeverity, changedOnThisSite: Boolean(overrides[ruleId]), acted: o.acted || 0, dismissed: o.dismissed || 0, dismissedPercent: total ? Math.round((100 * (o.dismissed || 0)) / total) : null, looksNoisy: noisy.has(ruleId), markedReal: rv.real, markedFalseAlarm: rv.false };
   };
   const custom = await loadCustomDefs(kv);
   return {
@@ -132,5 +137,5 @@ export async function ruleHealth(kv: KV) {
 // impact_summary: counters this site has accumulated. The hours figure appears only if an administrator set minutes per fix.
 export async function impactSummary(kv: KV) {
   const i = await loadImpact(kv);
-  return { summary: i.line, counts: i.counts, estimatedHoursSaved: i.estimatedHoursSaved, minutesPerFixSetByAdmin: i.minutesPerFix, note: i.estimatedHoursSaved === null ? 'No time-saved figure: an administrator has not set minutes per fix. We do not guess one.' : 'The hours figure is the administrator\'s own estimate times the number of applied fixes.', notice: NOTICE };
+  return { summary: i.line, review: i.review.line, reviewed: { real: i.review.real, falseAlarm: i.review.false, realPercent: i.review.realPercent }, counts: i.counts, estimatedHoursSaved: i.estimatedHoursSaved, minutesPerFixSetByAdmin: i.minutesPerFix, note: i.estimatedHoursSaved === null ? 'No time-saved figure: an administrator has not set minutes per fix. We do not guess one.' : 'The hours figure is the administrator\'s own estimate times the number of applied fixes.', notice: NOTICE };
 }

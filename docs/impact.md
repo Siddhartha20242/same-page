@@ -13,6 +13,9 @@ On every site it counts, with no page text, titles or names:
 
 These appear on the project overview page ("What Same Page has done on this site"), and in the audit trail. The Rovo audit agent and the MCP `impact-summary` tool report the same numbers.
 
+## Precision from real use
+Every finding in the panel has two buttons: "Yes, it is real" and "No, false alarm". A mark is counted once per finding (changing it replaces the old one) and stored as a count per rule, with no page text, titles or names. The overview page shows the total (for example "10 findings reviewed by your team: 8 real, 2 false alarms (80% real)"), the Rules list and the agents show it per rule, and below 10 marks the line says the sample is too small to say anything. A mark never hides or changes a finding.
+
 ## The one figure that needs a person
 A Jira administrator can type how many minutes one applied fix saves. Only then does the page show an hours figure, worded as their own estimate times the number of fixes. Until then it says no figure is set. This gives a pilot team a way to state a number they stand behind, and keeps the number out of our hands.
 
@@ -22,4 +25,4 @@ A Jira administrator can type how many minutes one applied fix saves. Only then 
 - The reach is bounded: it covers Jira and Confluence content only, and the gate needs a company-managed project and an administrator.
 
 ## What would turn this into evidence
-One to three teams run it for one to two weeks and label every finding real or false alarm ([pilot-kit.md](pilot-kit.md)). The counters above give the volume, the labels give precision, and the administrator's minutes give their own time-saved figure. Below about 10 labelled findings we would say so.
+One to three teams run it for one to two weeks and mark every finding real or false alarm in the panel ([pilot-kit.md](pilot-kit.md)). The counters above give the volume, the marks give precision, and the administrator's minutes give their own time-saved figure. Below about 10 labelled findings we would say so.

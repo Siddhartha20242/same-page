@@ -253,6 +253,8 @@ const AuditTrail = () => {
 };
 
 interface FindingProps {
+  review?: 'real' | 'false';
+  onReview: (f: PanelFinding, verdict: 'real' | 'false') => void;
   f: PanelFinding;
   first?: boolean;
   task?: TaskState;
@@ -263,7 +265,7 @@ interface FindingProps {
   onDismiss: (f: PanelFinding, reason: string) => void;
 }
 
-const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismiss }: FindingProps) => {
+const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismiss, review, onReview }: FindingProps) => {
   const [reason, setReason] = useState('');
   const [asking, setAsking] = useState(false);
   const applied = act?.status === 'applied';
@@ -309,6 +311,11 @@ const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismi
     <Text>{`Why it matters: ${f.why}`}</Text>
     {f.foundBecause?.length ? <Text>{`Found because: ${f.foundBecause.join(', ')}`}</Text> : null}
     <Text>{`Evidence id: #${f.id.slice(0, 8)} (the same id appears if a workflow gate refuses a transition because of this finding)`}</Text>
+    <Inline space="space.100" alignBlock="center" shouldWrap>
+      <Text>Was this a real contradiction?</Text>
+      <Button appearance={review === 'real' ? 'primary' : 'default'} onClick={() => onReview(f, 'real')}>{review === 'real' ? 'Marked real' : 'Yes, it is real'}</Button>
+      <Button appearance={review === 'false' ? 'primary' : 'default'} onClick={() => onReview(f, 'false')}>{review === 'false' ? 'Marked false alarm' : 'No, false alarm'}</Button>
+    </Inline>
     <Inline space="space.100" alignBlock="center">
       <Button onClick={() => onSnooze(f)} isDisabled={busy}>Snooze for 7 days</Button>
       <Button onClick={() => setAsking(!asking)} isDisabled={busy}>Dismiss with a reason…</Button>
@@ -328,6 +335,7 @@ const App = () => {
   const [state, setState] = useState<Load>({ phase: 'loading' });
   const [tasks, setTasks] = useState<Record<string, TaskState>>({});
   const [acts, setActs] = useState<Record<string, ActState>>({});
+  const [reviews, setReviews] = useState<Record<string, 'real' | 'false'>>({});
   const [seed, setSeed] = useState<SeedState>({ status: 'idle' });
   const [target, setTarget] = useState('');
   const [targetState, setTargetState] = useState<{ status: 'idle' | 'working' } | { status: 'error'; message: string }>({ status: 'idle' });
@@ -362,6 +370,11 @@ const App = () => {
     }
   };
   const apply = (f: PanelFinding) => run(f, 'applyFix', { expectedAfter: f.suggestion?.after }, (r) => setActs((a) => ({ ...a, [f.id]: { status: 'applied', version: r.version ?? 0, receipt: r.receipt } })));
+  const review = async (f: PanelFinding, verdict: 'real' | 'false') => {
+    setReviews((r) => ({ ...r, [f.id]: verdict }));            // shown at once; the server keeps the count
+    try { const r = await invoke<ActionReply>('reviewFinding', { findingId: f.id, verdict }); if (r?.ok === false) setReviews((x) => { const n = { ...x }; delete n[f.id]; return n; }); }
+    catch { setReviews((x) => { const n = { ...x }; delete n[f.id]; return n; }); }
+  };
   const snooze = (f: PanelFinding) => run(f, 'triage', { kind: 'snooze' }, load);
   const dismissIt = (f: PanelFinding, reason: string) => run(f, 'triage', { kind: 'dismiss', reason }, load);
 
@@ -439,7 +452,7 @@ const App = () => {
       <Checked titles={m.pageTitles} count={m.pagesChecked} found={m.findings.length} skipped={m.skippedRules} onSaved={load} />
       {m.hidden ? <Text>{`${m.hidden} more finding(s) hidden by snooze or dismissal.`}</Text> : null}
       {(m.noisyRules ?? []).map((n) => <Text key={n.ruleId}>{n.message}</Text>)}
-      {[...ordered, ...(m.notes ?? [])].map((f, i) => (<Finding key={f.id} first={i === 0 && m.status === 'findings'} f={f} task={tasks[f.id]} onCreateTask={createTask} act={acts[f.id]} onApply={apply} onSnooze={snooze} onDismiss={dismissIt} />))}
+      {[...ordered, ...(m.notes ?? [])].map((f, i) => (<Finding key={f.id} first={i === 0 && m.status === 'findings'} f={f} task={tasks[f.id]} onCreateTask={createTask} act={acts[f.id]} onApply={apply} onSnooze={snooze} onDismiss={dismissIt} review={reviews[f.id] ?? f.reviewed} onReview={review} />))}
       <Inline space="space.100" alignBlock="center" shouldWrap>
         <Button onClick={load}>Check again</Button>
       </Inline>

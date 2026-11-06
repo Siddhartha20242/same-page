@@ -55,6 +55,7 @@ const ImpactCard = ({ impact, onSaved }: { impact: Impact & { canEdit: boolean }
     <Stack space="space.100">
       <Heading size="xsmall">What Same Page has done on this site</Heading>
       <Text>{impact.line}</Text>
+      <Text>{impact.review.line}</Text>
       {impact.estimatedHoursSaved !== null
         ? <Text>{`About ${impact.estimatedHoursSaved} hours of review time saved: ${impact.counts.applied} fixes at ${impact.minutesPerFix} minutes each. That is your administrator's own estimate, not something Same Page measured.`}</Text>
         : <Text>No time-saved figure yet. Same Page does not guess one; a Jira administrator can enter how many minutes one fix saves.</Text>}

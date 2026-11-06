@@ -26,6 +26,9 @@ Every limit below is a constant in the code. Where a limit is hit, the app says 
 | Matching | plain text, ignoring case; first matching line per page; history-worded lines skipped |
 | Where they run | the panel, the gate, the soft gate, the weekly scan, the agent and MCP tools. Not the Confluence byline. |
 
+## Review marks
+One mark per finding id, at most 30 ids read per panel load, counts capped at 100,000 per rule. A finding whose evidence changes gets a new id and so a new mark.
+
 ## Overview extras
 | Item | Behaviour |
 |---|---|
@@ -36,7 +39,7 @@ Every limit below is a constant in the code. Where a limit is hit, the app says 
 | Limit | Value |
 |---|---|
 | Work items per `scan-issues` call | 10 |
-| Time and request budget per call | 40 seconds, 80 requests; items not reached are reported as unchecked |
+| Time and request budget per call | `scan-issues`: 40 seconds, 80 requests. `project-brief`: 22 seconds, 100 requests, so it fits inside the default function timeout. Items not reached are reported as unchecked. On a large project the brief can still stop before the last items. |
 | Quoted text | flattened to one line, 160 characters, and marked as data to report, never instructions |
 
 ## The gate and the soft gate

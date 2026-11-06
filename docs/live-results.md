@@ -129,3 +129,8 @@ After the production deploy, on the demo site (Jira and Confluence at major vers
 - **Audit trail.** "What has Same Page done on this site, and what happened to the contradictions on MOBL-58?" answered that the site has found 2 contradictions, none fixed, sent or dismissed, and that there are no recorded handling events for MOBL-58 (the new build had not been used on that work item yet).
 A limit this showed: on a project with many open items the release check reaches only the first items before its request budget (60 requests) runs out, and says so. We have not tuned that budget.
 Not observed: an agent answering with real handling events, and how Rovo chooses between the four agents when the user does not pick one.
+
+## 2026-11-06: "real or false alarm" marks (app version 7.21)
+Observed on the development site on SCRUM-5: each finding showed "Was this a real contradiction?" with "Yes, it is real" and "No, false alarm". Clicking the first changed it to "Marked real" at once, and after "Check again" it still read "Marked real", so the mark was saved. This test mark is on the test work item and counts as 1 real on that site.
+Not observed: the overview line with the review summary, changing a mark, and the agents reporting the counts.
+Also changed, not observed live: the release check's request budget went from 60 to 100 (time limit 22 seconds, so it still fits the default function timeout). Forge's linter does not allow a longer timeout on action functions.

@@ -54,3 +54,19 @@ test('impact: counts always, an hours figure only after an administrator sets mi
   await setMinutesPerFix(s, '0');
   assert.equal((await loadImpact(s)).estimatedHoursSaved, null);       // 0 clears it
 });
+
+import { projectBrief } from '../src/tools.ts';
+test('the project brief covers a full list of 20 items instead of stopping at the overview budget', async () => {
+  const keys = Array.from({ length: 20 }, (_, i) => `PAY-${i + 1}`);
+  const deps = {
+    searchIssues: async () => keys.map((key) => ({ key, summary: key })),
+    loadIssue: async (k: string) => ({ key: k, summary: 'Token expiry', status: 'In Progress', components: [], fixVersions: [], labels: [], requiredFields: [], fields: {} }),
+    getTransition: async () => ({ at: '2026-10-01T00:00:00Z', by: 'Sam' }),
+    getRemoteLinkIds: async () => [],
+    searchPages: async () => [],
+  };
+  const r = await projectBrief({ projectKey: 'PAY' }, deps as never) as { items: { reasonNotChecked?: string }[]; status: string };
+  assert.equal(r.status, 'ready');
+  assert.equal(r.items.length, 20);
+  assert.equal(r.items.filter((i) => /not reached/.test(i.reasonNotChecked ?? '')).length, 0);
+});

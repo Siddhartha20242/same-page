@@ -57,6 +57,7 @@ Tools such as code-to-docs generators start from the code and use a model to dra
 | Weekly scan | Once a week the app checks open epics and the project overview shows how many have contradictions and how many are new since the last scan. |
 | Overview | A project page, **Same Page overview**, lists the open epics and in-progress work items (up to 20) with a verdict, finding count and the reason for anything it could not check. Read-only. |
 | Agents | Four read-only Rovo agents for four different people, sharing seven checks that are also exposed as MCP tools: a general one, a **release check** (is project PAY ready to ship?), an **audit trail** agent (what happened to the contradictions on PAY-1?) and a **rule coach** (which rules look noisy on this site?). They answer from the same evidence as the panel and cannot change anything. See [docs/agent.md](docs/agent.md). |
+| Real or false alarm | Every finding in the panel has "Yes, it is real" and "No, false alarm" buttons. The marks are counted per rule and shown on the overview page and to the agents, with a warning while the sample is under 10. This turns normal use into a precision figure. Marking never hides or changes a finding. |
 | Impact on this site | The overview page shows what Same Page has done here: contradictions found, fixed, sent to owners, dismissed, transitions refused. A time-saved figure appears only if a Jira administrator types their own minutes-per-fix estimate. See [docs/impact.md](docs/impact.md). |
 
 ### The rules
@@ -155,7 +156,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      270 tests and the 30-pair fixture set
+test/  fixtures/      274 tests and the 30-pair fixture set
 scripts/              live gate check, receipt verifier, payload capture
 docs/                 live results, gate setup, pilot kit, feasibility
 ```

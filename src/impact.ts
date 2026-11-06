@@ -1,5 +1,7 @@
 import { readCounts } from './metrics.ts';
 import type { Counts, MetricStore } from './metrics.ts';
+import { loadReviewCounts, reviewSummary } from './review.ts';
+import type { ReviewSummary } from './review.ts';
 
 // What Same Page has done on THIS site, from counters it keeps itself (see metrics.ts). Counts only, no page text, titles or names.
 // Time saved is never invented: it is shown only after a site administrator types how many minutes one applied fix saves, and it is
@@ -15,6 +17,8 @@ export interface Impact {
   /** applied fixes x minutes per fix, in hours, rounded to one decimal. Null until the administrator sets minutes. */
   estimatedHoursSaved: number | null;
   line: string;
+  /** What the team marked real or false alarm. Counts only. */
+  review: ReviewSummary;
 }
 
 export async function loadImpact(store: ImpactStore): Promise<Impact> {
@@ -24,7 +28,7 @@ export async function loadImpact(store: ImpactStore): Promise<Impact> {
   const hours = minutes === null ? null : Math.round((counts.applied * minutes) / 6) / 10;
   const parts = [`${counts.seen} contradiction${counts.seen === 1 ? '' : 's'} found`, `${counts.applied} fixed on the page`, `${counts.reviewTasks} sent to a page owner`, `${counts.dismissed} dismissed`, `${counts.gateBlocks} transition${counts.gateBlocks === 1 ? '' : 's'} refused`];
   const line = parts.join(' · ');
-  return { counts, minutesPerFix: minutes, estimatedHoursSaved: hours, line };
+  return { counts, minutesPerFix: minutes, estimatedHoursSaved: hours, line, review: reviewSummary(await loadReviewCounts(store)) };
 }
 
 export async function setMinutesPerFix(store: ImpactStore, raw: unknown): Promise<{ ok: true } | { ok: false; reason: string }> {
