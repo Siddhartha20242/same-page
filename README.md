@@ -3,7 +3,7 @@
 **Keep your docs and tickets on the same page.**
 
 ## At a glance
-- **What it is:** a Forge app for Jira and Confluence that checks a work item against the pages linked to it.
+- **What it is:** a Forge app for Jira and Confluence that checks a work item against the pages linked to it. For software teams it is a pre-flight check before a release, a runbook step or an implementation.
 - **What is different:** it can refuse a Jira transition (for example to Done) while a blocking contradiction is open, and the refusal shows the proof: the page's own line next to Jira's own field.
 - **No model in detection.** Fixed rules decide, so every finding can be repeated and explained. A person approves every fix.
 - **What it also understands:** OpenAPI specs written in YAML as well as JSON, and it skips sections headed Legacy, Deprecated, Archive or Previous versions.
@@ -39,13 +39,18 @@ We kept AI out of the decision on purpose, for three reasons a team can check:
 We are not claiming that is novel. We are claiming it is what makes a transition gate defensible: when Same Page stops a transition, the evidence is the page's own line next to Jira's own field. We know of no other app that does that inside a Jira workflow, but we have not surveyed the whole Marketplace.
 
 ## Who it is for
-The first reader we build for is the **release owner or engineering manager** who has to say "we are ready" and be right. The audit trail serves the second reader, a compliance lead, and the rules for specs and duplicates serve a third, the API team. We lead with the first.
+Three moments in a software team's week, each with a different person:
+- **A release owner deciding to ship.** The gate refuses a transition to Done while a blocking contradiction is open, and the release-check agent answers "is project PAY ready to ship?" with what it could not check.
+- **An on-call engineer about to follow a runbook.** The on-call agent answers "can I trust the runbook for PAY-1 right now?" with the page line next to what Jira says.
+- **A developer implementing against an API version.** The panel shows a page that still says v1 against a v2 target, the number or date that differs, and what Same Page read from the ticket.
+
+The audit trail serves a fourth reader, a compliance lead, and the spec and duplicate rules serve the API team. We lead with the first three.
 
 | Reader | Rules that matter most | Value |
 |---|---|---|
-| Engineering manager, on-call lead | R1 stale version, R4 stale status claim, R6 closed ticket, R8 to R10 numbers and dates | A runbook that contradicts the release is caught before someone follows it. |
+| Release owner, on-call lead | R1 stale version, R4 stale status claim, R6 closed ticket, R8 to R10 numbers and dates | A runbook that contradicts the release is caught before someone follows it. |
+| Developer, API and platform team | R1 stale version, R5 spec mismatch, R7 pages disagree | Docs that describe an endpoint the spec does not have, or two pages that give two answers. |
 | Governance and compliance lead | R2 deprecated decision, R3 missing field, and the audit log | Withdrawn decisions and missing fields are caught at transition time, and every applied fix is sealed in a tamper-evident log. |
-| API and platform team | R5 spec mismatch, R7 pages disagree | Docs that describe an endpoint the spec does not have, or two pages that give two answers. |
 
 **Why it matters.** Public surveys put an hour of downtime above $300,000 for over 90% of mid-size and large enterprises (ITIC, 2024). No survey we found isolates outages caused by stale documentation, so we do not claim a saving. The aim is to remove one avoidable cause. The pilot below is how we will measure it.
 
