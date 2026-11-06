@@ -102,7 +102,7 @@ const App = () => {
         <Tile label="Not checked" value={count('Not checked')} tone="neutral" />
       </Inline>
       <SectionMessage appearance={ready.withContradictions ? 'warning' : ready.unchecked ? 'information' : 'success'} title={ready.summaryLine.replace(/\.$/, '')}>
-        {ready.coverageLine ? <Text>{ready.coverageLine}</Text> : <Text>Open a work item to see the evidence for each finding.</Text>}
+        {ready.coverageLine ? <Text>{ready.coverageLine}</Text> : ready.rows.length ? <Text>Open a work item to see the evidence for each finding.</Text> : null}
       </SectionMessage>
       {ready.rows.length ? (
         <DynamicTable
@@ -115,7 +115,7 @@ const App = () => {
             { key: 'detail', content: r.verdict === 'Not checked' ? `Reason: ${r.reason ?? 'unknown'}` : `${r.findings} finding${r.findings === 1 ? '' : 's'}${r.notes ? `, ${r.notes} note${r.notes === 1 ? '' : 's'}` : ''}` },
           ] }))}
         />
-      ) : <Text>No open epics or in-progress work items were found in this project.</Text>}
+      ) : null}
       <Text>Rules only, no AI in detection. A Not checked item is not a clean item.</Text>
     </Stack>
   ) : null;
