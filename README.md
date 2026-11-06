@@ -2,6 +2,14 @@
 
 **Keep your docs and tickets on the same page.**
 
+## At a glance
+- **What it is:** a Forge app for Jira and Confluence that checks a work item against the pages linked to it.
+- **What is different:** it can refuse a Jira transition (for example to Done) while a blocking contradiction is open, and the refusal shows the proof: the page's own line next to Jira's own field.
+- **No model in detection.** Fixed rules decide, so every finding can be repeated and explained. A person approves every fix.
+- **What it catches:** a stale API version, a deprecated decision, a closed ticket still cited as open, and times, limits and dates that differ, plus rules your own admin adds.
+- **What is proven:** it runs on real Jira and Confluence sites and in Rovo. **What is not:** no real team has used it yet, so its accuracy on real documents is unmeasured. Every finding has real / false-alarm buttons for that.
+- **Try it in five minutes:** see [Try it](#try-it).
+
 Same Page is a Forge app for Jira and Confluence. It finds *provable* contradictions between a work item and the Confluence pages
 linked to it, shows the evidence side by side, proposes a verified fix that a human applies as a revertible page version, and can
 stop a Jira transition (for example to Done) while a contradiction is still open.
@@ -51,7 +59,9 @@ Tools such as code-to-docs generators start from the code and use a model to dra
 | Record | Every Apply is sealed into a hash-chained audit log; the hash is also anchored on the Jira work item. The same chain holds each finding's handling timeline: first shown, dismissed (with the reason and who), snoozed, turned into a review task, applied. It does not record who merely looked at a finding. |
 | Guard | After a fix, the page is pinned. If someone edits the old version back in, Same Page comments on the work item. |
 | Gate (optional) | A Jira workflow validator refuses the transition and names the rule, the page, the next step and a short **evidence id** that is the same id the panel shows for that finding. It fails open on any error. The panel and review tasks work without it. |
-| Your team's rules | A Jira administrator can add up to 10 rules of their own from three fixed templates (a phrase on the page while the status is, or is not, a value; a phrase while the work item has a label or component; a label that needs a phrase). They are plain-text matches, with a preview of what a rule would find on the current work item before it is saved. They run in the panel, the gate, the soft gate, the weekly scan and the agent. |
+| Your team's rules | A Jira administrator can add up to 10 rules of their own from three fixed templates (a phrase on the page while the status is, or is not, a value; a phrase while the work item has a label or component; a label that needs a phrase). They are plain-text matches, with a preview of what a rule would find on the current work item before it is saved. They run in the panel, the gate, the soft gate, the weekly scan and the agent. Rules can be copied as text and pasted into another site, and every imported rule is checked like a typed one. |
+| Catch it as it happens | Editing a work item's summary or description into a contradiction leaves one notice comment right then, and so does moving it to Done with a blocking one open. Notices name rules and a count, never page text, and never block. |
+| Link a page | Paste the address of a Confluence page on the same site into the panel to link it to the work item. The page must be readable by you. |
 | Rules | Lists all ten rules with their severity and, once people use them, how often each was acted on or dismissed on this site. |
 | Soft gate | When a work item is moved to Done with a blocking contradiction open, Same Page leaves one notice comment on it. It works in every project type, including team-managed ones, and never blocks. |
 | Weekly scan | Once a week the app checks open epics and the project overview shows how many have contradictions and how many are new since the last scan. |
@@ -71,7 +81,7 @@ Tools such as code-to-docs generators start from the code and use a model to dra
 | R5 spec mismatch | Blocker | A doc line such as `DELETE /api/v2/charge/42` disagrees with an OpenAPI 3 JSON spec held in a linked page (deprecated is a block, unknown is a warning). |
 | R6 closed ticket | Warning | A page treats another ticket as still open ("blocked by PAY-9") but Jira says that ticket is Done or Closed. It only warns and never blocks a transition. |
 | R7 pages disagree | Warning | Two linked pages document the same endpoint or API at different versions (`POST /api/v1/charge` vs `/api/v2/charge`, or "Payments API v1" vs "v2") and the ticket cannot settle it: it has no target version, or targets neither. It shows both lines, only warns, and stays silent if the target matches one page (R1 handles that) or the wording is historical. |
-| R8 duration differs | Warning | The work item and a page give different times for the same thing, such as "Access token expiry should be 1 hour" against "Access tokens expire after 30 minutes". |
+| R8 duration differs | Warning | The work item and a page give different times for the same thing, such as "Access token expiry should be 1 hour" against "Access tokens expire after 30 minutes". It reads number words and common phrasings too ("thirty minutes", "half an hour", "1h30m"), but not looser wording. |
 | R9 limit or port differs | Warning | Different limits, sizes, counts or ports for the same thing ("100 requests per minute" against "200 requests per minute", `port 8080` against `port 9090`). |
 | R10 date differs | Warning | Different dates for the same milestone (release, deadline, code freeze, cutover). |
 
