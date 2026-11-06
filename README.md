@@ -17,7 +17,7 @@ stop a Jira transition (for example to Done) while a contradiction is still open
 
 **Detection is deterministic, repeatable and auditable. No model decides what counts as a contradiction.** We chose that on purpose: it is for teams that have to explain a release decision afterwards, and it is why every finding carries its evidence and every fix is a revertible page version.
 
-Codegeist 2026, category: Apps for Software Teams. Bonus targets: Atlassian MCP, Marketplace and Best Agents. Four Rovo agents and an MCP module are included; the MCP module is live, but no signed-in third-party client call has been recorded yet ([docs/mcp.md](docs/mcp.md)).
+Codegeist 2026, category: Apps for Software Teams. Bonus targets: Atlassian MCP, Marketplace and Best Agents. Six Rovo agents and an MCP module are included; the MCP module is live, but no signed-in third-party client call has been recorded yet ([docs/mcp.md](docs/mcp.md)).
 
 ## The problem
 
@@ -73,7 +73,7 @@ Tools such as code-to-docs generators start from the code and use a model to dra
 | Soft gate | When a work item is moved to Done with a blocking contradiction open, Same Page leaves one notice comment on it. It works in every project type, including team-managed ones, and never blocks. |
 | Weekly scan | Once a week the app checks open epics and the project overview shows how many have contradictions and how many are new since the last scan. |
 | Overview | A project page, **Same Page overview**, lists the open epics and in-progress work items (up to 20) with a verdict, finding count and the reason for anything it could not check. Read-only. |
-| Agents | Four read-only Rovo agents for four different people, sharing eight checks that are also exposed as MCP tools: a general one, a **release check** (is project PAY ready to ship?), an **audit trail** agent (what happened to the contradictions on PAY-1?) and a **rule coach** (which rules look noisy on this site?). They answer from the same evidence as the panel and cannot change anything. See [docs/agent.md](docs/agent.md). |
+| Agents | Six read-only Rovo agents for different people, sharing eight checks that are also exposed as MCP tools: a general one, a **release check** (is project PAY ready to ship?), an **audit trail** agent (what happened to the contradictions on PAY-1?), a **rule coach** (which rules look noisy on this site?), a **docs owner** (which pages are out of step, grouped by page) and an **on-call check** (can I trust this runbook right now?). They answer from the same evidence as the panel and cannot change anything. See [docs/agent.md](docs/agent.md). |
 | Real or false alarm | Every finding in the panel has "Yes, it is real" and "No, false alarm" buttons. The marks are counted per rule and shown on the overview page and to the agents, with a warning while the sample is under 10. This turns normal use into a precision figure. Marking never hides or changes a finding. |
 | Impact on this site | The overview page shows what Same Page has done here: contradictions found, fixed, sent to owners, dismissed, transitions refused. A time-saved figure appears only if a Jira administrator types their own minutes-per-fix estimate. See [docs/impact.md](docs/impact.md). |
 
@@ -164,7 +164,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 ## Plan and roadmap
 
 1. **Pilot first (1 to 3 teams, 1 to 2 weeks).** Teams install the app on a test project and label each finding real or false alarm. We report counts and precision with the sample size, whatever they are. Method: [docs/pilot-kit.md](docs/pilot-kit.md). No pilot has run yet, so no real-world precision or time-saved figure exists.
-2. Seen on a real site: the soft gate, the change notices, the weekly scan, R8, custom rules, link a page, the review buttons and the four agents ([docs/live-results.md](docs/live-results.md)). Also seen on a real site: the severity filter chips, the audit trail with break-glass events, and the audit export (its text passed `scripts/verify-export.mjs`, and a one-field edit was caught). Not yet seen on a real site: R9 and R10, rule export and import, the tuning suggestions, the patch preview with context lines, YAML specs and legacy-section skipping.
+2. Seen on a real site: the soft gate, the change notices, the weekly scan, R8, custom rules, link a page, the review buttons and the first four agents ([docs/live-results.md](docs/live-results.md)). Also seen on a real site: the severity filter chips, the audit trail with break-glass events, and the audit export (its text passed `scripts/verify-export.mjs`, and a one-field edit was caught). Not yet seen on a real site: R9 and R10, rule export and import, the tuning suggestions, the patch preview with context lines, YAML specs and legacy-section skipping.
 3. Next rules, chosen by what the pilot's false alarms and misses say: owners and on-call names, and wording-tolerant matching for numbers.
 4. An optional AI tier that may only propose candidates, shown only when both quoted lines exist verbatim, warn-only and off by default. Not built.
 

@@ -1,15 +1,19 @@
 # The Rovo agent
 
-The agent answers questions about whether a work item and its docs agree. It calls the same four actions as the MCP tools, so its
+The agents answer questions about whether a work item and its docs agree. They call the same eight actions as the MCP tools, so its
 answers carry the same evidence and are never generated from memory.
 
-## Four agents, four people
+## Six agents, six people
 | Agent | For | Ask it | Uses |
 |---|---|---|---|
 | Same Page | anyone | "Do the docs for PAY-1 contradict the ticket?" | check-issue-docs, scan-issues, project-brief, list-rules |
 | Same Page release check | a release owner | "Is project PAY ready to ship?" | project-brief, scan-issues, check-issue-docs |
 | Same Page audit trail | a compliance or engineering lead | "What happened to the contradictions on PAY-1?" | finding-history, impact-summary, check-issue-docs |
 | Same Page rule coach | a Jira administrator | "Which rules look noisy on this site?", "Which pages disagree about our declared facts?" | rule-health, list-rules, canon-check |
+| Same Page docs owner | a technical writer or documentation owner | "Which pages are out of step with the work items in project PAY?" | project-brief, scan-issues, check-issue-docs, canon-check |
+| Same Page on-call check | an on-call engineer | "Can I trust the runbook for PAY-1 right now?" | check-issue-docs, scan-issues, finding-history |
+
+The last two are different views of the same deterministic checks, not new detection: the docs owner groups results by page instead of by work item, and the on-call check answers in three fixed forms (contradiction found, no contradiction found by the rules, could not be checked) and always says that "no contradiction found" is not proof the runbook is right.
 
 All eight actions are read-only. They return events, rules and counts, never the people involved, and every quoted line is flattened and marked as data.
 
@@ -20,7 +24,7 @@ Rovo chooses an action from its description and the user's wording. The descript
 - `rule-health`: "Use when someone asks which Same Page rules are noisy, which severities were changed, what team rules exist…"
 
 ## What was verified
-Only the first agent with `check-issue-docs` and `scan-issues` has been run in Rovo, on a fresh site (the record is in [live-results.md](live-results.md)): `@Same Page do the docs for MOBL-58 contradict the ticket?`. The three new agents and the five newer actions are covered by offline tests and pass the manifest linter. They have not been run in Rovo, because the development site has no Rovo chat and the production build that the Rovo site runs does not include them yet. How well Rovo chooses between four agents is untested.
+The first agent, with `check-issue-docs` and `scan-issues`, was run in Rovo on a fresh site (`@Same Page do the docs for MOBL-58 contradict the ticket?`). On the production build the next three were listed and answered in Rovo chat on the demo site: the rule coach, the release check and the audit trail (the record is in [live-results.md](live-results.md)). The docs owner and the on-call check were added afterwards: they are covered by an offline manifest test and pass the manifest linter, and have **not** been run in Rovo. How well Rovo chooses between six agents when the user does not pick one is untested.
 
 ## What it does not do
 It cannot edit a page, create a task or change a work item. Fixing happens in the Jira panel, where a person clicks Apply.
