@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import ForgeReconciler, { Button, Heading, Inline, Link, Lozenge, SectionMessage, Spinner, Stack, Text, Textfield } from '@forge/react';
+import ForgeReconciler, { Box, Button, DynamicTable, Heading, Icon, Inline, Link, Lozenge, SectionMessage, Spinner, Stack, Tab, TabList, TabPanel, Tabs, Text, Textfield, xcss } from '@forge/react';
 import { invoke as bridgeInvoke } from '@forge/bridge';
 import type { Overview, OverviewRow } from '../core/overview';
 import type { ProjectDrift } from '../core/drift';
@@ -12,21 +12,24 @@ type Load = { phase: 'loading' } | { phase: 'failed' } | { phase: 'done'; reply:
 
 const TONE: Record<OverviewRow['verdict'], 'removed' | 'moved' | 'success' | 'default'> = { Blocked: 'removed', Warning: 'moved', Clean: 'success', 'Not checked': 'default' };
 
-// Read-only view of the project: one row per open epic or in-progress work item. Nothing on this page changes anything in Jira or Confluence.
-const Row = ({ r }: { r: OverviewRow }) => (
-  <Stack space="space.050">
-    <Inline space="space.100" alignBlock="center" shouldWrap>
-      <Link href={`/browse/${r.key}`}>{r.key}</Link>
-      <Text>{r.summary}</Text>
-    </Inline>
-    <Inline space="space.100" alignBlock="center" shouldWrap>
-      <Lozenge appearance={TONE[r.verdict]} isBold={r.verdict === 'Blocked'}>{r.verdict}</Lozenge>
-      {r.verdict === 'Not checked'
-        ? <Text>{`Reason: ${r.reason ?? 'unknown'}`}</Text>
-        : <Text>{`${r.findings} finding${r.findings === 1 ? '' : 's'}${r.notes ? `, ${r.notes} note${r.notes === 1 ? '' : 's'} on possibly intentional history` : ''}`}</Text>}
-    </Inline>
-  </Stack>
+const tileStyle = xcss({ borderColor: 'color.border', borderStyle: 'solid', borderWidth: 'border.width', borderRadius: 'radius.large', padding: 'space.200', backgroundColor: 'elevation.surface.raised', minWidth: '120px' });
+const padStyle = xcss({ paddingBlockStart: 'space.200', width: '100%' });
+const fullWidth = xcss({ width: '100%' });
+
+// One number with a label, as a card: the project's state at a glance.
+const Tile = ({ label, value, tone }: { label: string; value: number; tone: 'danger' | 'warning' | 'success' | 'neutral' }) => (
+  <Box xcss={tileStyle}>
+    <Stack space="space.050">
+      <Inline space="space.075" alignBlock="center">
+        <Icon glyph={tone === 'danger' ? 'error' : tone === 'warning' ? 'warning' : tone === 'success' ? 'check-circle' : 'info'} label={label} size="small" />
+        <Text>{label}</Text>
+      </Inline>
+      <Heading size="large">{String(value)}</Heading>
+    </Stack>
+  </Box>
 );
+
+// Read-only view of the project: one row per open epic or in-progress work item. Nothing on this page changes anything in Jira or Confluence.
 
 // What Same Page has done on this site, from its own counters. Time saved appears only after an administrator types their own estimate.
 const ScanNow = ({ onDone }: { onDone: () => void }) => {
@@ -81,29 +84,69 @@ const App = () => {
   }, []);
   useEffect(run, [run]);
 
-  return (
+  const ready = load.phase === 'done' && load.reply.status === 'ready' ? load.reply : null;
+  const count = (v: OverviewRow['verdict']) => (ready ? ready.rows.filter((r) => r.verdict === v).length : 0);
+  const itemsTab = ready ? (
     <Stack space="space.200">
-      <Text>Open epics and in-progress work items in this project, checked against the Confluence pages about them with your permissions. Read-only.</Text>
-      <Inline space="space.100" alignBlock="center">
-        <Button onClick={run} isDisabled={load.phase === 'loading'}>Check again</Button>
-        {load.phase === 'loading' ? <Inline space="space.100" alignBlock="center"><Spinner size="small" /><Text>Checking, this can take up to 20 seconds…</Text></Inline> : null}
+      <Inline space="space.150" shouldWrap>
+        <Tile label="Blocked" value={count('Blocked')} tone="danger" />
+        <Tile label="Warning" value={count('Warning')} tone="warning" />
+        <Tile label="Clean" value={count('Clean')} tone="success" />
+        <Tile label="Not checked" value={count('Not checked')} tone="neutral" />
+      </Inline>
+      <SectionMessage appearance={ready.withContradictions ? 'warning' : ready.unchecked ? 'information' : 'success'} title="Summary">
+        <Text>{ready.summaryLine}</Text>
+        {ready.coverageLine ? <Text>{ready.coverageLine}</Text> : null}
+      </SectionMessage>
+      {ready.rows.length ? (
+        <DynamicTable
+          caption="Open epics and in-progress work items"
+          head={{ cells: [{ key: 'key', content: 'Work item' }, { key: 'summary', content: 'Summary' }, { key: 'verdict', content: 'Verdict' }, { key: 'detail', content: 'Detail' }] }}
+          rows={ready.rows.map((r) => ({ key: r.key, cells: [
+            { key: 'key', content: <Link href={`/browse/${r.key}`}>{r.key}</Link> },
+            { key: 'summary', content: r.summary },
+            { key: 'verdict', content: <Lozenge appearance={TONE[r.verdict]} isBold={r.verdict === 'Blocked'}>{r.verdict}</Lozenge> },
+            { key: 'detail', content: r.verdict === 'Not checked' ? `Reason: ${r.reason ?? 'unknown'}` : `${r.findings} finding${r.findings === 1 ? '' : 's'}${r.notes ? `, ${r.notes} note${r.notes === 1 ? '' : 's'}` : ''}` },
+          ] }))}
+        />
+      ) : <Text>No open epics or in-progress work items were found in this project.</Text>}
+      <Text>Rules only, no AI in detection. A Not checked item is not a clean item.</Text>
+    </Stack>
+  ) : null;
+  const weeklyLine = ready ? (ready.drift
+    ? ready.drift.project
+      ? `Weekly scan (${new Date(ready.drift.at).toLocaleDateString()}): ${ready.drift.project.withContradictions} of ${ready.drift.project.checked} checked open epics had contradictions${ready.drift.hadPrevious === false ? '. This is the first scan, so there is nothing to compare with yet.' : `, ${ready.drift.project.newSincePrevious} new and ${ready.drift.project.resolvedSincePrevious ?? 0} resolved since the scan before.`}`
+      : `Weekly scan (${new Date(ready.drift.at).toLocaleDateString()}): no open epics in this project were checked.`
+    : 'No weekly scan result has reached this page yet. The scan runs once a week as the app, and its result is kept per product, so a Jira administrator can also run it here.') : '';
+  const impactTab = ready ? (
+    <Stack space="space.200">
+      <Text>{weeklyLine}</Text>
+      {ready.impact?.canEdit ? <ScanNow onDone={run} /> : null}
+      {ready.impact ? <ImpactCard impact={ready.impact} onSaved={run} /> : null}
+    </Stack>
+  ) : null;
+
+  return (
+    <Box xcss={fullWidth}>
+    <Stack space="space.200">
+      <Inline space="space.100" alignBlock="center" spread="space-between">
+        <Text>Open epics and in-progress work items in this project, checked against the Confluence pages about them with your permissions. Read-only.</Text>
+        <Inline space="space.100" alignBlock="center">
+          {load.phase === 'loading' ? <Spinner size="small" /> : null}
+          <Button onClick={run} isDisabled={load.phase === 'loading'}>{load.phase === 'loading' ? 'Checking, up to 20 seconds…' : 'Check again'}</Button>
+        </Inline>
       </Inline>
       {load.phase === 'failed' ? <SectionMessage appearance="error" title="Could not load the overview"><Text>Something went wrong. Try Check again.</Text></SectionMessage> : null}
       {load.phase === 'done' && load.reply.status === 'error' ? <SectionMessage appearance="error" title="Could not load the overview"><Text>{load.reply.message}</Text></SectionMessage> : null}
-      {load.phase === 'done' && load.reply.status === 'ready' ? (
-        <Stack space="space.150">
-          <SectionMessage appearance={load.reply.withContradictions ? 'warning' : load.reply.unchecked ? 'information' : 'success'} title="Summary">
-            <Text>{load.reply.summaryLine}</Text>
-            {load.reply.coverageLine ? <Text>{load.reply.coverageLine}</Text> : null}
-          </SectionMessage>
-          {load.reply.drift ? <Text>{load.reply.drift.project ? `Weekly scan (${new Date(load.reply.drift.at).toLocaleDateString()}): ${load.reply.drift.project.withContradictions} of ${load.reply.drift.project.checked} checked open epics had contradictions${load.reply.drift.hadPrevious === false ? '. This is the first scan, so there is nothing to compare with yet.' : `, ${load.reply.drift.project.newSincePrevious} new and ${load.reply.drift.project.resolvedSincePrevious ?? 0} resolved since the scan before.`}` : `Weekly scan (${new Date(load.reply.drift.at).toLocaleDateString()}): no open epics in this project were checked.`}</Text> : <Text>No weekly scan result has reached this page yet. The scan runs once a week as the app, and its result is kept per product, so a Jira administrator can also run it here.</Text>}
-          {load.reply.impact?.canEdit ? <ScanNow onDone={run} /> : null}
-          {load.reply.impact ? <ImpactCard impact={load.reply.impact} onSaved={run} /> : null}
-          {load.reply.rows.map((r) => <Row key={r.key} r={r} />)}
-          <Text>Rules only, no AI in detection. A Not checked item is not a clean item.</Text>
-        </Stack>
+      {ready ? (
+        <Tabs id="overview-tabs">
+          <TabList><Tab>Open work</Tab><Tab>What Same Page has done here</Tab></TabList>
+          <TabPanel><Box xcss={padStyle}>{itemsTab}</Box></TabPanel>
+          <TabPanel><Box xcss={padStyle}>{impactTab}</Box></TabPanel>
+        </Tabs>
       ) : null}
     </Stack>
+    </Box>
   );
 };
 

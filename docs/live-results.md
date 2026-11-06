@@ -158,3 +158,10 @@ Not observed: the agent action `canon-check`, the demo data declaring the fact o
 The declared fact and the unlinked test page stay on the development site.
 
 After the fact registry was deployed to production, on the demo site in Rovo chat, the "Same Page rule coach" agent was asked "Which pages disagree about our declared facts?". It called the new `canon-check` action and answered honestly that no facts have been declared on that site yet, and told an administrator where to add them. This checks the action is wired in production and its empty case. The case with a declared fact was observed in the Jira panel on the development site, not through the agent.
+
+## 2026-11-06: redesigned panel and overview (app version 7.26 to 7.30)
+Observed on the development site, light interaction only:
+- **Panel.** A status banner ("1 contradiction found" with a warning icon and the next step) sits above four tabs (Findings (1), What was checked, Rules and settings, Audit trail). Each finding is a card: severity lozenge and icon, rule tag, a "Start here" marker on the first, a bold summary, the primary action directly under it, "Page says" beside "Jira says" on a tinted panel, then secondary actions in a quieter style and an evidence tag. Settings, forms and the rule list are out of the way until their tab is opened.
+- **Audit tab.** Opened by itself when selected and showed "Chain intact", counts as tags, and a table of events ("What happened", "Rule", "Work item", "Seal") instead of a block of code.
+- **Overview.** Four stat tiles (Blocked, Warning, Clean, Not checked), a summary banner, a verdict table at full page width, and a second tab for what Same Page has done on the site.
+Not observed: the new layout on a very narrow window, a screen reader run, and the clean-state "All clear" screen (this site has a finding).

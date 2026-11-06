@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import ForgeReconciler, { Button, Code, Heading, Inline, Link, Lozenge, SectionMessage, Spinner, Stack, Strike, Text, TextArea, Textfield } from '@forge/react';
+import ForgeReconciler, { Box, Button, Code, DynamicTable, Heading, Icon, Inline, Link, Lozenge, SectionMessage, Spinner, Stack, Strike, Tab, TabList, TabPanel, Tabs, Tag, Text, TextArea, Textfield, xcss } from '@forge/react';
 import { invoke as bridgeInvoke } from '@forge/bridge';
 import type { PanelFinding, PanelModel, Span } from '../core/panelModel';
 
@@ -11,6 +11,11 @@ const TONE: Record<string, 'removed' | 'moved' | 'default'> = { block: 'removed'
 const LABEL: Record<string, string> = { block: 'Blocker', warn: 'Warning', info: 'Note' };
 const ruleShort = (id: string) => { const m = /^R(\d+)_/.exec(id); const names: Record<string, string> = { '8': 'Duration differs', '9': 'Limit or port differs', '10': 'Date differs', '1': 'Stale version', '2': 'Deprecated decision', '3': 'Missing field', '4': 'Stale status claim', '5': 'API spec mismatch', '6': 'Closed ticket cited as open', '7': 'Pages disagree' }; return m ? `R${m[1]} ${names[m[1]!] ?? ''}`.trim() : /^C\d+_CUSTOM$/.test(id) ? 'Custom rule' : 'Rule'; };
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : 'an unknown date');
+
+// Card and panel styling. Atlassian design tokens only, so light and dark themes both work.
+const cardStyle = xcss({ borderColor: 'color.border', borderStyle: 'solid', borderWidth: 'border.width', borderRadius: 'radius.large', padding: 'space.200', backgroundColor: 'elevation.surface.raised' });
+const evidenceStyle = xcss({ borderRadius: 'radius.medium', padding: 'space.150', backgroundColor: 'color.background.neutral' });
+const tabPad = xcss({ paddingBlockStart: 'space.200' });
 
 type TaskState = { status: 'creating' } | { status: 'done'; key: string } | { status: 'error'; message: string };
 type Receipt = { seq: number; entryHash: string; prevHash: string };
@@ -246,7 +251,7 @@ const CustomRules = ({ data, onChanged }: { data: RulesReply; onChanged: () => v
 
 // The rule set, visible even when nothing is found. A Jira administrator can move a rule between Blocker and Warning;
 // that decides which findings may stop a transition. Rules cannot be switched off and findings are never hidden by this.
-const RulesList = () => {
+const RulesList = ({ autoOpen }: { autoOpen?: boolean }) => {
   const [view, setView] = useState<{ phase: 'closed' } | { phase: 'loading' } | { phase: 'error' } | { phase: 'ready'; data: RulesReply; note?: string }>({ phase: 'closed' });
   const open = () => {
     setView({ phase: 'loading' });
@@ -259,6 +264,7 @@ const RulesList = () => {
       open();
     } catch { setView((v) => (v.phase === 'ready' ? { ...v, note: 'Not changed. Try again.' } : v)); }
   };
+  useEffect(() => { if (autoOpen) open(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   if (view.phase === 'closed') return <Button onClick={open}>Show the ten rules</Button>;
   if (view.phase === 'loading') return <Inline space="space.100" alignBlock="center"><Spinner size="small" /><Text>Loading the rules…</Text></Inline>;
   if (view.phase === 'error') return <SectionMessage appearance="error" title="Could not load the rules"><Text>Nothing was changed. Try again in a moment.</Text></SectionMessage>;
@@ -346,7 +352,6 @@ const Checked = ({ titles, count, found, skipped, onSaved }: { titles?: string[]
     {skipped?.some((x) => /target version/.test(x)) && onSaved ? <TargetForm onSaved={onSaved} /> : null}
     <Text>Rules only, no AI in detection, so every finding can be explained and repeated.</Text>
     {onSaved ? <LinkPage onLinked={onSaved} /> : null}
-    <RulesList />
   </Stack>
 );
 
@@ -363,7 +368,6 @@ const Lifecycle = ({ proposed, applied }: { proposed: boolean; applied: boolean 
           {i < steps.length - 1 ? <Text>→</Text> : null}
         </Inline>
       ))}
-      <Lozenge appearance="new">Found by rules · no AI</Lozenge>
     </Inline>
   );
 };
@@ -372,28 +376,50 @@ type LedgerView = { status: 'verified' | 'broken'; length: number; head: string;
 
 // The tamper-evident chain of applied fixes, read and re-verified on request. It proves the stored history was not edited or reordered;
 // it cannot stop someone with storage access from rewriting the whole chain, and it says so.
-const AuditTrail = () => {
+const AuditTrail = ({ autoOpen }: { autoOpen?: boolean }) => {
   const [view, setView] = useState<{ phase: 'closed' } | { phase: 'loading' } | { phase: 'error'; message: string } | { phase: 'ready'; ledger: LedgerView }>({ phase: 'closed' });
   const open = () => {
     setView({ phase: 'loading' });
     invoke<LedgerView>('ledgerView').then((ledger) => setView({ phase: 'ready', ledger })).catch((e: Error) => setView({ phase: 'error', message: e?.message ?? 'Could not read the audit trail.' }));
   };
+  useEffect(() => { if (autoOpen) open(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   if (view.phase === 'closed') return <Button onClick={open}>Show the audit trail</Button>;
   if (view.phase === 'loading') return <Inline space="space.100" alignBlock="center"><Spinner /><Text>Verifying the chain…</Text></Inline>;
   if (view.phase === 'error') return <SectionMessage appearance="error" title="Audit trail unavailable">{view.message}</SectionMessage>;
   const l = view.ledger;
+  const EVENT: Record<string, string> = { APPLIED: 'Fix applied', DISCOVERED: 'First found', DISMISSED: 'Dismissed', SNOOZED: 'Snoozed', REVIEW_TASK: 'Review task created' };
+  const rows = l.recent.map((e) => {
+    const [r, kind] = e.ruleId.split(':');
+    return { key: String(e.seq), cells: [
+      { key: 'n', content: `#${e.seq}` },
+      { key: 'what', content: EVENT[kind ?? ''] ?? 'Recorded' },
+      { key: 'rule', content: ruleShort(r ?? '') },
+      { key: 'item', content: e.issueKey ?? '' },
+      { key: 'hash', content: <Code>{`${e.entryHash}…`}</Code> },
+    ] };
+  });
   return (
-    <Stack space="space.050">
-      <Inline space="space.100" alignBlock="center">
+    <Stack space="space.150">
+      <Inline space="space.100" alignBlock="center" shouldWrap>
+        <Icon glyph={l.status === 'verified' ? 'check-circle' : 'error'} label={l.status === 'verified' ? 'Intact' : 'Broken'} size="medium" />
         <Lozenge appearance={l.status === 'verified' ? 'success' : 'removed'} isBold>{l.status === 'verified' ? 'Chain intact' : 'Chain broken'}</Lozenge>
-        <Text>{l.length === 0 ? 'No fix has been applied yet.' : `${l.length} sealed ${l.length === 1 ? 'entry' : 'entries'} · head ${l.head}…`}</Text>
+        <Text>{l.length === 0 ? 'Nothing has been sealed yet.' : `${l.length} sealed ${l.length === 1 ? 'entry' : 'entries'}`}</Text>
       </Inline>
       {l.reason ? <Text>{l.reason}</Text> : null}
-      {l.counts ? <Text>{`Impact on this site so far: ${l.counts.seen} finding(s) shown · ${l.counts.applied} fix(es) applied · ${l.counts.dismissed} dismissed · ${l.counts.snoozed} snoozed · ${l.counts.reviewTasks} review task(s) · ${l.counts.gateBlocks} transition(s) blocked.`}</Text> : null}
-      {l.recent.length ? <Text>The latest events, oldest first. DISCOVERED, DISMISSED, SNOOZED, REVIEW_TASK and APPLIED sit in one chain, so each finding has a handling history.</Text> : null}
-      {l.recent.map((e) => <Code key={e.seq}>{`#${e.seq} ${e.ruleId} ${e.issueKey ?? ''}  ${e.prevHash}… → ${e.entryHash}…`}</Code>)}
-      <Text>Each applied fix is hashed together with the one before it, so changing or deleting an old entry breaks every hash after it. This detects tampering; it cannot stop someone with access to the app's storage from rewriting the whole chain.</Text>
-      <Button onClick={() => setView({ phase: 'closed' })}>Hide the audit trail</Button>
+      {l.counts ? (
+        <Inline space="space.100" shouldWrap>
+          <Tag text={`${l.counts.seen} found`} />
+          <Tag text={`${l.counts.applied} fixed`} />
+          <Tag text={`${l.counts.reviewTasks} sent to owners`} />
+          <Tag text={`${l.counts.dismissed} dismissed`} />
+          <Tag text={`${l.counts.snoozed} snoozed`} />
+          <Tag text={`${l.counts.gateBlocks} transitions refused`} />
+        </Inline>
+      ) : null}
+      {rows.length ? (
+        <DynamicTable caption="Latest sealed events, oldest first" head={{ cells: [{ key: 'n', content: 'Entry' }, { key: 'what', content: 'What happened' }, { key: 'rule', content: 'Rule' }, { key: 'item', content: 'Work item' }, { key: 'hash', content: 'Seal' }] }} rows={rows} />
+      ) : <Text>No events yet. When a finding is shown, dismissed, snoozed or fixed, it appears here.</Text>}
+      <Text>Each entry is hashed together with the one before it, so editing or deleting an old one breaks every seal after it. This detects tampering; it cannot stop someone with access to the app's storage from rewriting the whole chain.</Text>
     </Stack>
   );
 };
@@ -418,22 +444,23 @@ const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismi
   const hasFix = Boolean(f.suggestion?.after);
   const busy = act?.status === 'working';
   return (
-  <Stack space="space.100">
-    <Lifecycle proposed={hasFix} applied={applied} />
-    {first ? <Heading size="xsmall">Start here</Heading> : null}
+  <Box xcss={cardStyle}>
+  <Stack space="space.150">
     <Inline space="space.100" alignBlock="center" shouldWrap>
+      <Icon glyph={f.severity === 'block' ? 'error' : f.severity === 'warn' ? 'warning' : 'info'} label={LABEL[f.severity] ?? 'Finding'} size="medium" />
       <Lozenge appearance={TONE[f.severity] ?? 'default'} isBold>{LABEL[f.severity] ?? 'Finding'}</Lozenge>
-      <Text>{ruleShort(f.ruleId)}</Text>
+      <Tag text={ruleShort(f.ruleId)} />
+      {first ? <Lozenge appearance="new" isBold>Start here</Lozenge> : null}
     </Inline>
-    <Text>{f.summary}</Text>
+    <Heading size="small">{f.summary}</Heading>
     {applied ? (
       <SectionMessage appearance="success" title="Fixed">{`Applied as page version ${act.version}. Revert it from the page history if it is wrong.${act.receipt ? ` Sealed as audit entry #${act.receipt.seq} (${act.receipt.entryHash.slice(0, 12)}…).` : ''}${f.evidence.moreStale ? ` ${f.evidence.moreStale} more line(s) on this page still name an old version. The page now counts as edited, so Same Page will not flag them again. Review them.` : ''}`}</SectionMessage>
     ) : (
-      <Stack space="space.050">
+      <Stack space="space.075">
         <Text>{hasFix ? 'Next step: apply the verified edit below. Nothing changes on the page until you click.' : 'Next step: open the page and fix it, or hand it to the page owner as a review task.'}</Text>
         <Inline space="space.100" alignBlock="center" shouldWrap>
           {hasFix ? <Button appearance="primary" isDisabled={busy} onClick={() => onApply(f)}>{busy ? 'Applying…' : 'Apply this edit to the page'}</Button> : null}
-          {task?.status === 'done' ? <Lozenge appearance="success">{`Review task ${task.key} created`}</Lozenge> : (
+          {task?.status === 'done' ? <Lozenge appearance="success" isBold>{`Review task ${task.key} created`}</Lozenge> : (
             <Button appearance={hasFix ? 'default' : 'primary'} isDisabled={task?.status === 'creating'} onClick={() => onCreateTask(f)}>{task?.status === 'creating' ? 'Creating…' : 'Create review task'}</Button>
           )}
         </Inline>
@@ -441,30 +468,31 @@ const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismi
       </Stack>
     )}
     {act?.status === 'error' ? <SectionMessage appearance="error" title="Not done">{act.message}</SectionMessage> : null}
+    <Box xcss={evidenceStyle}>
+      <Inline space="space.300" alignBlock="start" shouldWrap>
+        <Stack space="space.050">
+          <Heading size="xsmall">Page says</Heading>
+          <Text>{`${f.pageTitle ?? 'A linked page'} · edited ${when(f.evidence.docModifiedAt)}`}</Text>
+          {f.evidence.docLine ? <Highlighted line={f.evidence.docLine} span={f.evidence.docHighlight} appearance="removed" /> : <Text>This page carries a label or status, not a line of text.</Text>}
+          {f.evidence.moreStale ? <Text>{`${f.evidence.moreStale} more line(s) on this page also name an old version.`}</Text> : null}
+        </Stack>
+        <Stack space="space.050">
+          <Heading size="xsmall">{f.evidence.sourceLabel ?? 'Jira says'}</Heading>
+          <Text>{`${f.evidence.ticket ?? ''}${f.evidence.ticketChangedAt ? ` · status changed ${when(f.evidence.ticketChangedAt)}${f.evidence.ticketChangedBy ? ` by ${f.evidence.ticketChangedBy}` : ''}` : ''}`}</Text>
+        </Stack>
+      </Inline>
+    </Box>
     {hasFix ? <BeforeAfter s={f.suggestion!} done={applied} /> : f.suggestion?.unavailable ? <Text>{`No automatic edit: ${f.suggestion.unavailable}`}</Text> : null}
-    <Inline space="space.200" alignBlock="start" shouldWrap>
-      <Stack space="space.050">
-        <Heading size="xsmall">Page says</Heading>
-        <Text>{`${f.pageTitle ?? 'A linked page'} · edited ${when(f.evidence.docModifiedAt)}`}</Text>
-        {f.evidence.docLine ? <Highlighted line={f.evidence.docLine} span={f.evidence.docHighlight} appearance="removed" /> : <Text>This page carries a label or status, not a line of text.</Text>}
-        {f.evidence.moreStale ? <Text>{`${f.evidence.moreStale} more line(s) on this page also name an old version.`}</Text> : null}
-      </Stack>
-      <Stack space="space.050">
-        <Heading size="xsmall">{f.evidence.sourceLabel ?? 'Jira says'}</Heading>
-        <Text>{`${f.evidence.ticket ?? ''}${f.evidence.ticketChangedAt ? ` · status changed ${when(f.evidence.ticketChangedAt)}${f.evidence.ticketChangedBy ? ` by ${f.evidence.ticketChangedBy}` : ''}` : ''}`}</Text>
-      </Stack>
-    </Inline>
     <Text>{`Why it matters: ${f.why}`}</Text>
-    {f.foundBecause?.length ? <Text>{`Found because: ${f.foundBecause.join(', ')}`}</Text> : null}
-    <Text>{`Evidence id: #${f.id.slice(0, 8)} (the same id appears if a workflow gate refuses a transition because of this finding)`}</Text>
     <Inline space="space.100" alignBlock="center" shouldWrap>
       <Text>Was this a real contradiction?</Text>
-      <Button appearance={review === 'real' ? 'primary' : 'default'} onClick={() => onReview(f, 'real')}>{review === 'real' ? 'Marked real' : 'Yes, it is real'}</Button>
-      <Button appearance={review === 'false' ? 'primary' : 'default'} onClick={() => onReview(f, 'false')}>{review === 'false' ? 'Marked false alarm' : 'No, false alarm'}</Button>
+      <Button appearance={review === 'real' ? 'primary' : 'subtle'} onClick={() => onReview(f, 'real')}>{review === 'real' ? 'Marked real' : 'Yes, it is real'}</Button>
+      <Button appearance={review === 'false' ? 'primary' : 'subtle'} onClick={() => onReview(f, 'false')}>{review === 'false' ? 'Marked false alarm' : 'No, false alarm'}</Button>
     </Inline>
-    <Inline space="space.100" alignBlock="center">
-      <Button onClick={() => onSnooze(f)} isDisabled={busy}>Snooze for 7 days</Button>
-      <Button onClick={() => setAsking(!asking)} isDisabled={busy}>Dismiss with a reason…</Button>
+    <Inline space="space.100" alignBlock="center" shouldWrap>
+      <Button appearance="subtle" onClick={() => onSnooze(f)} isDisabled={busy}>Snooze for 7 days</Button>
+      <Button appearance="subtle" onClick={() => setAsking(!asking)} isDisabled={busy}>Dismiss with a reason…</Button>
+      <Tag text={`Evidence #${f.id.slice(0, 8)}`} />
     </Inline>
     {asking ? (
       <Stack space="space.050">
@@ -473,9 +501,21 @@ const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismi
         <Button appearance="danger" isDisabled={!reason.trim()} onClick={() => onDismiss(f, reason)}>Dismiss with this reason</Button>
       </Stack>
     ) : null}
+    <Lifecycle proposed={hasFix} applied={applied} />
+    {f.foundBecause?.length ? <Text>{`Found because: ${f.foundBecause.map((r) => r.replace(/^(title|body) matches (.+)$/, (_m, w, rest) => `${w} matches ${String(rest).split(', ').length} word${String(rest).split(', ').length === 1 ? '' : 's'}`)).join(', ')}.`}</Text> : null}
   </Stack>
+  </Box>
   );
 };
+
+const EmptyStateBlock = ({ onRefresh }: { onRefresh: () => void }) => (
+  <Stack space="space.150" alignInline="center">
+    <Icon glyph="check-circle" label="Clean" size="large" />
+    <Heading size="medium">All clear</Heading>
+    <Text>Nothing on the linked pages disagrees with this work item. If you change the work item or a page, check again.</Text>
+    <Button onClick={onRefresh}>Check again</Button>
+  </Stack>
+);
 
 const App = () => {
   const [state, setState] = useState<Load>({ phase: 'loading' });
@@ -579,32 +619,49 @@ const App = () => {
         )}
     </Stack>
   );
-  if (m.status === 'clean') return (
-    <Stack space="space.100">
-      <SectionMessage appearance="success" title="Same page">{`No contradictions found across ${m.pagesChecked} linked page${m.pagesChecked === 1 ? '' : 's'}.${m.hidden ? ` ${m.hidden} finding(s) hidden by snooze or dismissal.` : ''}`}</SectionMessage>
-      <Checked titles={m.pageTitles} count={m.pagesChecked} found={0} skipped={m.skippedRules} onSaved={load} />
-      <Button onClick={load}>Check again</Button>
-      <AuditTrail />
+  // The same shell for a clean result and for findings: a status banner first, then tabs, so the answer comes before the settings.
+  const checkedTab = <Checked titles={m.pageTitles} count={m.pagesChecked} found={m.status === 'clean' ? 0 : m.findings.length} skipped={m.skippedRules} onSaved={load} />;
+  const shell = (banner: React.ReactNode, findingsCount: number, findingsPanel: React.ReactNode) => (
+    <Stack space="space.150">
+      {banner}
+      <Tabs id="same-page-tabs">
+        <TabList>
+          <Tab>{findingsCount ? `Findings (${findingsCount})` : 'Findings'}</Tab>
+          <Tab>What was checked</Tab>
+          <Tab>Rules and settings</Tab>
+          <Tab>Audit trail</Tab>
+        </TabList>
+        <TabPanel><Box xcss={tabPad}>{findingsPanel}</Box></TabPanel>
+        <TabPanel><Box xcss={tabPad}>{checkedTab}</Box></TabPanel>
+        <TabPanel><Box xcss={tabPad}><RulesList autoOpen /></Box></TabPanel>
+        <TabPanel><Box xcss={tabPad}><AuditTrail autoOpen /></Box></TabPanel>
+      </Tabs>
     </Stack>
+  );
+
+  if (m.status === 'clean') return shell(
+    <SectionMessage appearance="success" title="No contradictions found">{`Read ${m.pagesChecked} linked page${m.pagesChecked === 1 ? '' : 's'} and found nothing that disagrees with this work item.${m.hidden ? ` ${m.hidden} finding(s) hidden by snooze or dismissal.` : ''} Rules only, no AI.`}</SectionMessage>,
+    0,
+    <EmptyStateBlock onRefresh={load} />,
   );
 
   // Findings with a verified fix come first, then blockers, so the first card is the quickest win.
   const rank = (f: PanelFinding) => (f.suggestion?.after ? 0 : f.severity === 'block' ? 1 : 2);
   const ordered = [...(m.findings ?? [])].sort((a, b) => rank(a) - rank(b));
   const hasFix = ordered.some((f) => f.suggestion?.after);
-  return (
+  const worst = ordered.some((f) => f.severity === 'block') ? 'error' : 'warning';
+  const n = m.findings.length;
+  return shell(
+    m.status === 'findings'
+      ? <SectionMessage appearance={worst} title={`${n} ${n === 1 ? 'contradiction' : 'contradictions'} found`}>{hasFix ? 'Start with the first card: it has a verified edit you can apply in one click.' : 'Start with the first card. None has an automatic edit, so open the page or create a review task.'}</SectionMessage>
+      : <SectionMessage appearance="information" title="Possible history, worth a look">These notes may describe the past on purpose. They never block.</SectionMessage>,
+    n,
     <Stack space="space.200">
-      <Heading size="small">{m.status === 'findings' ? `${m.findings.length} ${m.findings.length === 1 ? 'contradiction' : 'contradictions'} found` : 'Possible history, worth a look'}</Heading>
-      {m.status === 'findings' ? <Text>{hasFix ? 'Start with the first one: it has a verified edit you can apply in one click. Then decide on the rest.' : 'Start with the first one. None has an automatic edit, so open the page or create a review task.'}</Text> : null}
-      <Checked titles={m.pageTitles} count={m.pagesChecked} found={m.findings.length} skipped={m.skippedRules} onSaved={load} />
       {m.hidden ? <Text>{`${m.hidden} more finding(s) hidden by snooze or dismissal.`}</Text> : null}
-      {(m.noisyRules ?? []).map((n) => <Text key={n.ruleId}>{n.message}</Text>)}
+      {(m.noisyRules ?? []).map((nr) => <Text key={nr.ruleId}>{nr.message}</Text>)}
       {[...ordered, ...(m.notes ?? [])].map((f, i) => (<Finding key={f.id} first={i === 0 && m.status === 'findings'} f={f} task={tasks[f.id]} onCreateTask={createTask} act={acts[f.id]} onApply={apply} onSnooze={snooze} onDismiss={dismissIt} review={reviews[f.id] ?? f.reviewed} onReview={review} />))}
-      <Inline space="space.100" alignBlock="center" shouldWrap>
-        <Button onClick={load}>Check again</Button>
-      </Inline>
-      <AuditTrail />
-    </Stack>
+      <Button onClick={load}>Check again</Button>
+    </Stack>,
   );
 };
 
