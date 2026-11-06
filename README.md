@@ -11,6 +11,12 @@
 - **What is proven:** it runs on real Jira and Confluence sites and in Rovo. **What is not:** no real team has used it yet, so its accuracy on real documents is unmeasured. Every finding has real / false-alarm buttons for that.
 - **Try it in five minutes:** see [Try it](#try-it).
 
+## The idea in one paragraph
+**CI for documentation truth.** A ticket states facts (an API version, a timeout, a date). Pages restate them. Same Page runs a check that fails when the two disagree, the way a build fails when a test does, and it shows the proof. Three ideas make it more than a link checker:
+1. **A documentation gate.** The check can stop a Jira transition, and the refusal names the rule and shows the page's line next to Jira's field. A break-glass override exists for emergencies and is recorded.
+2. **A pre-flight check for people and agents.** Confluence is now context for AI agents as well as people, and a stale runbook becomes a wrong action. The same eight checks are Rovo actions and Atlassian MCP tools, with an open skill file ([skills/same-page/SKILL.md](skills/same-page/SKILL.md)). `check-issue-docs` returns a receipt line (which work item, how many pages, the fixed rules, the evidence ids) that an agent or a person can paste next to what they did. The receipt says what ran; it never says the docs are correct.
+3. **Proof first.** Rules prove, a person approves. A suggested edit is only offered after the app proves it changes nothing but the version references on that line, and applying it is refused unless it lands exactly where proposed. New rules go through Draft (counted, hidden), Warning and Blocker, like a feature-flag rollout, so a noisy rule can be tried before it can block anyone.
+
 Same Page is a Forge app for Jira and Confluence. It finds *provable* contradictions between a work item and the Confluence pages
 linked to it, shows the evidence side by side, proposes a verified fix that a human applies as a revertible page version, and can
 stop a Jira transition (for example to Done) while a contradiction is still open.
@@ -174,7 +180,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      324 tests and the 30-pair fixture set
+test/  fixtures/      334 tests and the 30-pair fixture set
 scripts/              live gate check, receipt verifier, payload capture
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -186,7 +192,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 324 tests, all passing (see docs/tests.md)
+npm test            # 334 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

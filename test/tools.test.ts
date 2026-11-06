@@ -105,3 +105,19 @@ test('project brief carries the weekly scan delta when there is one', async () =
     { at: '2026-11-08T00:00:00.000Z', project: { withContradictions: 2, checked: 5, newSincePrevious: 1, resolvedSincePrevious: 3 } }) as { weeklyScan?: Record<string, unknown> };
   assert.deepEqual(r.weeklyScan, { scannedOn: '2026-11-08', openEpicsWithContradictions: 2, checked: 5, newSinceTheScanBefore: 1, resolvedSinceTheScanBefore: 3 });
 });
+
+test('check_issue_docs returns a receipt line that says only what ran, with the evidence ids', async () => {
+  const r = (await checkIssueDocs({ issueKey: 'PAY-1' }, site())) as unknown as { receipt: { line: string; pagesChecked: number; evidenceIds: string[]; checkedAt: string } };
+  assert.equal(r.receipt.pagesChecked, 1);
+  assert.match(r.receipt.line, /^Same Page checked 1 linked page for PAY-1 at \d{4}-\d{2}-\d{2}T[\d:.]+Z with fixed rules R1 to R10 \(no model\): 1 contradiction found \(evidence #[0-9a-f]{8}\)\.$/);
+  assert.equal(r.receipt.evidenceIds.length, 1);
+  assert.doesNotMatch(r.receipt.line, /correct|safe|verified/i);       // never claims the docs are right
+});
+
+test('a clean receipt says the rules found nothing and that this does not prove the pages are correct', async () => {
+  const clean = site({ '/wiki/api/v2/pages/111': { id: '111', title: 'Payment Runbook', version: { createdAt: '2026-08-01T00:00:00Z' }, body: { storage: { value: '<p>Call POST /api/v2/charge to charge.</p>' } } } });
+  const r = (await checkIssueDocs({ issueKey: 'PAY-1' }, clean)) as unknown as { status: string; receipt: { line: string; evidenceIds: string[] } };
+  assert.equal(r.status, 'clean');
+  assert.deepEqual(r.receipt.evidenceIds, []);
+  assert.match(r.receipt.line, /no contradiction found by the rules \(this does not prove the pages are correct\)/);
+});

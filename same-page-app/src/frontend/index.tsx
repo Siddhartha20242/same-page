@@ -415,10 +415,16 @@ const LinkPage = ({ onLinked }: { onLinked: () => void }) => {
 
 // The trust layer: what was read and which rules ran, always shown, in the same place whether or not anything was found.
 // Rules that could not run on this work item are named, so a result is never read as a full check when it was not.
-const Checked = ({ titles, count, found, skipped, onSaved }: { titles?: string[]; count: number; found: number; skipped?: string[]; onSaved?: () => void }) => (
+const Checked = ({ titles, read, count, found, skipped, onSaved }: { titles?: string[]; read?: string[]; count: number; found: number; skipped?: string[]; onSaved?: () => void }) => (
   <Stack space="space.100">
     <Heading size="xsmall">What Same Page checked</Heading>
     <Text>{`Read ${count} linked page${count === 1 ? '' : 's'}${titles?.length ? ` (${titles.join(', ')})` : ''}, ran ${10 - (skipped?.length ? (skipped[0]!.includes('R4') ? 2 : 1) : 0)} of 10 rules, found ${found} contradiction${found === 1 ? '' : 's'}.`}</Text>
+    {read?.length ? (
+      <Stack space="space.075">
+        <Text>What it read from this work item (the values the rules compare the pages against):</Text>
+        <Inline space="space.075" shouldWrap>{read.map((r) => <Tag key={r} text={r} />)}</Inline>
+      </Stack>
+    ) : <Text>It found no number, limit, date or target version in this work item's text, so the number and date rules had nothing to compare.</Text>}
     {skipped?.length ? <Text>{`Did not run: ${skipped.join('; ')}.`}</Text> : null}
     {skipped?.some((x) => /target version/.test(x)) && onSaved ? <TargetForm onSaved={onSaved} /> : null}
     <Text>Rules only, no AI in detection, so every finding can be explained and repeated.</Text>
@@ -766,7 +772,7 @@ const App = () => {
     </Stack>
   );
   // The same shell for a clean result and for findings: a status banner first, then tabs, so the answer comes before the settings.
-  const checkedTab = <Checked titles={m.pageTitles} count={m.pagesChecked} found={m.status === 'clean' ? 0 : m.findings.length} skipped={m.skippedRules} onSaved={load} />;
+  const checkedTab = <Checked titles={m.pageTitles} read={m.readFromTicket} count={m.pagesChecked} found={m.status === 'clean' ? 0 : m.findings.length} skipped={m.skippedRules} onSaved={load} />;
   const shell = (banner: React.ReactNode, findingsCount: number, findingsPanel: React.ReactNode) => (
     <Stack space="space.150">
       {banner}

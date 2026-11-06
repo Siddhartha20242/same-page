@@ -32,6 +32,9 @@ Same Page finds contradictions between a Jira work item and the Confluence pages
 - A scan or project brief reports how many items were actually checked. Quote that number, and name the items that were not checked.
 - Findings from the number and date rules say which fact differs (a duration, a limit or port, a date) and quote both sides.
 
+## Attach the receipt
+`check-issue-docs` returns a `receipt.line`: which work item, how many linked pages, the fixed rules, and the evidence ids of any findings. When you act on a page (editing code, writing a pull request, running a runbook step), paste that line next to what you did, so a reader can see what the action was checked against and when. It says only what ran. It never means the docs are correct.
+
 ## What it does not do
 - It never edits a page or a work item, and it cannot apply a fix. A person applies any suggested edit in the Same Page panel in Jira.
 - It does not judge which side is right when the page and the ticket disagree. Say which side was edited more recently if the result says so, and leave the decision to the owner.

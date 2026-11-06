@@ -45,11 +45,19 @@ export async function checkIssueDocs({ issueKey }: { issueKey?: string }, deps: 
   const m = await buildPanelModel(issueKey as string, deps);
   if (m.status === 'error') return { issueKey, status: 'error', reason: m.message, notice: NOTICE };
   if (m.status === 'unchecked') return { issueKey, status: 'unchecked', reason: m.reason, notice: NOTICE };
-  if (m.status === 'clean') return { issueKey, status: 'clean', pagesChecked: m.pagesChecked, notice: NOTICE };
+  if (m.status === 'clean') return { issueKey, status: 'clean', pagesChecked: m.pagesChecked, receipt: receipt(issueKey as string, m.pagesChecked, []), notice: NOTICE };
   return {
     issueKey, status: m.status, verdict: m.verdict, pagesChecked: m.pagesChecked,
-    findings: m.findings.map(brief), notes: m.notes.map(brief), notice: NOTICE,
+    findings: m.findings.map(brief), notes: m.notes.map(brief), receipt: receipt(issueKey as string, m.pagesChecked, m.findings.map((f) => f.id)), notice: NOTICE,
   };
+}
+
+// A short line an agent or a person can paste next to what they did, so the action says what it was checked against and when. It claims only
+// what ran: which work item, how many pages, the fixed rules (no model), and the evidence ids of any findings. It does not say the docs are correct.
+export function receipt(issueKey: string, pagesChecked: number, evidenceIds: string[], now: Date = new Date()) {
+  const ids = evidenceIds.map((id) => `#${String(id).slice(0, 8)}`);
+  const result = ids.length ? `${ids.length} contradiction${ids.length === 1 ? '' : 's'} found (evidence ${ids.join(', ')})` : 'no contradiction found by the rules (this does not prove the pages are correct)';
+  return { checkedAt: now.toISOString(), pagesChecked, evidenceIds: ids, line: `Same Page checked ${pagesChecked} linked page${pagesChecked === 1 ? '' : 's'} for ${issueKey} at ${now.toISOString()} with fixed rules R1 to R10 (no model): ${result}.` };
 }
 
 // scan_issues: up to MAX_ISSUES issues, under a request budget. Says what it did not reach.

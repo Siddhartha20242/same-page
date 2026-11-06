@@ -16,6 +16,8 @@ create a task, or change anything.
 | `canon-check` | You want to know which pages anywhere on the site disagree with a declared fact. | none | The declared facts, the pages and lines that state a different value, and how many pages were read. |
 | `impact-summary` | You want to know what Same Page has done on this site. | none | Counters, and an hours figure only if an administrator set one. |
 
+`check-issue-docs` also returns a `receipt`: a one-line statement of what was checked and when (the work item, the number of linked pages, the fixed rules R1 to R10 with no model, and the evidence ids of any findings). An agent can attach it to its action as provenance. It states what ran and never says the pages are correct.
+
 ## Turn it on (site admin, once)
 External access is off by default. Atlassian Administration > Apps > Sites > your site > Connected apps > Same Page: allow
 external access. Every tool call runs with the signed-in person's own Jira and Confluence permissions.

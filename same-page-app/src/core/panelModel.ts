@@ -1,4 +1,5 @@
 import { checkIssue, cached } from './release';
+import { ticketFactsOf } from './factRules';
 import { proposeFix } from './propose';
 import { refsInLine } from './rules';
 import { fingerprint } from './triage';
@@ -31,8 +32,8 @@ const spanOf = (line: string | undefined, want: (version: string) => boolean): S
 
 export type PanelModel =
   | { issueKey: string; status: 'unchecked'; reason: string; message?: undefined }
-  | { issueKey: string; status: 'clean'; pagesChecked: number; pageTitles?: string[]; hidden?: number; skippedRules?: string[] }
-  | { issueKey: string; status: 'findings' | 'notes'; verdict: Verdict; pagesChecked: number; pageTitles?: string[]; findings: PanelFinding[]; notes: PanelFinding[]; hidden?: number; noisyRules?: NoisyRule[]; skippedRules?: string[]; override?: { until: string; reason: string } }
+  | { issueKey: string; status: 'clean'; pagesChecked: number; pageTitles?: string[]; readFromTicket?: string[]; hidden?: number; skippedRules?: string[] }
+  | { issueKey: string; status: 'findings' | 'notes'; verdict: Verdict; pagesChecked: number; pageTitles?: string[]; readFromTicket?: string[]; findings: PanelFinding[]; notes: PanelFinding[]; hidden?: number; noisyRules?: NoisyRule[]; skippedRules?: string[]; override?: { until: string; reason: string } }
   | { issueKey?: string; status: 'error'; message: string };
 
 /** What buildPanelModel needs from Atlassian (and from fakes in tests). */
@@ -63,7 +64,8 @@ export async function buildPanelModel(issueKey: string, deps: PanelDeps, { llm }
   const item = (await checkIssue(issue, run as never)) as unknown as IssueCheck;
   if (item.status === 'unchecked') return { issueKey, status: 'unchecked', reason: item.reason ?? '' };
   const pageTitles = (item.pages ?? []).map((p) => String(p.title ?? '')).filter(Boolean).slice(0, 8);
-  if (item.status === 'clean') return { issueKey, status: 'clean', pagesChecked: item.pagesChecked ?? 0, pageTitles, ...(item.skippedRules?.length ? { skippedRules: item.skippedRules } : {}) };
+  const readFromTicket = [...(item.workItem?.apiVersion ? [`target API version ${item.workItem.apiVersion}`] : []), ...ticketFactsOf(item.workItem?.text ?? '')].slice(0, 8);   // what was understood from the work item, shown so a person can see the checks' inputs
+  if (item.status === 'clean') return { issueKey, status: 'clean', pagesChecked: item.pagesChecked ?? 0, pageTitles, ...(readFromTicket.length ? { readFromTicket } : {}), ...(item.skippedRules?.length ? { skippedRules: item.skippedRules } : {}) };
 
   const pageById: Record<string, Page> = Object.fromEntries(item.pages.map((p) => [String(p.id), p]));
   const view: PanelFinding[] = [];
@@ -102,6 +104,7 @@ export async function buildPanelModel(issueKey: string, deps: PanelDeps, { llm }
     verdict: real.some((v) => v.severity === 'block') ? 'BLOCKED' : real.length ? 'WARN' : 'PASS',
     pagesChecked: item.pages.length,
     pageTitles,
+    ...(readFromTicket.length ? { readFromTicket } : {}),
     ...(item.skippedRules?.length ? { skippedRules: item.skippedRules } : {}),
     findings: real,
     notes: view.filter((v) => v.severity === 'info'),

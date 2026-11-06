@@ -206,6 +206,21 @@ export function disagreements(canon: CanonFact, text: string): { disagree: Disag
   return { disagree: disagree.slice(0, 5), agree };
 }
 
+const MILESTONE: Record<string, string> = { release: 'the release date', freeze: 'the code freeze', due: 'the due date', cutover: 'the cutover date' };
+
+/** The numbers and dates the rules read from a work item's text, each with what it is about, for showing a person what was understood. */
+export function ticketFactsOf(text: string): string[] {
+  const out: string[] = [];
+  for (const { facts } of extractFacts(text)) {
+    for (const f of facts) {
+      const words = [...f.subject].slice(0, 3).map((w) => f.surface?.[w] ?? w);
+      const what = words.length ? words.join(' ') : f.kind === 'date' ? (MILESTONE[f.unit] ?? 'the date').replace(/^the /, '') : f.kind;
+      out.push(`${f.text.trim()} (${what})`);
+    }
+  }
+  return [...new Set(out)].slice(0, 8);
+}
+
 function makeRule(id: string, kind: Kind, label: string, why: string): Rule {
   return {
     id, severity: 'warn', why,
@@ -231,7 +246,6 @@ function makeRule(id: string, kind: Kind, label: string, why: string): Rule {
         const key = `${p.n}|${show(p.f)}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        const MILESTONE: Record<string, string> = { release: 'the release date', freeze: 'the code freeze', due: 'the due date', cutover: 'the cutover date' };
         const words = [...shared(t.f.subject, p.f.subject)].slice(0, 3).map((w) => p.f.surface?.[w] ?? w);
         const what = words.length ? words.join(' ') : kind === 'date' ? MILESTONE[p.f.unit] ?? 'the date' : 'the value';
         out.push({
