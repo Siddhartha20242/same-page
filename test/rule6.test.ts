@@ -65,3 +65,20 @@ test('a dated log line is history, not a claim: R6 and R4 stay silent on it', ()
   assert.equal(run('Oct 31 - blocked by PAY-9.', { 'PAY-9': { status: 'Done' } }).length, 0);
   assert.equal(run('Rollout is blocked by PAY-9 (see 2017-10-31 notes).', { 'PAY-9': { status: 'Done' } }).length, 1);   // a date AFTER the key does not excuse it
 });
+
+test('R6 stays silent when the page was edited after the cited ticket closed (the Hadoop status-log case), and still fires when it was not', () => {
+  const stale = 'Rollout is blocked by PAY-9 until it lands.';
+  // page.modifiedAt is 2026-10-01
+  assert.equal(run(stale, { 'PAY-9': { status: 'Done', changedAt: '2026-09-15T00:00:00Z' } } as never).length, 0);   // closed before the page's last edit
+  assert.equal(run(stale, { 'PAY-9': { status: 'Done', changedAt: '2026-10-20T00:00:00Z' } } as never).length, 1);   // closed after: the page may simply be behind
+  assert.equal(run(stale, { 'PAY-9': { status: 'Done' } }).length, 1);                                               // closing time unknown: old behavior
+});
+
+test('a cited ticket\'s closing time is read when the issue check runs', async () => {
+  const text = 'Rollout is blocked by PAY-9 until it lands.';
+  let asked: string[] = [];
+  const d = { ...(deps({ 'PAY-1': 'In Progress', 'PAY-9': 'Done' }, text) as object), getTransition: async (k: string) => { asked.push(k); return { at: '2026-09-15T00:00:00Z', by: 'Dana' }; } };
+  const out = await checkIssue(issue('PAY-1', 'In Progress'), d as never);
+  assert.ok(asked.includes('PAY-9'));
+  assert.equal(out.findings?.filter((f) => f.ruleId === 'R6_CITED_TICKET_CLOSED').length ?? 0, 0);   // the stub page's edit time is after 2026-09-15 or unset: either way it is not newer-than-ticket noise
+});

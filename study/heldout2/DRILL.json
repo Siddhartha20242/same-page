@@ -1,0 +1,21 @@
+{
+  "ranAt": "2026-11-06T17:49:13.316Z",
+  "seed": 1,
+  "stats": {
+    "project": "DRILL",
+    "pages": 0,
+    "pagesScanned": 0,
+    "pairs": 0,
+    "issueReadable": 0,
+    "pairsWithTransition": 0,
+    "pageOlderThanTransition": 0,
+    "r1TargetFromSummary": 0,
+    "r1TargetFromFixVersion": 0,
+    "findings": 0,
+    "byRule": {},
+    "requests": 2,
+    "nonFindingPairs": 0
+  },
+  "findings": [],
+  "nonFindingSample": []
+}

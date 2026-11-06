@@ -70,3 +70,20 @@ This probe does not show that the engine works, and it does not show that it fai
 ## Reproduce
 
 `source ~/.nvm/nvm.sh && nvm use 24.22.2 && for p in HADOOP CASSANDRA FLINK ZOOKEEPER SPARK; do node scripts/public-study.mjs $p 30 1; done` (about 6 minutes at one request per second; data on the live sites will have moved, so exact counts will differ). The Kafka row comes from the earlier version of the script and its files `study/KAFKA.json` and `study/KAFKA-fixVersion.json`.
+
+## Re-run on 2026-11-06, with two guards and 8 projects the guards were not built on
+
+Two changes were made after the first probe: R6 now skips a cited ticket that closed at or before the page's last edit (the Hadoop log case, the tweak described above), and R1 no longer reads a bare `v1` as an API version on a line about a delivery phase ("v1 implementation", "V1 is done | 100%"). A second change was made after the Solr results: R1 skips a `vN` that is part of a dotted package name (`io.swagger.core.v3`) and a three-part release number (`v0.8.0`). Outputs: `study/rerun/` and `study/heldout2/`. Same method, same limits (GET only, one request per second, no login).
+
+| Group | Projects | Pages | Pairs | Findings, default mode | Findings, Fix Version opt-in | True |
+|---|---|---|---|---|---|---|
+| Tuned on (first probe) | Hadoop, Cassandra, Flink, ZooKeeper | 140 | 286 | 0 | 1 | 0 |
+| Held out, round 1 | Ignite, Solr, NiFi, Impala (Airflow's issues were unreadable anonymously) | 128 | 220 | 0 | 2 | 0 |
+| Held out, round 2 (chosen after the Solr guards) | Beam, Hudi, Kylin, Tez (Drill: 0 pages) | 30 | 53 | 0 | 1 | 0 |
+
+- **Fixed:** the Hadoop R6 false positive and the Flink R1 false positive no longer appear.
+- **Still raised, all false positives, all from Fix Version (off by default):** Cassandra, "v1 implementation" next to the word "migration" (info only); Solr, `v1.22` in "minimum Kubernetes version is now v1.22" and `v10/main` in a meeting note about the branch; Kylin, a `v2` branch name inside a long Chinese-language line while the Fix Version target is the product release 4.0. A product release number is not an API version, so Fix Version is the wrong source for open-source projects. Adding a guard for each of these would be tuning to individual lines, so it stays off by default and these four are listed as they are.
+- **Default mode:** 0 findings on 559 page and ticket pairs. The engine is quiet on public wikis. Of those pairs, only 2 had a target version taken from the ticket's summary, so R1 had almost nothing to compare.
+- **Held-out is not clean:** the Solr results led to the package and release-number guards, so Solr stopped being held out once I read its findings. The Beam, Hudi, Kylin and Tez round was chosen after that and is the cleaner check (1 false positive in 53 pairs, Fix Version only).
+- **There is still no true finding and so no precision figure.** Public wikis do not state hard facts that go stale against a ticket. The honest reading is a low false-alarm rate in default mode (0 in 559 pairs) and no evidence about recall. The R6 guard also has a cost: a page edited for another reason after the ticket closed will not be flagged for a leftover "waiting on" line.
+

@@ -26,6 +26,18 @@ const PROJECTS = {
   FLINK: { space: 'FLINK', keys: 'FLINK' },
   SPARK: { space: 'SPARK', keys: 'SPARK' },
   ZOOKEEPER: { space: 'ZOOKEEPER', keys: 'ZOOKEEPER' },
+  // Held out: never looked at while the rules were tuned against the five above.
+  IGNITE: { space: 'IGNITE', keys: 'IGNITE' },
+  SOLR: { space: 'SOLR', keys: 'SOLR' },
+  AIRFLOW: { space: 'AIRFLOW', keys: 'AIRFLOW' },
+  NIFI: { space: 'NIFI', keys: 'NIFI' },
+  IMPALA: { space: 'IMPALA', keys: 'IMPALA' },
+  // Second held-out set, chosen after the Solr guards were added.
+  BEAM: { space: 'BEAM', keys: 'BEAM' },
+  DRILL: { space: 'DRILL', keys: 'DRILL' },
+  KYLIN: { space: 'KYLIN', keys: 'KYLIN' },
+  TEZ: { space: 'TEZ', keys: 'TEZ' },
+  HUDI: { space: 'HUDI', keys: 'HUDI' },
 };
 const [project = 'HADOOP', perOrderArg = '30', seedArg = '1'] = process.argv.slice(2);
 const cfg = PROJECTS[project];
@@ -96,7 +108,7 @@ const rows = []; const nonFindings = [];
 const seenFinding = new Set();
 for (const p of pages.values()) {
   const cited = {};
-  for (const k of p.keys) { const it = await issue(k); if (it) cited[k] = { status: it.status }; }
+  for (const k of p.keys) { const it = await issue(k); if (it) cited[k] = { status: it.status, changedAt: it.statusChangedAt }; }
   for (const k of p.keys) {
     stats.pairs++;
     const it = issues.get(k);
@@ -135,6 +147,7 @@ for (const p of pages.values()) {
 for (let i = nonFindings.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [nonFindings[i], nonFindings[j]] = [nonFindings[j], nonFindings[i]]; }
 stats.nonFindingPairs = nonFindings.length;
 stats.requests = requests;
-mkdirSync('study', { recursive: true });
-writeFileSync(`study/${project}.json`, JSON.stringify({ ranAt: new Date().toISOString(), seed: Number(seedArg), stats, findings: rows, nonFindingSample: nonFindings.slice(0, 20) }, null, 2));
+const outDir = process.env.STUDY_OUT || 'study';
+mkdirSync(outDir, { recursive: true });
+writeFileSync(`${outDir}/${project}.json`, JSON.stringify({ ranAt: new Date().toISOString(), seed: Number(seedArg), stats, findings: rows, nonFindingSample: nonFindings.slice(0, 20) }, null, 2));
 console.log(JSON.stringify(stats));
