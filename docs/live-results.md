@@ -185,3 +185,9 @@ PAY-3 is back in In Progress; test overrides were revoked. SCRUM-5 and PAY-3 tes
 | Audit export | The panel's export text, copied from the live page, passed `node scripts/verify-export.mjs` (9 entries, head f360b40b9aaa…). Changing one field of entry 6 made it fail with "BROKEN at entry 6: entry was altered" |
 | Leftover test override | A break-glass override from an earlier test was still active on SCRUM-5; it was revoked from the panel |
 
+## 2026-11-07: the two new Rovo agents, on the production build (3.11.0, demo site)
+Rovo chat, as the site owner. All six agents were listed when searching for "Same Page".
+- **On-call check.** "Can I trust the runbook for MOBL-58 right now?" answered "Contradiction found for MOBL-58." with two findings, each with the page line next to what Jira says: the Payment API Runbook line "Call POST /api/v1/charge with the order id." against a v2 target, and the ADR-12 page marked deprecated while MOBL-58 is In Progress. A flaw: it ended with "No contradiction found means only that the fixed rules found nothing…", which belongs to the other answer. The prompt now says to add that caveat only for a "no contradiction found" answer (fixed in the manifest, not yet re-run in Rovo).
+- **Docs owner.** "Which pages disagree with MOBL-58, and what do I fix first?" answered page by page (ADR-12, then the Payment API Runbook), each with the disagreement, what Jira says and the recency (for the runbook: Jira was updated about three seconds after the page was last edited), told the owner to use the Same Page panel to apply or hand off a fix, and said all relevant pages were checked. A flaw: it did not rank the pages and only offered "Which page should I fix first?" as a follow-up. The prompt now says how to order them (a blocker first, then most findings, then most recently edited), not yet re-run in Rovo.
+Not observed: how Rovo chooses among the six agents when the user does not pick one; the two prompt fixes in Rovo.
+

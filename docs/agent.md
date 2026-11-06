@@ -24,7 +24,7 @@ Rovo chooses an action from its description and the user's wording. The descript
 - `rule-health`: "Use when someone asks which Same Page rules are noisy, which severities were changed, what team rules exist…"
 
 ## What was verified
-The first agent, with `check-issue-docs` and `scan-issues`, was run in Rovo on a fresh site (`@Same Page do the docs for MOBL-58 contradict the ticket?`). On the production build the next three were listed and answered in Rovo chat on the demo site: the rule coach, the release check and the audit trail (the record is in [live-results.md](live-results.md)). The docs owner and the on-call check were added afterwards: they are covered by an offline manifest test and pass the manifest linter, and have **not** been run in Rovo. How well Rovo chooses between six agents when the user does not pick one is untested.
+The first agent, with `check-issue-docs` and `scan-issues`, was run in Rovo on a fresh site (`@Same Page do the docs for MOBL-58 contradict the ticket?`). On the production build the next three were listed and answered in Rovo chat on the demo site: the rule coach, the release check and the audit trail (the record is in [live-results.md](live-results.md)). The docs owner and the on-call check were added afterwards and run on the production build (3.11.0) on the demo site; the record is in [live-results.md](live-results.md). How well Rovo chooses between six agents when the user does not pick one is untested.
 
 ## What it does not do
 It cannot edit a page, create a task or change a work item. Fixing happens in the Jira panel, where a person clicks Apply.
