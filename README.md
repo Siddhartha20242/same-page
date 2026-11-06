@@ -178,7 +178,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 267 tests, all passing (see docs/tests.md)
+npm test            # 284 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 
