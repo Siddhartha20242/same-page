@@ -1,0 +1,125 @@
+{
+  "ranAt": "2026-11-06T18:59:53.263Z",
+  "seed": 1,
+  "stats": {
+    "project": "KYLIN",
+    "pages": 5,
+    "pagesScanned": 238,
+    "pairs": 8,
+    "issueReadable": 8,
+    "pairsWithTransition": 8,
+    "pageOlderThanTransition": 5,
+    "r1TargetFromSummary": 0,
+    "r1TargetFromFixVersion": 8,
+    "findings": 1,
+    "byRule": {
+      "R1_VERSION_MISMATCH": 1
+    },
+    "requests": 20,
+    "nonFindingPairs": 7
+  },
+  "findings": [
+    {
+      "mode": "fixVersion",
+      "rule": "R1_VERSION_MISMATCH",
+      "severity": "block",
+      "issue": "KYLIN-4659",
+      "jiraStatus": "Closed",
+      "statusChangedAt": "2020-09-13T12:28:25.976+0000",
+      "cited": null,
+      "target": "v4",
+      "page": "Monthly Report 2020 Jul CN",
+      "pageId": "158868827",
+      "pageModifiedAt": "2020-09-03T06:11:08.000Z",
+      "line": 9,
+      "snippet": "大家或许已经了解到 Parquet Storage 的开发工作已经进行了一段时间, 目前开发进度已经接近初步完成的阶段, Parquet Storage的计划于 Kylin4.0 发布. 目前仍有一些问题需要解答, 例如是否需要保持对 HBase存储引擎的兼容, 何时将代码向主分支迁移等问题, 经过社区讨论, 我们准备在Kylin4.0不再兼容HBase存储引擎, 开发工作仍然在 kylin-on",
+      "summary": "Page documents v2 but KYLIN-4659 targets v4"
+    }
+  ],
+  "nonFindingSample": [
+    {
+      "issue": "KYLIN-4833",
+      "jiraStatus": "Closed",
+      "statusChangedAt": "2021-04-27T02:37:46.868+0000",
+      "issueSummary": "use distcp to control the speed of writting hfile data to hbase cluster",
+      "page": "Optional step - HFile Distcp To HBase",
+      "pageId": "177045544",
+      "pageModifiedAt": "2021-03-02T08:26:11.000Z",
+      "pageOlder": true,
+      "line": 3,
+      "snippet": "To avoid the query performance being affected, KYLIN-4833 adds an optional step called \"HFile Distcp To HBase\" between “Convert Cuboid Data to HFile” and \"Load HFile to HBase Table\" in build job."
+    },
+    {
+      "issue": "KYLIN-4818",
+      "jiraStatus": "Resolved",
+      "statusChangedAt": "2021-01-04T07:44:02.055+0000",
+      "issueSummary": "Calculate cuboid statistics in Kylin 4",
+      "page": "Monthly Report 2020 Oct-Nov CN",
+      "pageId": "165226974",
+      "pageModifiedAt": "2020-11-30T10:36:23.000Z",
+      "pageOlder": true,
+      "line": 6,
+      "snippet": "梳理 Cube Planner 相关的设计与开发，我们计划在 Kylin 4.0.0-Beta 版本中支持 Cube Planner，目前尚处于设计阶段，具体请见 wiki Cuboid optimization in Kylin 4.0。这两个月我们主要在开发计算 Cuboid 的统计信息，详情见 KYLIN-4818 - Calculate cuboid statistics in Kylin"
+    },
+    {
+      "issue": "KYLIN-4122",
+      "jiraStatus": "Closed",
+      "statusChangedAt": "2020-01-21T07:46:11.898+0000",
+      "issueSummary": "Add kylin user and group manage modules",
+      "page": "Introduction to New User Management",
+      "pageId": "158871152",
+      "pageModifiedAt": "2020-08-10T11:26:24.000Z",
+      "pageOlder": false,
+      "line": 2,
+      "snippet": "What benenfit did new implementation(KYLIN-4122) gave us?"
+    },
+    {
+      "issue": "KYLIN-4813",
+      "jiraStatus": "Resolved",
+      "statusChangedAt": "2020-12-18T00:51:45.875+0000",
+      "issueSummary": "Refine spark logger for Kylin 4 build engine",
+      "page": "Monthly Report 2020 Oct-Nov CN",
+      "pageId": "165226974",
+      "pageModifiedAt": "2020-11-30T10:36:23.000Z",
+      "pageOlder": true,
+      "line": 7,
+      "snippet": "重构构建相关的日志代码，详情见 KYLIN-4813 - Refine spark logger for Kylin 4 build engine RESOLVED"
+    },
+    {
+      "issue": "KYLIN-4817",
+      "jiraStatus": "Resolved",
+      "statusChangedAt": "2020-12-18T00:52:23.458+0000",
+      "issueSummary": "Refine Cube Migration Tool for Kylin4",
+      "page": "Monthly Report 2020 Oct-Nov CN",
+      "pageId": "165226974",
+      "pageModifiedAt": "2020-11-30T10:36:23.000Z",
+      "pageOlder": true,
+      "line": 8,
+      "snippet": "开发 Cube Migration Tool，详情见 KYLIN-4817 - Refine Cube Migration Tool for Kylin4 - IN PROGRESS"
+    },
+    {
+      "issue": "KYLIN-4800",
+      "jiraStatus": "Resolved",
+      "statusChangedAt": "2020-11-13T02:22:32.934+0000",
+      "issueSummary": "Add canary tool for sparder-context",
+      "page": "Monthly Report 2020 Oct-Nov CN",
+      "pageId": "165226974",
+      "pageModifiedAt": "2020-11-30T10:36:23.000Z",
+      "pageOlder": false,
+      "line": 5,
+      "snippet": "支持 Spardar Canary Tool，详情见 KYLIN-4800 - Add canary tool for sparder-context RESOLVED"
+    },
+    {
+      "issue": "KYLIN-4342",
+      "jiraStatus": "Closed",
+      "statusChangedAt": "2020-07-31T12:22:44.014+0000",
+      "issueSummary": "Build Global Dict by MR/Hive New Version",
+      "page": "Introduction to Hive Global Dictionary",
+      "pageId": "152115483",
+      "pageModifiedAt": "2020-11-26T13:32:11.000Z",
+      "pageOlder": false,
+      "line": 15,
+      "snippet": "2020-06 | v3.1.0 | ASF JIRA5aa69414-a9e9-3523-82ec-879b028fb15bKYLIN-4342"
+    }
+  ]
+}

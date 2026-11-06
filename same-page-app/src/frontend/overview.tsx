@@ -12,13 +12,20 @@ type Load = { phase: 'loading' } | { phase: 'failed' } | { phase: 'done'; reply:
 
 const TONE: Record<OverviewRow['verdict'], 'removed' | 'moved' | 'success' | 'default'> = { Blocked: 'removed', Warning: 'moved', Clean: 'success', 'Not checked': 'default' };
 
-const tileStyle = xcss({ borderColor: 'color.border', borderStyle: 'solid', borderWidth: 'border.width', borderRadius: 'radius.large', padding: 'space.200', backgroundColor: 'elevation.surface.raised', minWidth: '120px' });
+const tileBase = { borderColor: 'color.border', borderStyle: 'solid', borderWidth: 'border.width', borderRadius: 'radius.large', padding: 'space.200', minWidth: '120px' } as const;
+const tileStyles = {
+  danger: xcss({ ...tileBase, backgroundColor: 'color.background.danger' }),
+  warning: xcss({ ...tileBase, backgroundColor: 'color.background.warning' }),
+  success: xcss({ ...tileBase, backgroundColor: 'color.background.success' }),
+  neutral: xcss({ ...tileBase, backgroundColor: 'elevation.surface.raised' }),
+};
 const padStyle = xcss({ paddingBlockStart: 'space.200', width: '100%' });
 const fullWidth = xcss({ width: '100%' });
 
 // One number with a label, as a card: the project's state at a glance.
+// A tile is tinted only when its count is above zero, so a clean project is calm and a blocked one stands out.
 const Tile = ({ label, value, tone }: { label: string; value: number; tone: 'danger' | 'warning' | 'success' | 'neutral' }) => (
-  <Box xcss={tileStyle}>
+  <Box xcss={tileStyles[value > 0 ? tone : 'neutral']}>
     <Stack space="space.050">
       <Inline space="space.075" alignBlock="center">
         <Icon glyph={tone === 'danger' ? 'error' : tone === 'warning' ? 'warning' : tone === 'success' ? 'check-circle' : 'info'} label={label} size="small" />
@@ -94,9 +101,8 @@ const App = () => {
         <Tile label="Clean" value={count('Clean')} tone="success" />
         <Tile label="Not checked" value={count('Not checked')} tone="neutral" />
       </Inline>
-      <SectionMessage appearance={ready.withContradictions ? 'warning' : ready.unchecked ? 'information' : 'success'} title="Summary">
-        <Text>{ready.summaryLine}</Text>
-        {ready.coverageLine ? <Text>{ready.coverageLine}</Text> : null}
+      <SectionMessage appearance={ready.withContradictions ? 'warning' : ready.unchecked ? 'information' : 'success'} title={ready.summaryLine.replace(/\.$/, '')}>
+        {ready.coverageLine ? <Text>{ready.coverageLine}</Text> : <Text>Open a work item to see the evidence for each finding.</Text>}
       </SectionMessage>
       {ready.rows.length ? (
         <DynamicTable

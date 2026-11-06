@@ -319,30 +319,49 @@ const RulesList = ({ autoOpen }: { autoOpen?: boolean }) => {
   if (view.phase === 'loading') return <Inline space="space.100" alignBlock="center"><Spinner size="small" /><Text>Loading the rules…</Text></Inline>;
   if (view.phase === 'error') return <SectionMessage appearance="error" title="Could not load the rules"><Text>Nothing was changed. Try again in a moment.</Text></SectionMessage>;
   const { data } = view;
-  return (
-    <Stack space="space.100">
-      <Heading size="xsmall">The ten rules</Heading>
-      <Text>{data.canEdit ? 'A new rule can go through three stages. Draft: it runs and is counted, but shows nothing and cannot block. Warning: it shows findings and sends notices. Blocker: it can also stop a Jira transition when the validator is attached. You are a Jira administrator, so you can move any rule between the three.' : 'Blockers can stop a Jira transition when the validator is attached. Only a Jira administrator can change a severity.'}</Text>
-      {data.rules.map((r) => (
-        <Stack key={r.ruleId} space="space.050">
-          <Inline space="space.100" alignBlock="center" shouldWrap>
-            <Lozenge appearance={r.severity === 'block' ? 'removed' : r.severity === 'draft' ? 'new' : 'moved'} isBold>{r.severity === 'block' ? 'Blocker' : r.severity === 'draft' ? 'Draft' : 'Warning'}</Lozenge>
-            <Text>{`${r.short} ${r.name}${r.changed ? ' (changed on this site)' : ''}`}</Text>
-            {data.canEdit ? (['draft', 'warn', 'block'] as const).map((v) => <Button key={v} appearance={r.severity === v ? 'primary' : 'subtle'} onClick={() => change(r, v)}>{v === 'draft' ? 'Draft' : v === 'warn' ? 'Warning' : 'Blocker'}</Button>) : null}
-          </Inline>
+  const stageLozenge = (r: RuleRow) => <Lozenge appearance={r.severity === 'block' ? 'removed' : r.severity === 'draft' ? 'new' : 'moved'} isBold>{r.severity === 'block' ? 'Blocker' : r.severity === 'draft' ? 'Draft' : 'Warning'}</Lozenge>;
+  const rows = data.rules.map((r) => ({
+    key: r.ruleId,
+    cells: [
+      { key: 'stage', content: stageLozenge(r) },
+      { key: 'rule', content: (
+        <Stack space="space.050">
+          <Heading size="xsmall">{`${r.short} ${r.name}${r.changed ? ' (changed on this site)' : ''}`}</Heading>
           <Text>{`${r.checks} ${r.pain}`}</Text>
           {(r.markedReal ?? 0) + (r.markedFalse ?? 0) > 0 ? <Text>{`Marked by your team: ${r.markedReal ?? 0} real, ${r.markedFalse ?? 0} false alarm.`}</Text> : null}
-          {r.severity === 'draft' ? <Text>{`Draft: this rule runs but shows nothing and cannot block. It would have raised ${r.draftHits ?? 0} finding${r.draftHits === 1 ? '' : 's'} on this site.`}</Text> : null}
+          {r.severity === 'draft' ? <Text>{`Runs but shows nothing and cannot block. It would have raised ${r.draftHits ?? 0} finding${r.draftHits === 1 ? '' : 's'} on this site.`}</Text> : null}
           {r.hint ? <Inline space="space.100" alignBlock="start" shouldWrap><Lozenge appearance="new" isBold>Suggestion</Lozenge><Text>{r.hint}</Text></Inline> : null}
           {(r.dismissed ?? 0) + (r.acted ?? 0) > 0 ? <Text>{`On this site: acted on ${r.acted ?? 0}, dismissed ${r.dismissed ?? 0} (${Math.round((100 * (r.dismissed ?? 0)) / ((r.dismissed ?? 0) + (r.acted ?? 0)))}% dismissed).`}</Text> : null}
         </Stack>
-      ))}
-      {data.canEdit ? <CanonFacts facts={data.canon ?? []} onChanged={open} /> : null}
-      {data.canEdit ? <Playground /> : null}
-      {data.canEdit ? <AdminTools mode={data.gateMode ?? 'enforce'} onChanged={open} /> : null}
-      <CustomRules data={data} onChanged={open} />
+      ) },
+      ...(data.canEdit ? [{ key: 'set', content: (
+        <Inline space="space.025">
+          {(['draft', 'warn', 'block'] as const).map((v) => <Button key={v} appearance={r.severity === v ? 'primary' : 'subtle'} onClick={() => change(r, v)}>{v === 'draft' ? 'Draft' : v === 'warn' ? 'Warn' : 'Block'}</Button>)}
+        </Inline>
+      ) }] : []),
+    ],
+  }));
+  const head = { cells: [{ key: 'stage', content: 'Stage' }, { key: 'rule', content: 'Rule' }, ...(data.canEdit ? [{ key: 'set', content: 'Move to' }] : [])] };
+  const rulesTable = (
+    <Stack space="space.100">
+      <Text>{data.canEdit ? 'A rule goes through three stages. Draft runs and is counted but shows nothing and cannot block. Warning shows findings and sends notices. Blocker can also stop a Jira transition when the validator is attached.' : 'Blockers can stop a Jira transition when the validator is attached. Only a Jira administrator can change a stage.'}</Text>
+      <DynamicTable head={head} rows={rows} />
+    </Stack>
+  );
+  return (
+    <Stack space="space.100">
+      {data.canEdit ? (
+        <Tabs id="same-page-settings">
+          <TabList><Tab>The ten rules</Tab><Tab>Facts and team rules</Tab><Tab>Try a rule</Tab><Tab>Gate and pilot</Tab></TabList>
+          <TabPanel><Box xcss={tabPad}>{rulesTable}</Box></TabPanel>
+          <TabPanel><Box xcss={tabPad}><Stack space="space.200"><CanonFacts facts={data.canon ?? []} onChanged={open} /><CustomRules data={data} onChanged={open} /></Stack></Box></TabPanel>
+          <TabPanel><Box xcss={tabPad}><Playground /></Box></TabPanel>
+          <TabPanel><Box xcss={tabPad}><AdminTools mode={data.gateMode ?? 'enforce'} onChanged={open} /></Box></TabPanel>
+        </Tabs>
+      ) : (
+        <Stack space="space.200">{rulesTable}<CustomRules data={data} onChanged={open} /></Stack>
+      )}
       {view.note ? <SectionMessage appearance="warning"><Text>{view.note}</Text></SectionMessage> : null}
-      <Button onClick={() => setView({ phase: 'closed' })}>Hide the rules</Button>
     </Stack>
   );
 };
@@ -509,62 +528,69 @@ interface FindingProps {
 const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismiss, review, onReview }: FindingProps) => {
   const [reason, setReason] = useState('');
   const [asking, setAsking] = useState(false);
+  const [more, setMore] = useState(false);
   const applied = act?.status === 'applied';
   const hasFix = Boolean(f.suggestion?.after);
   const busy = act?.status === 'working';
+  const hint = ageHint({ pageEditedAt: f.evidence.docModifiedAt, itemChangedAt: f.evidence.ticketChangedAt });
+  // The proof comes first (what was found, then both sides), then what to do. The explanation sits behind one button so a card stays short.
   return (
   <Box xcss={cardStyle}>
   <Stack space="space.150">
-    <Inline space="space.100" alignBlock="center" shouldWrap>
-      <Icon glyph={f.severity === 'block' ? 'error' : f.severity === 'warn' ? 'warning' : 'info'} label={LABEL[f.severity] ?? 'Finding'} size="medium" />
-      <Lozenge appearance={TONE[f.severity] ?? 'default'} isBold>{LABEL[f.severity] ?? 'Finding'}</Lozenge>
-      <Tag text={ruleShort(f.ruleId)} />
-      {first ? <Lozenge appearance="new" isBold>Start here</Lozenge> : null}
+    <Inline space="space.100" alignBlock="center" spread="space-between" shouldWrap>
+      <Inline space="space.100" alignBlock="center" shouldWrap>
+        <Icon glyph={f.severity === 'block' ? 'error' : f.severity === 'warn' ? 'warning' : 'info'} label={LABEL[f.severity] ?? 'Finding'} size="medium" />
+        <Lozenge appearance={TONE[f.severity] ?? 'default'} isBold>{LABEL[f.severity] ?? 'Finding'}</Lozenge>
+        <Tag text={ruleShort(f.ruleId)} />
+        {first ? <Lozenge appearance="new" isBold>Start here</Lozenge> : null}
+      </Inline>
+      <Tag text={`Evidence #${f.id.slice(0, 8)}`} />
     </Inline>
     <Heading size="small">{f.summary}</Heading>
-    {applied ? (
-      <SectionMessage appearance="success" title="Fixed">{`Applied as page version ${act.version}. Revert it from the page history if it is wrong.${act.receipt ? ` Sealed as audit entry #${act.receipt.seq} (${act.receipt.entryHash.slice(0, 12)}…).` : ''}${f.evidence.moreStale ? ` ${f.evidence.moreStale} more line(s) on this page still name an old version. The page now counts as edited, so Same Page will not flag them again. Review them.` : ''}`}</SectionMessage>
-    ) : (
-      <Stack space="space.075">
-        <Text>{hasFix ? 'Next step: apply the verified edit below. Nothing changes on the page until you click.' : 'Next step: open the page and fix it, or hand it to the page owner as a review task.'}</Text>
-        <Inline space="space.100" alignBlock="center" shouldWrap>
-          {hasFix ? <Button appearance="primary" isDisabled={busy} onClick={() => onApply(f)}>{busy ? 'Applying…' : 'Apply this edit to the page'}</Button> : null}
-          {task?.status === 'done' ? <Lozenge appearance="success" isBold>{`Review task ${task.key} created`}</Lozenge> : (
-            <Button appearance={hasFix ? 'default' : 'primary'} isDisabled={task?.status === 'creating'} onClick={() => onCreateTask(f)}>{task?.status === 'creating' ? 'Creating…' : 'Create review task'}</Button>
-          )}
-        </Inline>
-        {task?.status === 'error' ? <SectionMessage appearance="error" title="Could not create the task">{task.message}</SectionMessage> : null}
-      </Stack>
-    )}
-    {act?.status === 'error' ? <SectionMessage appearance="error" title="Not done">{act.message}</SectionMessage> : null}
-    <Inline space="space.100" alignBlock="stretch" shouldWrap>
-        <Box xcss={pageSideStyle}>
+    <Inline space="space.100" alignBlock="stretch">
+      <Box xcss={pageSideStyle}>
         <Stack space="space.050">
           <Heading size="xsmall">Page says</Heading>
           <Text>{`${f.pageTitle ?? 'A linked page'} · edited ${when(f.evidence.docModifiedAt)}`}</Text>
           {f.evidence.docLine ? <Highlighted line={f.evidence.docLine} span={f.evidence.docHighlight} appearance="removed" /> : <Text>This page carries a label or status, not a line of text.</Text>}
           {f.evidence.moreStale ? <Text>{`${f.evidence.moreStale} more line(s) on this page also name an old version.`}</Text> : null}
         </Stack>
-        </Box>
-        <Box xcss={jiraSideStyle}>
+      </Box>
+      <Box xcss={jiraSideStyle}>
         <Stack space="space.050">
           <Heading size="xsmall">{f.evidence.sourceLabel ?? 'Jira says'}</Heading>
           <Text>{`${f.evidence.ticket ?? ''}${f.evidence.ticketChangedAt ? ` · status changed ${when(f.evidence.ticketChangedAt)}${f.evidence.ticketChangedBy ? ` by ${f.evidence.ticketChangedBy}` : ''}` : ''}`}</Text>
         </Stack>
-        </Box>
+      </Box>
     </Inline>
-    {(() => { const h = ageHint({ pageEditedAt: f.evidence.docModifiedAt, itemChangedAt: f.evidence.ticketChangedAt }); return h ? <Text>{`Which side first: ${h}`}</Text> : null; })()}
-    {hasFix ? <BeforeAfter s={f.suggestion!} done={applied} /> : f.suggestion?.unavailable ? <Text>{`No automatic edit: ${f.suggestion.unavailable}`}</Text> : null}
-    <Text>{`Why it matters: ${f.why}`}</Text>
-    <Inline space="space.100" alignBlock="center" shouldWrap>
-      <Text>Was this a real contradiction?</Text>
-      <Button appearance={review === 'real' ? 'primary' : 'subtle'} onClick={() => onReview(f, 'real')}>{review === 'real' ? 'Marked real' : 'Yes, it is real'}</Button>
-      <Button appearance={review === 'false' ? 'primary' : 'subtle'} onClick={() => onReview(f, 'false')}>{review === 'false' ? 'Marked false alarm' : 'No, false alarm'}</Button>
-    </Inline>
-    <Inline space="space.100" alignBlock="center" shouldWrap>
-      <Button appearance="subtle" onClick={() => onSnooze(f)} isDisabled={busy}>Snooze for 7 days</Button>
-      <Button appearance="subtle" onClick={() => setAsking(!asking)} isDisabled={busy}>Dismiss with a reason…</Button>
-      <Tag text={`Evidence #${f.id.slice(0, 8)}`} />
+    {hint ? <Text>{`Which side first: ${hint}`}</Text> : null}
+    {hasFix ? <BeforeAfter s={f.suggestion!} done={applied} /> : null}
+    {applied ? (
+      <SectionMessage appearance="success" title="Fixed">{`Applied as page version ${act.version}. Revert it from the page history if it is wrong.${act.receipt ? ` Sealed as audit entry #${act.receipt.seq} (${act.receipt.entryHash.slice(0, 12)}…).` : ''}${f.evidence.moreStale ? ` ${f.evidence.moreStale} more line(s) on this page still name an old version. The page now counts as edited, so Same Page will not flag them again. Review them.` : ''}`}</SectionMessage>
+    ) : (
+      <Stack space="space.075">
+        <Inline space="space.100" alignBlock="center" shouldWrap>
+          {hasFix ? <Button appearance="primary" isDisabled={busy} onClick={() => onApply(f)}>{busy ? 'Applying…' : 'Apply this edit to the page'}</Button> : null}
+          {task?.status === 'done' ? <Lozenge appearance="success" isBold>{`Review task ${task.key} created`}</Lozenge> : (
+            <Button appearance={hasFix ? 'default' : 'primary'} isDisabled={task?.status === 'creating'} onClick={() => onCreateTask(f)}>{task?.status === 'creating' ? 'Creating…' : 'Create review task'}</Button>
+          )}
+        </Inline>
+        {hasFix ? <Text>Nothing changes on the page until you click Apply.</Text> : null}
+        {task?.status === 'error' ? <SectionMessage appearance="error" title="Could not create the task">{task.message}</SectionMessage> : null}
+      </Stack>
+    )}
+    {act?.status === 'error' ? <SectionMessage appearance="error" title="Not done">{act.message}</SectionMessage> : null}
+    <Inline space="space.100" alignBlock="center" spread="space-between" shouldWrap>
+      <Inline space="space.050" alignBlock="center" shouldWrap>
+        <Text>Real contradiction?</Text>
+        <Button appearance={review === 'real' ? 'primary' : 'subtle'} onClick={() => onReview(f, 'real')}>{review === 'real' ? 'Marked real' : 'Yes'}</Button>
+        <Button appearance={review === 'false' ? 'primary' : 'subtle'} onClick={() => onReview(f, 'false')}>{review === 'false' ? 'Marked false alarm' : 'False alarm'}</Button>
+      </Inline>
+      <Inline space="space.050" alignBlock="center" shouldWrap>
+        <Button appearance="subtle" onClick={() => onSnooze(f)} isDisabled={busy}>Snooze 7 days</Button>
+        <Button appearance="subtle" onClick={() => setAsking(!asking)} isDisabled={busy}>Dismiss…</Button>
+        <Button appearance="subtle" onClick={() => setMore(!more)}>{more ? 'Hide details' : 'Why this matters'}</Button>
+      </Inline>
     </Inline>
     {asking ? (
       <Stack space="space.050">
@@ -573,8 +599,16 @@ const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismi
         <Button appearance="danger" isDisabled={!reason.trim()} onClick={() => onDismiss(f, reason)}>Dismiss with this reason</Button>
       </Stack>
     ) : null}
-    <Lifecycle proposed={hasFix} applied={applied} />
-    {f.foundBecause?.length ? <Text>{`Found because: ${f.foundBecause.map((r) => r.replace(/^(title|body) matches (.+)$/, (_m, w, rest) => `${w} matches ${String(rest).split(', ').length} word${String(rest).split(', ').length === 1 ? '' : 's'}`)).join(', ')}.`}</Text> : null}
+    {more ? (
+      <Box xcss={evidenceStyle}>
+        <Stack space="space.100">
+          <Text>{`Why it matters: ${f.why}`}</Text>
+          {!hasFix && f.suggestion?.unavailable ? <Text>{`No automatic edit: ${f.suggestion.unavailable}`}</Text> : null}
+          {f.foundBecause?.length ? <Text>{`Found because: ${f.foundBecause.map((r) => r.replace(/^(title|body) matches (.+)$/, (_m, w, rest) => `${w} matches ${String(rest).split(', ').length} word${String(rest).split(', ').length === 1 ? '' : 's'}`)).join(', ')}.`}</Text> : null}
+          <Lifecycle proposed={hasFix} applied={applied} />
+        </Stack>
+      </Box>
+    ) : null}
   </Stack>
   </Box>
   );
@@ -772,7 +806,7 @@ const App = () => {
       : <SectionMessage appearance="information" title="Possible history, worth a look">These notes may describe the past on purpose. They never block.</SectionMessage>,
     n,
     <Stack space="space.200">
-      <BreakGlass override={m.override} hasBlocker={ordered.some((f) => f.severity === 'block')} onChanged={load} />
+      {m.override ? <BreakGlass override={m.override} hasBlocker onChanged={load} /> : null}
       {chips.length > 1 ? (
         <Inline space="space.100" alignBlock="center" shouldWrap>
           <Button appearance={filter === 'all' ? 'primary' : 'subtle'} onClick={() => setFilter('all')}>{`All (${everything.length})`}</Button>
@@ -782,7 +816,10 @@ const App = () => {
       {m.hidden ? <Text>{`${m.hidden} more finding(s) hidden by snooze or dismissal.`}</Text> : null}
       {(m.noisyRules ?? []).map((nr) => <Text key={nr.ruleId}>{nr.message}</Text>)}
       {shown.map((f, i) => (<Finding key={f.id} first={i === 0 && m.status === 'findings' && filter === 'all'} f={f} task={tasks[f.id]} onCreateTask={createTask} act={acts[f.id]} onApply={apply} onSnooze={snooze} onDismiss={dismissIt} review={reviews[f.id] ?? f.reviewed} onReview={review} />))}
-      <Button onClick={load}>Check again</Button>
+      <Inline space="space.100" alignBlock="center" spread="space-between" shouldWrap>
+        <Button onClick={load}>Check again</Button>
+        {m.override ? null : <BreakGlass hasBlocker={ordered.some((f) => f.severity === 'block')} onChanged={load} />}
+      </Inline>
     </Stack>,
   );
 };

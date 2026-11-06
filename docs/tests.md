@@ -1,6 +1,6 @@
 # What the tests cover
 
-`npm test` runs 312 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
+`npm test` runs 324 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|
@@ -27,3 +27,6 @@
 ## What the tests cannot show
 They do not run inside Forge. The panel rendering, the workflow validator, the byline and the Rovo agent were checked on real
 sites by hand, not by an automated test.
+
+Added on 2026-11-07: `rewording.test.ts` (24 reworded cases in `fixtures/rewording.json`: agreeing statements must never fire, and reworded contradictions are caught except three listed misses; `node scripts/recall-check.mjs` prints the tally, 12 of 15 caught and 9 of 9 left alone; the cases are written by the authors), `adminguard.test.ts` (every resolver checks administrator rights or is on a documented open list), `coresync.test.ts` (the engine copy bundled in the app matches `src/`), `phase.test.ts` (a delivery-phase "v1", a package name and another product's release number are not API versions).
+
