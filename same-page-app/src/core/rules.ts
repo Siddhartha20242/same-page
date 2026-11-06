@@ -16,10 +16,23 @@ import { DATED_BEFORE, HISTORICAL_RE } from './lineGuards';
 import { durationDiffers, limitDiffers, dateDiffers } from './factRules';
 import { extractOpenApi, judgeOperation, operationsInLine } from './spec';
 
+// "v1" as a delivery phase ("v1 implementation", "V1 is done | 100%"), not an API version. Bare numbers only (v1, not v1.2), and only when
+// the line has phase wording and nothing that makes it about an API, a path, a service or a migration.
+const PHASE_WORDS = /\b(phase|iteration|milestone|stage|prototype|mvp|implementation|\d+\s*%)/i;
+const API_WORDS = /(\bapi\b|endpoint|\/v\d|\bsdk\b|protocol|\bservice\b|\bclient\b|migrat|\bupgrade)/i;
+const PACKAGE_PART = /[A-Za-z0-9_]\.$/;
+const isPhaseLine = (line: string) => PHASE_WORDS.test(line) && !API_WORDS.test(line);
+
 // Every version reference in one line, as { version: 'v2', index, text, kind }.
 export function refsInLine(line: string): VersionRef[] {
   const refs: VersionRef[] = [];
-  for (const m of line.matchAll(VTOKEN_RE)) refs.push({ version: `v${m[1]}`, index: m.index ?? 0, text: m[0], kind: 'token' });
+  const phase = isPhaseLine(line);
+  for (const m of line.matchAll(VTOKEN_RE)) {
+    if (phase && !m[0].includes('.')) continue;
+    if (PACKAGE_PART.test(line.slice(Math.max(0, (m.index ?? 0) - 2), m.index))) continue;     // io.swagger.core.v3: a package name
+    if (/^v\d+\.\d+\.\d+/i.test(m[0]) || (m[0].split('.').length >= 3)) continue;               // v0.8.0: another product's release number, not an API version
+    refs.push({ version: `v${m[1]}`, index: m.index ?? 0, text: m[0], kind: 'token' });
+  }
   if (PHRASE_CONTEXT_RE.test(line)) {
     for (const m of line.matchAll(PHRASE_RE)) refs.push({ version: `v${m[1]}`, index: m.index ?? 0, text: m[0], kind: 'phrase' });
   }
@@ -212,8 +225,11 @@ export const citedTicketClosed: Rule = {
     const out: Finding[] = [];
     const keys = Object.keys(cited).filter((k) => k !== workItem.key && CLOSED_STATUSES.includes(String(cited[k]?.status ?? '').toLowerCase()));
     if (!keys.length) return [];
+    // A page edited after the ticket closed was written with the answer available, so a leftover "waiting on" line is history, not news (R4 applies the same test to the work item).
+    const closedAfterEdit = (k: string) => { const at = cited[k]?.changedAt; return Boolean(at) && new Date(page.modifiedAt) >= new Date(String(at)); };
     page.text.split('\n').forEach((line, i) => {
       for (const key of keys) {
+        if (closedAfterEdit(key)) continue;
         const re = new RegExp(`(?<![A-Za-z0-9-])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![0-9])`);
         const at = re.exec(line)?.index ?? -1;
         if (at < 0 || DATED_BEFORE.test(line.slice(0, at))) continue;

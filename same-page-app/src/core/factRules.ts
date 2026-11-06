@@ -13,9 +13,9 @@ import type { Finding, Pair, Rule } from './types';
 import { DATED_BEFORE, HISTORICAL_RE } from './lineGuards';
 
 type Kind = 'duration' | 'limit' | 'date';
-interface Fact { kind: Kind; unit: string; value: number; text: string; index: number; subject: Set<string>; qual: string }
+interface Fact { kind: Kind; unit: string; value: number; text: string; index: number; subject: Set<string>; qual: string; surface?: Record<string, string> }
 
-const STOP = new Set('a an the and or of to in on at by for with from is are was were be been being it its this that these those as per each every than then also not no only when while after before within over under into out up down about around approximately max maximum min minimum least most set sets default defaults value values currently now new old will would should must can may might has have had do does did if else so such there here which who whom their they them we our you your'.split(' '));
+const STOP = new Set('a an the and or of to in on at by for with from is are was were be been being it its this that these those as per each every than then also not no only when while after before within over under into out up down about around approximately max maximum min minimum least most set sets default defaults value values currently now new old will would should must can may might has have had do does did if else so such there here which who whom their they them we our you your begin begins began start starts starting scheduled'.split(' '));
 const SYN: Record<string, string> = { expires: 'expire', expiry: 'expire', expiration: 'expire', expired: 'expire', ttl: 'expire', timeout: 'expire', timeouts: 'expire', lifetime: 'expire', valid: 'expire', validity: 'expire', lasts: 'expire', last: 'expire' };
 const GENERIC = new Set(['date', 'planned', 'target', 'expected', 'scheduled', 'final', 'current']);
 const ENV = new Set('production prod staging stage dev development test testing sandbox qa admin free pro enterprise premium basic standard trial internal external mobile desktop'.split(' '));
@@ -23,30 +23,39 @@ const ENV = new Set('production prod staging stage dev development test testing 
 /** Audience, environment and plan words anywhere in a line ('for admin users', 'in staging'). Lines that name different ones are about different things. */
 export const envOf = (line: string): string => [...new Set(wordsOf(line).filter((w) => ENV.has(w)))].sort().join(',');
 
+// Plain suffix stripping so "cache / cached / caches", "limit / limited" and "batch / batches" meet. Not a language model: it only trims endings.
 const stem = (w: string): string => {
-  const s = SYN[w] ?? w;
-  return s.length > 3 && s.endsWith('s') && !s.endsWith('ss') ? s.slice(0, -1) : s;
+  let s = SYN[w] ?? w;
+  if (/(?:ies|ied)$/.test(s) && s.length > 4) s = `${s.slice(0, -3)}i`;
+  else if (s.endsWith('y') && s.length > 3) s = `${s.slice(0, -1)}i`;
+  else if (/(?:ch|sh|ss|x|z)es$/.test(s)) s = s.slice(0, -2);
+  else if (s.endsWith('ing') && s.length > 5) s = s.slice(0, -3);
+  else if (s.endsWith('ed') && s.length > 4) s = s.slice(0, -2);
+  else if (s.endsWith('s') && !s.endsWith('ss') && s.length > 3) s = s.slice(0, -1);
+  return s.length > 3 && s.endsWith('e') ? s.slice(0, -1) : s;
 };
 
 const wordsOf = (s: string): string[] => (s.toLowerCase().match(/[a-z][a-z0-9]*/g) ?? []);
 
 // The words that name WHAT a number is about: the clause before it, back to the nearest boundary, at most 8 words.
-function subjectBefore(line: string, index: number, floor: number): { subject: Set<string>; qual: string } {
+function subjectBefore(line: string, index: number, floor: number): { subject: Set<string>; qual: string; surface: Record<string, string> } {
   const seg = line.slice(floor, index);
   const clause = seg.split(/[.;()]|,\s/).pop() ?? '';
   const ws = wordsOf(clause).slice(-8);
   const subject = new Set<string>();
+  const surface: Record<string, string> = {};     // stem -> the word as written, so a finding can quote the page's own words
   const quals: string[] = [];
   for (const w of ws) {
     if (ENV.has(w)) { quals.push(w); continue; }
     if (STOP.has(w) || GENERIC.has(w)) continue;
     subject.add(stem(w));
+    surface[stem(w)] = w;
   }
   // A qualifier anywhere in the clause changes what the number means: "up to", "at least", "about", "maximum", "minimum".
   const low = clause.toLowerCase();
   const q = /\b(up to|at most|at least|about|approximately|around|maximum|minimum|max|min)\b|~/.exec(low)?.[1] ?? (low.includes('~') ? '~' : undefined);
   if (q) quals.push(`q:${/up to|at most|max/.test(q) ? 'max' : /at least|min/.test(q) ? 'min' : 'approx'}`);
-  return { subject, qual: quals.sort().join(',') };
+  return { subject, qual: quals.sort().join(','), surface };
 }
 
 const DURATION_UNITS: Record<string, number> = { ms: 0.001, msec: 0.001, millisecond: 0.001, milliseconds: 0.001, s: 1, sec: 1, secs: 1, second: 1, seconds: 1, min: 60, mins: 60, minute: 60, minutes: 60, h: 3600, hr: 3600, hrs: 3600, hour: 3600, hours: 3600, d: 86400, day: 86400, days: 86400, w: 604800, wk: 604800, week: 604800, weeks: 604800 };
@@ -92,8 +101,8 @@ function factsInLine(line: string): Fact[] {
   const push = (f: Omit<Fact, 'subject' | 'qual'>, floor: number, end: number) => {
     if (!free(f.index, end)) return;
     taken.push([f.index, end]);
-    const { subject, qual } = subjectBefore(line, f.index, floor);
-    out.push({ ...f, subject, qual });
+    const { subject, qual, surface } = subjectBefore(line, f.index, floor);
+    out.push({ ...f, subject, qual, surface });
   };
   const floorOf = () => (out.length ? out[out.length - 1]!.index + out[out.length - 1]!.text.length : 0);
 
@@ -110,9 +119,9 @@ function factsInLine(line: string): Fact[] {
     const f = { kind: 'date' as Kind, unit: kind, value: Date.parse(`${iso}T00:00:00Z`), text: m[0], index: idx };
     if (!free(idx, idx + m[0].length)) continue;
     taken.push([idx, idx + m[0].length]);
-    const { subject, qual } = subjectBefore(line, idx, 0);
-    subject.delete(stem(cue.split(/[\s-]/)[0]!));
-    out.push({ ...f, subject, qual });
+    const { subject, qual, surface } = subjectBefore(line, idx, 0);
+    for (const w of cue.split(/[\s-]+/)) subject.delete(stem(w));
+    out.push({ ...f, subject, qual, surface });
   }
 
   for (const m of line.matchAll(new RegExp(`${NUM}\\s*(ms|msec|milliseconds?|secs?|seconds?|mins?|minutes?|hrs?|hours?|days?|weeks?|wk)${END}`, 'gi'))) {
@@ -160,8 +169,9 @@ function valid(y: number, mo: number, d: number): string | null {
 }
 
 const shared = (a: Set<string>, b: Set<string>) => [...a].filter((w) => b.has(w));
+// Two dates about the same milestone kind ("release", "freeze") with nothing else named on either side are about the same thing.
 const same = (a: Fact, b: Fact) => a.kind === b.kind && a.unit === b.unit && a.qual === b.qual
-  && shared(a.subject, b.subject).length >= (a.kind === 'date' ? 1 : 2);
+  && (a.kind === 'date' ? shared(a.subject, b.subject).length >= 1 || (a.subject.size === 0 && b.subject.size === 0) : shared(a.subject, b.subject).length >= 2);
 
 const show = (f: Fact) => f.text.trim();
 
@@ -220,7 +230,9 @@ function makeRule(id: string, kind: Kind, label: string, why: string): Rule {
         const key = `${p.n}|${show(p.f)}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        const what = [...shared(t.f.subject, p.f.subject)].slice(0, 3).join(' ');
+        const MILESTONE: Record<string, string> = { release: 'the release date', freeze: 'the code freeze', due: 'the due date', cutover: 'the cutover date' };
+        const words = [...shared(t.f.subject, p.f.subject)].slice(0, 3).map((w) => p.f.surface?.[w] ?? w);
+        const what = words.length ? words.join(' ') : kind === 'date' ? MILESTONE[p.f.unit] ?? 'the date' : 'the value';
         out.push({
           ruleId: id, severity: 'warn', why,
           summary: `Page says ${what} is ${show(p.f)}, but ${workItem.key} says ${show(t.f)}`,

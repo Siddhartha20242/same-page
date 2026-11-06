@@ -393,6 +393,7 @@ resolver.define('setTargetVersion', async ({ payload, context }: Req<{ version?:
 // Demo data on demand (and the install path can call the same thing). Progress is saved after every run, so a failed run resumes
 // instead of duplicating pages. Everything is created as the person who clicked, so it needs their write permissions.
 resolver.define('seedDemo', async ({ context }: Req) => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can load the demo data, because it creates work items and pages on the site.' };
   const sd = createSeedDeps(async (kind, path, init) => {
     try {
       const res = await (kind === 'jira' ? api.asUser().requestJira(assumeTrustedRoute(path), init) : api.asUser().requestConfluence(assumeTrustedRoute(path), init));

@@ -27,7 +27,7 @@ export interface Page {
 }
 
 /** `siblings` are all the pages loaded for the same work item (including `page`), so a rule can compare a doc with another artifact, such as an API spec. */
-export interface Pair { workItem: WorkItem; page: Page; siblings?: Page[]; cited?: Record<string, { status: string }> }
+export interface Pair { workItem: WorkItem; page: Page; siblings?: Page[]; cited?: Record<string, { status: string; changedAt?: string }> }
 
 export interface VersionRef { version: string; index: number; text: string; kind: 'token' | 'phrase' }
 export interface VersionHit { version: string; line: number; snippet: string; historical: boolean }

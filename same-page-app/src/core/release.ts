@@ -58,11 +58,18 @@ export function cached<A, R>(fn: (arg: A) => R): (arg: A) => R {
 
 // Statuses of the other tickets the loaded pages mention (rule R6). At most 5 extra reads, and any failure just leaves that ticket out.
 const TICKET_KEY = /(?<![A-Za-z0-9-])[A-Z][A-Z0-9_]+-\d+(?![0-9])/g;
-async function loadCited(own: string, pages: Page[], loadIssue?: (key: string) => Promise<Issue>): Promise<Record<string, { status: string }> | undefined> {
+async function loadCited(own: string, pages: Page[], loadIssue?: (key: string) => Promise<Issue>, getTransition?: IssueDeps['getTransition']): Promise<Record<string, { status: string; changedAt?: string }> | undefined> {
   if (!loadIssue) return undefined;
   const keys = [...new Set(pages.flatMap((p) => p.text.match(TICKET_KEY) ?? []))].filter((k) => k !== own).slice(0, 5);
-  const out: Record<string, { status: string }> = {};
-  for (const k of keys) { try { const i = await loadIssue(k); if (i?.status) out[k] = { status: i.status }; } catch { /* unreadable or missing: skip */ } }
+  const out: Record<string, { status: string; changedAt?: string }> = {};
+  for (const k of keys) {
+    try {
+      const i = await loadIssue(k);
+      if (!i?.status) continue;
+      const changedAt = await getTransition?.(k).then((t) => t?.at, () => undefined);   // when it last changed status; unknown just means the rule cannot use the edit-time test
+      out[k] = { status: i.status, ...(changedAt ? { changedAt } : {}) };
+    } catch { /* unreadable or missing: skip */ }
+  }
   return out;
 }
 
@@ -92,7 +99,7 @@ export async function checkIssue(issue: Issue, { loadIssue, getTransition, getRe
   if (!loaded.length) return { ...base, status: 'unchecked', reason: 'related page(s) found but not readable with your permissions' };
   const workItem: WorkItem = { ...issue, apiVersion, statusChangedAt: transition?.at, statusChangedBy: transition?.by, text: [issue.summary, issue.description].filter(Boolean).join('\n') };
   const siblings = loaded.map((l) => l.page);
-  const cited = await loadCited(issue.key, siblings, loadIssue);                  // lets a rule compare a doc with another loaded artifact, such as an API spec
+  const cited = await loadCited(issue.key, siblings, loadIssue, getTransition);                  // lets a rule compare a doc with another loaded artifact, such as an API spec
   const findings = loaded.flatMap(({ c, page }) => check({ workItem, page, siblings, cited }, rules).findings
     .map((f) => ({ ...f, pageId: page.id, pageTitle: page.title, foundBecause: c.reasons })));
   const real = findings.filter((f) => f.severity !== 'info');
