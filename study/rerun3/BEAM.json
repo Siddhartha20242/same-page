@@ -1,0 +1,118 @@
+{
+  "ranAt": "2026-11-06T19:57:21.188Z",
+  "seed": 1,
+  "stats": {
+    "project": "BEAM",
+    "pages": 7,
+    "pagesScanned": 114,
+    "pairs": 16,
+    "issueReadable": 16,
+    "pairsWithTransition": 8,
+    "pageOlderThanTransition": 4,
+    "r1TargetFromSummary": 0,
+    "r1TargetFromFixVersion": 1,
+    "findings": 0,
+    "byRule": {},
+    "requests": 23,
+    "nonFindingPairs": 8
+  },
+  "findings": [],
+  "nonFindingSample": [
+    {
+      "issue": "BEAM-9209",
+      "jiraStatus": "Open",
+      "statusChangedAt": "2020-04-23T15:09:57.176+0000",
+      "issueSummary": "Add support for mapping columns to pubsub message event_timestamp when using flat schemas DDL",
+      "page": "[BIP-1] Beam Schema Options",
+      "pageId": "147426205",
+      "pageModifiedAt": "2020-02-28T22:33:42.000Z",
+      "pageOlder": true,
+      "line": 383,
+      "snippet": "Cloud PubSub map columns to message attributes (BEAM-9208), or message publish time (BEAM-9209)"
+    },
+    {
+      "issue": "BEAM-11076",
+      "jiraStatus": "Triage Needed",
+      "statusChangedAt": "2023-04-13T11:13:17.191+0000",
+      "issueSummary": "Go Direct Runner Improvements",
+      "page": "Go Tips",
+      "pageId": "95653387",
+      "pageModifiedAt": "2023-08-03T18:10:00.000Z",
+      "pageOlder": false,
+      "line": 6,
+      "snippet": "BEAM-11076 - Help make the Go Direct Runner useful, and portable!"
+    },
+    {
+      "issue": "BEAM-13666",
+      "jiraStatus": "Resolved",
+      "statusChangedAt": "2022-06-01T20:51:18.755+0000",
+      "issueSummary": "Stuck inventory jobs should be cancelled and rescheduled for next run",
+      "page": "Jenkins Tips",
+      "pageId": "95653381",
+      "pageModifiedAt": "2023-11-13T19:16:19.000Z",
+      "pageOlder": false,
+      "line": 135,
+      "snippet": "Verify that inventory job for this node did not start while the worker was offline, sample build for node #10: https://ci-beam.apache.org/job/beam_Inventory_apache-beam-jenkins-10. If there is a stuck"
+    },
+    {
+      "issue": "BEAM-1114",
+      "jiraStatus": "Resolved",
+      "statusChangedAt": "2020-07-24T20:54:45.095+0000",
+      "issueSummary": "Support for new Timer API in Apex runner",
+      "page": "Running Nexmark",
+      "pageId": "95654065",
+      "pageModifiedAt": "2019-06-22T12:59:36.000Z",
+      "pageOlder": true,
+      "line": 133,
+      "snippet": "3 | ok | ok | ok | BEAM-1114"
+    },
+    {
+      "issue": "BEAM-11077",
+      "jiraStatus": "Open",
+      "statusChangedAt": "2020-10-21T18:49:54.713+0000",
+      "issueSummary": "Simplify use of the Python Portable runner for Go SDK pipelines",
+      "page": "Go Tips",
+      "pageId": "95653387",
+      "pageModifiedAt": "2023-08-03T18:10:00.000Z",
+      "pageOlder": false,
+      "line": 5,
+      "snippet": "BEAM-11077 - Help make the Python Portable runner easier to use with the Go SDK!"
+    },
+    {
+      "issue": "BEAM-9208",
+      "jiraStatus": "In Progress",
+      "statusChangedAt": "2024-10-01T11:01:18.498+0000",
+      "issueSummary": "Add support for mapping columns to pubsub message attributes in flat schemas DDL",
+      "page": "[BIP-1] Beam Schema Options",
+      "pageId": "147426205",
+      "pageModifiedAt": "2020-02-28T22:33:42.000Z",
+      "pageOlder": true,
+      "line": 383,
+      "snippet": "Cloud PubSub map columns to message attributes (BEAM-9208), or message publish time (BEAM-9209)"
+    },
+    {
+      "issue": "BEAM-8826",
+      "jiraStatus": "Open",
+      "statusChangedAt": "2021-04-03T02:26:03.093+0000",
+      "issueSummary": "Investigate possibility of system metrics usage in portable performance tests",
+      "page": "Beam Testing Tools FAQ",
+      "pageId": "135862754",
+      "pageModifiedAt": "2019-11-26T15:42:44.000Z",
+      "pageOlder": true,
+      "line": 21,
+      "snippet": "In the future, it might be worth to utilize portable system metrics for the jobs. Ticket for the investigation: BEAM-8826"
+    },
+    {
+      "issue": "BEAM-2083",
+      "jiraStatus": "Resolved",
+      "statusChangedAt": "2018-06-07T21:49:15.219+0000",
+      "issueSummary": "Develop a Go SDK for Beam",
+      "page": "Works in Progress",
+      "pageId": "95653900",
+      "pageModifiedAt": "2019-07-10T08:58:37.000Z",
+      "pageOlder": false,
+      "line": 18,
+      "snippet": "JIRA: sdk-go / BEAM-2083"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "ranAt": "2026-11-06T19:59:17.241Z",
+  "seed": 1,
+  "stats": {
+    "project": "TEZ",
+    "pages": 2,
+    "pagesScanned": 56,
+    "pairs": 3,
+    "issueReadable": 3,
+    "pairsWithTransition": 3,
+    "pageOlderThanTransition": 1,
+    "r1TargetFromSummary": 0,
+    "r1TargetFromFixVersion": 0,
+    "findings": 0,
+    "byRule": {},
+    "requests": 9,
+    "nonFindingPairs": 3
+  },
+  "findings": [],
+  "nonFindingSample": [
+    {
+      "issue": "TEZ-100",
+      "jiraStatus": "Closed",
+      "statusChangedAt": "2013-12-01T20:21:00.715+0000",
+      "issueSummary": "Some properties are missed when extracting an intermediate stage conf from a larger MR conf",
+      "page": "Committer Guide",
+      "pageId": "47383727",
+      "pageModifiedAt": "2019-02-26T19:17:40.000Z",
+      "pageOlder": false,
+      "line": 14,
+      "snippet": "Usually you will create a separate branch for your JIRA you are working, you can also work on master directly if you think the JIRA is pretty simple. Here I assume you are working on a separate branch"
+    },
+    {
+      "issue": "TEZ-1683",
+      "jiraStatus": "Closed",
+      "statusChangedAt": "2014-11-08T20:25:10.833+0000",
+      "issueSummary": "Do ugi::getGroups only when necessary when checking ACLs ",
+      "page": "Committer Guide",
+      "pageId": "47383727",
+      "pageModifiedAt": "2019-02-26T19:17:40.000Z",
+      "pageOlder": false,
+      "line": 35,
+      "snippet": "// TEZ-1683. Do ugi::getGroups only when necessary when checking ACLs. (hitesh)"
+    },
+    {
+      "issue": "TEZ-2924",
+      "jiraStatus": "Closed",
+      "statusChangedAt": "2016-05-18T04:57:55.636+0000",
+      "issueSummary": "Framework for Hadoop shims",
+      "page": "HadoopShims",
+      "pageId": "61327896",
+      "pageModifiedAt": "2015-11-10T00:08:20.000Z",
+      "pageOlder": true,
+      "line": 13,
+      "snippet": "To make use of this APIs, we have introduced a shim layer as part of TEZ-2924. The basic shim interface defines the various APIs whose implementations are version-specific and the version-specific shi"
+    }
+  ]
+}

@@ -91,3 +91,8 @@ We have not load tested the app. The limits above are budgets chosen to stay ins
 | Change notice | Fires on an edit to the summary or description only, once per distinct set of contradictions, and not when the same event moves the item to Done. It runs as the app and may read pages the editor cannot, which is why it names no page text. |
 | Link a page | One page address at a time, on the same site only, and only if the person can read it. |
 | Number words | Fixed phrases and number words right before a unit ("thirty minutes", "half an hour", "1h30m", "an hour and a half"). Looser wording ("a short while") is not read. |
+
+## Wording the number and date rules do and do not read (2026-11-07)
+Read: "2 hours", "120 mins", "2h", "7200 seconds", "two hrs", "half an hour", "1h30m", "an hour", "25 megabytes", and the verbs "expires", "times out", "timed out", "valid for", "lasts" and "lives for". A value that is the same in other words never fires.
+Not read: vague amounts ("a couple of hours"), and a statement about a different thing even when the number is the same ("signed out after 45 minutes of inactivity" against a "session timeout"). The rules also need two shared subject words, so a page that names only "the token" does not match a ticket about the "auth token expiry". These are misses, not errors: the rules stay silent rather than guess, and no model is used to widen them because that would cost money per call and let a misread number become a "proven" finding.
+

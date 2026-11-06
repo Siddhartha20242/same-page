@@ -16,7 +16,7 @@ type Kind = 'duration' | 'limit' | 'date';
 interface Fact { kind: Kind; unit: string; value: number; text: string; index: number; subject: Set<string>; qual: string; surface?: Record<string, string> }
 
 const STOP = new Set('a an the and or of to in on at by for with from is are was were be been being it its this that these those as per each every than then also not no only when while after before within over under into out up down about around approximately max maximum min minimum least most set sets default defaults value values currently now new old will would should must can may might has have had do does did if else so such there here which who whom their they them we our you your begin begins began start starts starting scheduled'.split(' '));
-const SYN: Record<string, string> = { expires: 'expire', expiry: 'expire', expiration: 'expire', expired: 'expire', ttl: 'expire', timeout: 'expire', timeouts: 'expire', lifetime: 'expire', valid: 'expire', validity: 'expire', lasts: 'expire', last: 'expire' };
+const SYN: Record<string, string> = { expires: 'expire', expiry: 'expire', expiration: 'expire', expired: 'expire', ttl: 'expire', timeout: 'expire', timeouts: 'expire', lifetime: 'expire', valid: 'expire', validity: 'expire', lasts: 'expire', last: 'expire', timed: 'expire', live: 'expire', lives: 'expire', lived: 'expire' };
 const GENERIC = new Set(['date', 'planned', 'target', 'expected', 'scheduled', 'final', 'current']);
 const ENV = new Set('production prod staging stage dev development test testing sandbox qa admin free pro enterprise premium basic standard trial internal external mobile desktop'.split(' '));
 
@@ -79,6 +79,7 @@ export function normalizeWording(line: string): string {
   let s = line;
   s = s.replace(/\b(\d+)\s*(?:h|hr|hrs|hours?)\s*(?:and\s*)?(\d+)\s*(?:m|min|mins|minutes?)\b/gi, (_m, h, m) => `${Number(h) * 60 + Number(m)} minutes`);
   s = s.replace(/\b(?:an|one) hour and a half\b/gi, '90 minutes');
+  s = s.replace(/(\d)\s*(kilo|mega|giga|tera)bytes?\b/gi, (_m, n, u) => `${n} ${{ kilo: 'KB', mega: 'MB', giga: 'GB', tera: 'TB' }[String(u).toLowerCase() as 'kilo']}`);   // "25 megabytes" -> "25 MB"
   s = s.replace(/\bhalf (?:an|a) hour\b/gi, '30 minutes').replace(/\b(?:a )?quarter (?:of an |of a |)hour\b/gi, '15 minutes');
   s = s.replace(NUMBER_WORD, (m, tens, ones, one) => {
     if (/hundred/i.test(m)) return '100';

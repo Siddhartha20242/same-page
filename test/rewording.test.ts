@@ -13,7 +13,7 @@ test('agreeing statements in different words never fire (stemming and wording mu
 });
 
 test('reworded contradictions are caught, except the ones that need real meaning', () => {
-  const needMeaning = new Set(['d5', 'd6', 'r1']);                 // "Cache TTL" vs "entries live", "retry window" vs "retried within", "timeout" vs "signed out after"
+  const needMeaning = new Set(['d6', 'r1', 'c9', 'c10']);          // "retry window" vs "retried within", "timeout" vs "signed out after", "rate limit" vs "API allows N calls", "a couple of hours"
   for (const c of cases.filter((x) => x.fire && !needMeaning.has(x.id))) assert.equal(fired(c), true, `${c.id}: "${c.ticket}" vs "${c.page}"`);
   for (const id of needMeaning) assert.equal(fired(cases.find((x) => x.id === id)!), false, `${id} is documented as a known miss; if it now fires, update the list`);
 });

@@ -89,3 +89,5 @@ Two changes were made after the first probe: R6 now skips a cited ticket that cl
 
 **Re-run after the wording and date matching changes (2026-11-07, `study/rerun2/`).** Same 12 projects, same seed: 559 pairs, 4 findings, the same 4 Fix Version false positives as above, and none in default mode. Loosening the subject matching (a plain suffix stemmer, and two dates about the same plain milestone such as "release date") added no false alarm on public wikis. It also found nothing new, which is expected: these wikis rarely state numbers about the same thing as a ticket.
 
+**Re-run after adding the verbs "timed out", "live for" and spelled-out size units (2026-11-07, `study/rerun3/`).** Same 12 projects and seed: 559 pairs, the same 4 Fix Version false positives, none in default mode. The added wording produced no new false alarm on public wikis.
+
