@@ -21,7 +21,8 @@ export const RULE_CATALOG: RuleInfo[] = [
 export const ruleInfo = (ruleId: string) => RULE_CATALOG.find((r) => r.ruleId === ruleId);
 export const ruleLabel = (ruleId: string) => { const r = ruleInfo(ruleId); return r ? `${r.short} ${r.name}` : /^C\d+_CUSTOM$/.test(ruleId) ? 'Custom rule' : 'Rule'; };
 
-export type SeverityOverrides = Record<string, 'block' | 'warn'>;
+/** Draft: the rule runs and is counted, but its findings are not shown and cannot block. A way to introduce a rule without risk. */
+export type SeverityOverrides = Record<string, 'block' | 'warn' | 'draft'>;
 export interface SettingsStore { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<unknown> }
 const KEY = 'rules:severity';
 
@@ -29,7 +30,7 @@ export async function loadSeverityOverrides(store: SettingsStore): Promise<Sever
   try {
     const raw = (await store.get(KEY)) as Record<string, unknown> | null | undefined;
     const out: SeverityOverrides = {};
-    for (const r of RULE_CATALOG) { const v = raw?.[r.ruleId]; if (v === 'block' || v === 'warn') out[r.ruleId] = v; }
+    for (const r of RULE_CATALOG) { const v = raw?.[r.ruleId]; if (v === 'block' || v === 'warn' || v === 'draft') out[r.ruleId] = v; }
     return out;
   } catch { return {}; }
 }
@@ -38,20 +39,27 @@ export async function loadSeverityOverrides(store: SettingsStore): Promise<Sever
 export async function saveSeverity(store: SettingsStore, ruleId: string, severity: string): Promise<{ ok: true; overrides: SeverityOverrides } | { ok: false; reason: string }> {
   const info = ruleInfo(ruleId);
   if (!info) return { ok: false, reason: 'Unknown rule.' };
-  if (severity !== 'block' && severity !== 'warn') return { ok: false, reason: 'Severity must be block or warn.' };
+  if (severity !== 'block' && severity !== 'warn' && severity !== 'draft') return { ok: false, reason: 'Severity must be draft, warn or block.' };
   const cur = await loadSeverityOverrides(store);
   if (severity === info.defaultSeverity) delete cur[ruleId]; else cur[ruleId] = severity;
   await store.set(KEY, cur);
   return { ok: true, overrides: cur };
 }
 
-export const effectiveSeverity = (ruleId: string, o: SeverityOverrides): 'block' | 'warn' | undefined => o[ruleId] ?? ruleInfo(ruleId)?.defaultSeverity;
+export const effectiveSeverity = (ruleId: string, o: SeverityOverrides): 'block' | 'warn' | 'draft' | undefined => o[ruleId] ?? ruleInfo(ruleId)?.defaultSeverity;
 
-interface Sev { ruleId: string; severity: string }
-/** Applies the site's severity settings to a model's findings. Notes (severity info) are history and never change. */
-export function withSeverities<M extends { findings?: Sev[]; notes?: Sev[]; verdict?: string; status?: string }>(model: M, o: SeverityOverrides): M {
+interface Sev { ruleId: string; severity: string; id?: string }
+/** Applies the site's severity settings to a model's findings. Notes (severity info) are history and never change. Findings of a rule in draft are
+ *  taken out of the model and returned as `drafted`, so the caller can count them. A model left with nothing is turned into a clean one by triage. */
+export function withSeverities<M extends { findings?: Sev[]; notes?: Sev[]; verdict?: string; status?: string }>(model: M, o: SeverityOverrides): M & { drafted?: { id: string; ruleId: string }[] } {
   if (!model.findings?.length || !Object.keys(o).length) return model;
-  const findings = model.findings.map((f) => (f.severity === 'info' || !o[f.ruleId] ? f : { ...f, severity: o[f.ruleId] as Severity }));
-  const verdict = findings.some((f) => f.severity === 'block') ? 'BLOCKED' : 'WARN';
-  return { ...model, findings, verdict };
+  const drafted: { id: string; ruleId: string }[] = [];
+  const findings: Sev[] = [];
+  for (const f of model.findings) {
+    if (f.severity === 'info' || !o[f.ruleId]) { findings.push(f); continue; }
+    if (o[f.ruleId] === 'draft') { drafted.push({ id: String(f.id ?? ''), ruleId: f.ruleId }); continue; }
+    findings.push({ ...f, severity: o[f.ruleId] as Severity });
+  }
+  const verdict = findings.some((f) => f.severity === 'block') ? 'BLOCKED' : findings.length ? 'WARN' : 'PASS';
+  return { ...model, findings, verdict, drafted };
 }

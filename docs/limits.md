@@ -18,6 +18,14 @@ Every limit below is a constant in the code. Where a limit is hit, the app says 
 | Time and request budget, overview | 20 seconds, 60 requests | Items not reached are listed as "Not checked: not reached before the budget ran out". |
 | Weekly scan | the 20 most recently updated open epics **across the whole site**, 40 seconds, 80 requests | On a busy site the scan covers only those 20, so a project's weekly numbers may cover few or none of its epics. The overview says "no open epics in this project were checked" in that case. |
 
+## Break glass, draft and export
+| Item | Behaviour |
+|---|---|
+| Break glass | Project administrators and Jira administrators only; 24 hours; one work item; a reason of at least 8 characters; findings stay visible |
+| Draft rule | Counts findings once each; nothing is shown, noticed or blocked |
+| Audit export | The latest 100 entries as hashes only, no page text; hash-chained, not signed |
+| Storage values | Forge storage rejects `null`, so cleared values are stored as an expired or empty marker |
+
 ## Fact registry
 | Limit | Value |
 |---|---|

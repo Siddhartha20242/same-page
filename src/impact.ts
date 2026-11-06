@@ -26,7 +26,7 @@ export async function loadImpact(store: ImpactStore): Promise<Impact> {
   let minutes: number | null = null;
   try { const v = Number(await store.get(KEY)); if (Number.isFinite(v) && v > 0 && v <= MAX_MINUTES) minutes = v; } catch { /* unset */ }
   const hours = minutes === null ? null : Math.round((counts.applied * minutes) / 6) / 10;
-  const parts = [`${counts.seen} contradiction${counts.seen === 1 ? '' : 's'} found`, `${counts.applied} fixed on the page`, `${counts.reviewTasks} sent to a page owner`, `${counts.dismissed} dismissed`, `${counts.gateBlocks} transition${counts.gateBlocks === 1 ? '' : 's'} refused`, ...(counts.gateWouldBlock ? [`${counts.gateWouldBlock} would have been refused in watch-only mode`] : [])];
+  const parts = [`${counts.seen} contradiction${counts.seen === 1 ? '' : 's'} found`, `${counts.applied} fixed on the page`, `${counts.reviewTasks} sent to a page owner`, `${counts.dismissed} dismissed`, `${counts.gateBlocks} transition${counts.gateBlocks === 1 ? '' : 's'} refused`, ...(counts.gateWouldBlock ? [`${counts.gateWouldBlock} would have been refused in watch-only mode`] : []), ...(counts.gateOverrides ? [`${counts.gateOverrides} let through by a break-glass override`] : [])];
   const line = parts.join(' · ');
   return { counts, minutesPerFix: minutes, estimatedHoursSaved: hours, line, review: reviewSummary(await loadReviewCounts(store)) };
 }
@@ -34,6 +34,6 @@ export async function loadImpact(store: ImpactStore): Promise<Impact> {
 export async function setMinutesPerFix(store: ImpactStore, raw: unknown): Promise<{ ok: true } | { ok: false; reason: string }> {
   const v = Number(String(raw ?? '').trim());
   if (!Number.isFinite(v) || v < 0 || v > MAX_MINUTES) return { ok: false, reason: `Enter a number of minutes from 0 to ${MAX_MINUTES}. Use 0 to clear it.` };
-  await store.set(KEY, v === 0 ? null : Math.round(v));
+  await store.set(KEY, Math.round(v));      // 0 clears it; Forge storage rejects a null value
   return { ok: true };
 }

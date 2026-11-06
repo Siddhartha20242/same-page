@@ -7,10 +7,11 @@ import type { KV } from './ledgerStore.ts';
 //   SNOOZED      a person snoozed it, with their account id
 //   REVIEW_TASK  a person created a review task for it, with the task key and account id
 //   APPLIED      a person applied the verified fix (recorded where the fix is applied)
+//   OVERRIDE / OVERRIDE_USED  a project administrator granted a break-glass override for the gate, and the gate let a transition through because of it
 // We do NOT record who merely looked at a finding: that would store a person's reading activity for no audit purpose.
 // Best effort: a storage problem never breaks the action that called it.
 
-export type HandlingEvent = 'DISCOVERED' | 'DISMISSED' | 'SNOOZED' | 'REVIEW_TASK';
+export type HandlingEvent = 'DISCOVERED' | 'DISMISSED' | 'SNOOZED' | 'REVIEW_TASK' | 'OVERRIDE' | 'OVERRIDE_USED';
 
 export interface HandlingInput { event: HandlingEvent; ruleId: string; issueKey: string; pageId?: string; note?: string; by?: string }
 

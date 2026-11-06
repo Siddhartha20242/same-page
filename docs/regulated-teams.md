@@ -9,6 +9,8 @@ Same Page was built so that when it stops a release, the reason can be shown, re
 - **A person approves every change.** An applied fix is a normal Confluence page version that names the approver. Page history is the undo.
 - **A record of what happened.** Each applied fix and each step in a finding's handling (first shown, dismissed with a reason, snoozed, sent to an owner) is sealed in one hash chain, and the panel re-verifies it on request. It records who acted, not who merely looked.
 - **It respects page permissions.** Panel actions run as the viewing user. The gate shows page text only to a person who can read the page.
+- **A way out in an emergency.** A project administrator can let one work item through the gate for 24 hours with a written reason; the grant and each use are sealed in the audit chain.
+- **An export an auditor can verify.** The latest entries as hashes only, checked offline with `scripts/verify-export.mjs`. It is hash-chained, not signed.
 - **A safe way in.** The gate has a watch-only mode that allows every transition and only counts what it would have refused, so a team can see the effect before it enforces.
 - **Small footprint.** Forge storage holds counters, markers, rule settings and the audit chain. The privacy policy lists all of it.
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ForgeReconciler, { Box, Button, Code, DynamicTable, Heading, Icon, Inline, Link, Lozenge, SectionMessage, Spinner, Stack, Strike, Tab, TabList, TabPanel, Tabs, Tag, Text, TextArea, Textfield, xcss } from '@forge/react';
 import { invoke as bridgeInvoke } from '@forge/bridge';
 import type { PanelFinding, PanelModel, Span } from '../core/panelModel';
+import { ageHint } from '../core/ageHint';
 
 // The resolvers answer with plain bodies; bridge types them as a wider union (body, void or body-with-metadata), so cast once here.
 const invoke = <T,>(name: string, payload?: Record<string, unknown>): Promise<T> => bridgeInvoke(name, payload) as unknown as Promise<T>;
@@ -15,6 +16,8 @@ const when = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : 'an u
 // Card and panel styling. Atlassian design tokens only, so light and dark themes both work.
 const cardStyle = xcss({ borderColor: 'color.border', borderStyle: 'solid', borderWidth: 'border.width', borderRadius: 'radius.large', padding: 'space.200', backgroundColor: 'elevation.surface.raised' });
 const evidenceStyle = xcss({ borderRadius: 'radius.medium', padding: 'space.150', backgroundColor: 'color.background.neutral' });
+const pageSideStyle = xcss({ borderRadius: 'radius.medium', padding: 'space.150', backgroundColor: 'color.background.danger', flexGrow: 1 });
+const jiraSideStyle = xcss({ borderRadius: 'radius.medium', padding: 'space.150', backgroundColor: 'color.background.success', flexGrow: 1 });
 const tabPad = xcss({ paddingBlockStart: 'space.200' });
 
 type TaskState = { status: 'creating' } | { status: 'done'; key: string } | { status: 'error'; message: string };
@@ -45,6 +48,7 @@ const Highlighted = ({ line, span, appearance }: { line?: string; span?: Span; a
 const BeforeAfter = ({ s, done }: { s: NonNullable<PanelFinding['suggestion']>; done: boolean }) => (
   <Stack space="space.050">
     <Heading size="xsmall">{done ? 'What changed on the page' : 'Proposed change (nothing is edited until you click Apply)'}</Heading>
+    {s.context?.before.length ? <Stack space="space.025">{s.context.before.map((l, i) => <Code key={`b${i}`}>{l || ' '}</Code>)}</Stack> : null}
     <Inline space="space.100" alignBlock="center" shouldWrap>
       <Lozenge appearance="removed">{done ? 'Was' : 'Now'}</Lozenge>
       {done ? <Strike>{s.before ?? ''}</Strike> : <Highlighted line={s.before} span={s.beforeHighlight} appearance="removed" />}
@@ -53,12 +57,13 @@ const BeforeAfter = ({ s, done }: { s: NonNullable<PanelFinding['suggestion']>; 
       <Lozenge appearance="success">{done ? 'Is now' : 'After Apply'}</Lozenge>
       <Highlighted line={s.after} span={s.afterHighlight} appearance="success" />
     </Inline>
+    {s.context?.after.length ? <Stack space="space.025">{s.context.after.map((l, i) => <Code key={`a${i}`}>{l || ' '}</Code>)}</Stack> : null}
     <Text>{`Only this line changes, and only its version reference. ${s.note ?? ''}`}</Text>
   </Stack>
 );
 
-type RuleRow = { ruleId: string; short: string; name: string; checks: string; pain: string; severity: 'block' | 'warn'; changed: boolean; dismissed?: number; acted?: number; markedReal?: number; markedFalse?: number; hint?: string | null };
-type CustomDef = { id: string; name: string; template: string; phrase: string; value: string; severity: 'block' | 'warn' };
+type RuleRow = { ruleId: string; short: string; name: string; checks: string; pain: string; severity: 'block' | 'warn' | 'draft'; draftHits?: number; changed: boolean; dismissed?: number; acted?: number; markedReal?: number; markedFalse?: number; hint?: string | null };
+type CustomDef = { id: string; name: string; template: string; phrase: string; value: string; severity: 'block' | 'warn' | 'draft'; draftHits?: number };
 type TemplateInfo = { id: string; label: string; sentence: string };
 type CanonDef = { id: string; subject: string; value: string };
 type CanonResult = { id: string; subject: string; value: string; pagesRead: number; agreeing: number; pages: { pageId: string; title: string; found: { line: number; snippet: string; pageValue: string }[] }[]; note?: string };
@@ -115,6 +120,51 @@ const CanonFacts = ({ facts, onChanged }: { facts: CanonDef[]; onChanged: () => 
             </Stack>
           ))}
           <Text>{results.stoppedEarly ? 'The check stopped early because of its time limit; run it again.' : 'Only the first 8 pages Confluence returns for each fact are read, so a clean result means those pages agree, not that every page on the site does.'}</Text>
+        </Stack>
+      ) : null}
+    </Stack>
+  );
+};
+
+// Rule playground: paste sample text and see which rules would fire, with the triggering line. Nothing is read from the site or saved.
+type PlayHit = { kind: string; label: string; severity: string; summary: string; line?: number; snippet?: string };
+const Playground = () => {
+  const [ticket, setTicket] = useState('');
+  const [page, setPage] = useState('');
+  const [status, setStatus] = useState('');
+  const [out, setOut] = useState<{ hits: PlayHit[]; note: string } | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const r = await invoke<{ ok?: boolean; hits?: PlayHit[]; note?: string; reason?: string }>('playground', { ticketText: ticket, pageText: page, status });
+      if (r?.ok) setOut({ hits: r.hits ?? [], note: r.note ?? '' }); else { setOut(null); setMsg(r?.reason ?? 'Not run.'); }
+    } catch { setMsg('Not run. Try again.'); }
+    setBusy(false);
+  };
+  return (
+    <Stack space="space.100">
+      <Heading size="xsmall">Try your rules on sample text</Heading>
+      <Text>Paste text for a work item (the first line is its summary) and for a page, and see which rules, team rules and declared facts would fire. Nothing is read from your site or saved.</Text>
+      <Text>Sample work item text</Text>
+      <TextArea placeholder={'Migrate Payment API to v2\nAccess token expiry should be 1 hour'} onChange={(e) => setTicket(e.target.value)} />
+      <Text>Sample page text</Text>
+      <TextArea placeholder={'Call POST /api/v1/charge.\nAccess tokens expire after 30 minutes.'} onChange={(e) => setPage(e.target.value)} />
+      <Text>Work item status (optional, default In Progress)</Text>
+      <Textfield placeholder="For example: In Progress" onChange={(e) => setStatus(e.target.value)} />
+      <Button appearance="primary" isDisabled={busy} onClick={run}>{busy ? 'Testing…' : 'Test these rules'}</Button>
+      {msg ? <Text>{msg}</Text> : null}
+      {out ? (
+        <Stack space="space.100">
+          {out.hits.length ? out.hits.map((h, i) => (
+            <Stack key={`${h.label}${i}`} space="space.050">
+              <Inline space="space.100" alignBlock="center" shouldWrap><Lozenge appearance={h.severity === 'block' ? 'removed' : 'moved'} isBold>{h.severity === 'block' ? 'Blocker' : h.severity === 'info' ? 'Note' : 'Would fire'}</Lozenge><Text>{h.label}</Text></Inline>
+              <Text>{h.summary}</Text>
+              {h.snippet ? <Code>{`${h.line ? `Line ${h.line}: ` : ''}${h.snippet}`}</Code> : null}
+            </Stack>
+          )) : <SectionMessage appearance="success" title="Nothing would fire"><Text>No rule or fact matched this sample.</Text></SectionMessage>}
+          <Text>{out.note}</Text>
         </Stack>
       ) : null}
     </Stack>
@@ -187,7 +237,7 @@ const CustomRules = ({ data, onChanged }: { data: RulesReply; onChanged: () => v
   const [name, setName] = useState('');
   const [phrase, setPhrase] = useState('');
   const [value, setValue] = useState('');
-  const [severity, setSeverity] = useState<'block' | 'warn'>('warn');
+  const [severity, setSeverity] = useState<'block' | 'warn' | 'draft'>('warn');
   const [msg, setMsg] = useState<{ appearance: 'success' | 'error' | 'information'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [formKey, setFormKey] = useState(0);        // changing it clears the fields: they are uncontrolled so fast typing is never overwritten
@@ -218,8 +268,8 @@ const CustomRules = ({ data, onChanged }: { data: RulesReply; onChanged: () => v
       <Heading size="xsmall">Your team's rules</Heading>
       {custom.length ? custom.map((c) => (
         <Inline key={c.id} space="space.100" alignBlock="center" shouldWrap>
-          <Lozenge appearance={c.severity === 'block' ? 'removed' : 'moved'} isBold>{c.severity === 'block' ? 'Blocker' : 'Warning'}</Lozenge>
-          <Text>{`${c.name}: ${templates.find((t) => t.id === c.template)?.label ?? c.template} (phrase "${c.phrase}", value "${c.value}")`}</Text>
+          <Lozenge appearance={c.severity === 'block' ? 'removed' : c.severity === 'draft' ? 'new' : 'moved'} isBold>{c.severity === 'block' ? 'Blocker' : c.severity === 'draft' ? 'Draft' : 'Warning'}</Lozenge>
+          <Text>{`${c.name}: ${templates.find((t) => t.id === c.template)?.label ?? c.template} (phrase "${c.phrase}", value "${c.value}")${c.severity === 'draft' ? `. Draft: would have raised ${c.draftHits ?? 0} finding${c.draftHits === 1 ? '' : 's'}.` : ''}`}</Text>
           {data.canEdit ? <Button isDisabled={busy} onClick={() => remove(c.id)}>Delete this rule</Button> : null}
         </Inline>
       )) : <Text>No team rules yet.</Text>}
@@ -238,7 +288,7 @@ const CustomRules = ({ data, onChanged }: { data: RulesReply; onChanged: () => v
           <Text>{template === 'phrase-while-status' ? 'Work item status (put ! before it to mean "is not")' : 'Work item label or component'}</Text>
           <Textfield key={`v${formKey}`} placeholder={template === 'phrase-while-status' ? 'Status, for example !Done' : 'Label or component, for example payments'} onChange={(e) => setValue(e.target.value)} />
           <Inline space="space.100" alignBlock="center" shouldWrap>
-            <Button onClick={() => setSeverity(severity === 'warn' ? 'block' : 'warn')}>{severity === 'warn' ? 'Severity: Warning (click for Blocker)' : 'Severity: Blocker (click for Warning)'}</Button>
+            <Button onClick={() => setSeverity(severity === 'warn' ? 'block' : severity === 'block' ? 'draft' : 'warn')}>{severity === 'warn' ? 'Stage: Warning (click for Blocker)' : severity === 'block' ? 'Stage: Blocker (click for Draft)' : 'Stage: Draft, shows nothing (click for Warning)'}</Button>
             <Button isDisabled={busy} onClick={preview}>Preview on this work item</Button>
             <Button appearance="primary" isDisabled={busy} onClick={save}>Save this rule</Button>
           </Inline>
@@ -257,7 +307,7 @@ const RulesList = ({ autoOpen }: { autoOpen?: boolean }) => {
     setView({ phase: 'loading' });
     invoke<RulesReply>('getRules').then((data) => setView({ phase: 'ready', data })).catch(() => setView({ phase: 'error' }));
   };
-  const change = async (r: RuleRow, severity: 'block' | 'warn') => {
+  const change = async (r: RuleRow, severity: 'block' | 'warn' | 'draft') => {
     try {
       const out = await invoke<ActionReply>('setRuleSeverity', { ruleId: r.ruleId, severity });
       if (out?.ok === false) { setView((v) => (v.phase === 'ready' ? { ...v, note: out.reason ?? 'Not changed.' } : v)); return; }
@@ -272,21 +322,23 @@ const RulesList = ({ autoOpen }: { autoOpen?: boolean }) => {
   return (
     <Stack space="space.100">
       <Heading size="xsmall">The ten rules</Heading>
-      <Text>{data.canEdit ? 'Blockers can stop a Jira transition when the validator is attached. You are a Jira administrator, so you can move a rule between Blocker and Warning.' : 'Blockers can stop a Jira transition when the validator is attached. Only a Jira administrator can change a severity.'}</Text>
+      <Text>{data.canEdit ? 'A new rule can go through three stages. Draft: it runs and is counted, but shows nothing and cannot block. Warning: it shows findings and sends notices. Blocker: it can also stop a Jira transition when the validator is attached. You are a Jira administrator, so you can move any rule between the three.' : 'Blockers can stop a Jira transition when the validator is attached. Only a Jira administrator can change a severity.'}</Text>
       {data.rules.map((r) => (
         <Stack key={r.ruleId} space="space.050">
           <Inline space="space.100" alignBlock="center" shouldWrap>
-            <Lozenge appearance={r.severity === 'block' ? 'removed' : 'moved'} isBold>{r.severity === 'block' ? 'Blocker' : 'Warning'}</Lozenge>
+            <Lozenge appearance={r.severity === 'block' ? 'removed' : r.severity === 'draft' ? 'new' : 'moved'} isBold>{r.severity === 'block' ? 'Blocker' : r.severity === 'draft' ? 'Draft' : 'Warning'}</Lozenge>
             <Text>{`${r.short} ${r.name}${r.changed ? ' (changed on this site)' : ''}`}</Text>
-            {data.canEdit ? <Button onClick={() => change(r, r.severity === 'block' ? 'warn' : 'block')}>{r.severity === 'block' ? 'Make it a warning' : 'Make it a blocker'}</Button> : null}
+            {data.canEdit ? (['draft', 'warn', 'block'] as const).map((v) => <Button key={v} appearance={r.severity === v ? 'primary' : 'subtle'} onClick={() => change(r, v)}>{v === 'draft' ? 'Draft' : v === 'warn' ? 'Warning' : 'Blocker'}</Button>) : null}
           </Inline>
           <Text>{`${r.checks} ${r.pain}`}</Text>
           {(r.markedReal ?? 0) + (r.markedFalse ?? 0) > 0 ? <Text>{`Marked by your team: ${r.markedReal ?? 0} real, ${r.markedFalse ?? 0} false alarm.`}</Text> : null}
-          {r.hint ? <Text>{`Suggestion: ${r.hint}`}</Text> : null}
+          {r.severity === 'draft' ? <Text>{`Draft: this rule runs but shows nothing and cannot block. It would have raised ${r.draftHits ?? 0} finding${r.draftHits === 1 ? '' : 's'} on this site.`}</Text> : null}
+          {r.hint ? <Inline space="space.100" alignBlock="start" shouldWrap><Lozenge appearance="new" isBold>Suggestion</Lozenge><Text>{r.hint}</Text></Inline> : null}
           {(r.dismissed ?? 0) + (r.acted ?? 0) > 0 ? <Text>{`On this site: acted on ${r.acted ?? 0}, dismissed ${r.dismissed ?? 0} (${Math.round((100 * (r.dismissed ?? 0)) / ((r.dismissed ?? 0) + (r.acted ?? 0)))}% dismissed).`}</Text> : null}
         </Stack>
       ))}
       {data.canEdit ? <CanonFacts facts={data.canon ?? []} onChanged={open} /> : null}
+      {data.canEdit ? <Playground /> : null}
       {data.canEdit ? <AdminTools mode={data.gateMode ?? 'enforce'} onChanged={open} /> : null}
       <CustomRules data={data} onChanged={open} />
       {view.note ? <SectionMessage appearance="warning"><Text>{view.note}</Text></SectionMessage> : null}
@@ -376,6 +428,22 @@ type LedgerView = { status: 'verified' | 'broken'; length: number; head: string;
 
 // The tamper-evident chain of applied fixes, read and re-verified on request. It proves the stored history was not edited or reordered;
 // it cannot stop someone with storage access from rewriting the whole chain, and it says so.
+// Export for an auditor: the latest entries as hashes only, with no page text. It is hash-chained, not signed, and is verified offline with scripts/verify-export.mjs.
+const AuditExport = () => {
+  const [text, setText] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const go = async () => {
+    try { const r = await invoke<{ ok?: boolean; text?: string; reason?: string }>('exportAudit'); if (r?.ok) { setText(r.text ?? ''); setMsg(null); } else setMsg(r?.reason ?? 'Not exported.'); } catch { setMsg('Not exported. Try again.'); }
+  };
+  return (
+    <Stack space="space.100">
+      <Button onClick={go}>Export the latest entries for an auditor</Button>
+      {msg ? <Text>{msg}</Text> : null}
+      {text !== null ? <Stack space="space.050"><Text>Copy this into a file and verify it with scripts/verify-export.mjs. It holds hashes only (the latest 100 entries). It proves those entries are intact and in order; compare the head with the copy on the Jira work item to detect a rewritten history. It is not signed.</Text><Code>{text}</Code></Stack> : null}
+    </Stack>
+  );
+};
+
 const AuditTrail = ({ autoOpen }: { autoOpen?: boolean }) => {
   const [view, setView] = useState<{ phase: 'closed' } | { phase: 'loading' } | { phase: 'error'; message: string } | { phase: 'ready'; ledger: LedgerView }>({ phase: 'closed' });
   const open = () => {
@@ -420,6 +488,7 @@ const AuditTrail = ({ autoOpen }: { autoOpen?: boolean }) => {
         <DynamicTable caption="Latest sealed events, oldest first" head={{ cells: [{ key: 'n', content: 'Entry' }, { key: 'what', content: 'What happened' }, { key: 'rule', content: 'Rule' }, { key: 'item', content: 'Work item' }, { key: 'hash', content: 'Seal' }] }} rows={rows} />
       ) : <Text>No events yet. When a finding is shown, dismissed, snoozed or fixed, it appears here.</Text>}
       <Text>Each entry is hashed together with the one before it, so editing or deleting an old one breaks every seal after it. This detects tampering; it cannot stop someone with access to the app's storage from rewriting the whole chain.</Text>
+      <AuditExport />
     </Stack>
   );
 };
@@ -468,20 +537,23 @@ const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismi
       </Stack>
     )}
     {act?.status === 'error' ? <SectionMessage appearance="error" title="Not done">{act.message}</SectionMessage> : null}
-    <Box xcss={evidenceStyle}>
-      <Inline space="space.300" alignBlock="start" shouldWrap>
+    <Inline space="space.100" alignBlock="stretch" shouldWrap>
+        <Box xcss={pageSideStyle}>
         <Stack space="space.050">
           <Heading size="xsmall">Page says</Heading>
           <Text>{`${f.pageTitle ?? 'A linked page'} · edited ${when(f.evidence.docModifiedAt)}`}</Text>
           {f.evidence.docLine ? <Highlighted line={f.evidence.docLine} span={f.evidence.docHighlight} appearance="removed" /> : <Text>This page carries a label or status, not a line of text.</Text>}
           {f.evidence.moreStale ? <Text>{`${f.evidence.moreStale} more line(s) on this page also name an old version.`}</Text> : null}
         </Stack>
+        </Box>
+        <Box xcss={jiraSideStyle}>
         <Stack space="space.050">
           <Heading size="xsmall">{f.evidence.sourceLabel ?? 'Jira says'}</Heading>
           <Text>{`${f.evidence.ticket ?? ''}${f.evidence.ticketChangedAt ? ` · status changed ${when(f.evidence.ticketChangedAt)}${f.evidence.ticketChangedBy ? ` by ${f.evidence.ticketChangedBy}` : ''}` : ''}`}</Text>
         </Stack>
-      </Inline>
-    </Box>
+        </Box>
+    </Inline>
+    {(() => { const h = ageHint({ pageEditedAt: f.evidence.docModifiedAt, itemChangedAt: f.evidence.ticketChangedAt }); return h ? <Text>{`Which side first: ${h}`}</Text> : null; })()}
     {hasFix ? <BeforeAfter s={f.suggestion!} done={applied} /> : f.suggestion?.unavailable ? <Text>{`No automatic edit: ${f.suggestion.unavailable}`}</Text> : null}
     <Text>{`Why it matters: ${f.why}`}</Text>
     <Inline space="space.100" alignBlock="center" shouldWrap>
@@ -508,6 +580,45 @@ const Finding = ({ f, first, task, onCreateTask, act, onApply, onSnooze, onDismi
   );
 };
 
+// Break glass: a project administrator lets this one work item through the gate for 24 hours, with a written reason that is recorded in the hash chain.
+const BreakGlass = ({ override, hasBlocker, onChanged }: { override?: { until: string; reason: string }; hasBlocker: boolean; onChanged: () => void }) => {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const go = async (fn: 'grantBreakGlass' | 'revokeBreakGlass') => {
+    setBusy(true); setMsg(null);
+    try { const r = await invoke<ActionReply>(fn, { reason }); if (r?.ok === false) setMsg(r.reason ?? 'Not done.'); else { setOpen(false); onChanged(); } } catch { setMsg('Not done. Try again.'); }
+    setBusy(false);
+  };
+  if (override) return (
+    <SectionMessage appearance="warning" title="Break glass is active for this work item">
+      <Text>{`The gate will let this work item through until ${new Date(override.until).toLocaleString()}. Reason: ${override.reason}. Findings are still shown. The override and each use of it are recorded in the audit trail.`}</Text>
+      <Button isDisabled={busy} onClick={() => go('revokeBreakGlass')}>Revoke it now</Button>
+      {msg ? <Text>{msg}</Text> : null}
+    </SectionMessage>
+  );
+  if (!hasBlocker) return null;
+  return (
+    <Stack space="space.075">
+      {!open ? <Button appearance="subtle" onClick={() => setOpen(true)}>Need to ship anyway? Break glass…</Button> : (
+        <Box xcss={evidenceStyle}>
+          <Stack space="space.100">
+            <Heading size="xsmall">Break glass</Heading>
+            <Text>For an emergency when a blocker is a false alarm. A project administrator can let this one work item through the gate for 24 hours. A reason is required and is recorded permanently in the audit trail, with who did it.</Text>
+            <Textfield placeholder="Reason, for example: Emergency hotfix for INC-991" onChange={(e) => setReason(e.target.value)} />
+            <Inline space="space.100" shouldWrap>
+              <Button appearance="danger" isDisabled={busy} onClick={() => go('grantBreakGlass')}>Allow this work item through for 24 hours</Button>
+              <Button appearance="subtle" onClick={() => setOpen(false)}>Cancel</Button>
+            </Inline>
+            {msg ? <Text>{msg}</Text> : null}
+          </Stack>
+        </Box>
+      )}
+    </Stack>
+  );
+};
+
 const EmptyStateBlock = ({ onRefresh }: { onRefresh: () => void }) => (
   <Stack space="space.150" alignInline="center">
     <Icon glyph="check-circle" label="Clean" size="large" />
@@ -522,6 +633,7 @@ const App = () => {
   const [tasks, setTasks] = useState<Record<string, TaskState>>({});
   const [acts, setActs] = useState<Record<string, ActState>>({});
   const [reviews, setReviews] = useState<Record<string, 'real' | 'false'>>({});
+  const [filter, setFilter] = useState<'all' | 'block' | 'warn' | 'info'>('all');
   const [seed, setSeed] = useState<SeedState>({ status: 'idle' });
   const [target, setTarget] = useState('');
   const [targetState, setTargetState] = useState<{ status: 'idle' | 'working' } | { status: 'error'; message: string }>({ status: 'idle' });
@@ -650,6 +762,9 @@ const App = () => {
   const ordered = [...(m.findings ?? [])].sort((a, b) => rank(a) - rank(b));
   const hasFix = ordered.some((f) => f.suggestion?.after);
   const worst = ordered.some((f) => f.severity === 'block') ? 'error' : 'warning';
+  const everything = [...ordered, ...(m.notes ?? [])];
+  const chips = ([{ k: 'block', label: 'Blockers' }, { k: 'warn', label: 'Warnings' }, { k: 'info', label: 'Notes' }] as const).map((c) => ({ ...c, n: everything.filter((f) => f.severity === c.k).length })).filter((c) => c.n > 0);
+  const shown = filter === 'all' ? everything : everything.filter((f) => f.severity === filter);
   const n = m.findings.length;
   return shell(
     m.status === 'findings'
@@ -657,9 +772,16 @@ const App = () => {
       : <SectionMessage appearance="information" title="Possible history, worth a look">These notes may describe the past on purpose. They never block.</SectionMessage>,
     n,
     <Stack space="space.200">
+      <BreakGlass override={m.override} hasBlocker={ordered.some((f) => f.severity === 'block')} onChanged={load} />
+      {chips.length > 1 ? (
+        <Inline space="space.100" alignBlock="center" shouldWrap>
+          <Button appearance={filter === 'all' ? 'primary' : 'subtle'} onClick={() => setFilter('all')}>{`All (${everything.length})`}</Button>
+          {chips.map((c) => <Button key={c.k} appearance={filter === c.k ? 'primary' : 'subtle'} onClick={() => setFilter(c.k)}>{`${c.label} (${c.n})`}</Button>)}
+        </Inline>
+      ) : null}
       {m.hidden ? <Text>{`${m.hidden} more finding(s) hidden by snooze or dismissal.`}</Text> : null}
       {(m.noisyRules ?? []).map((nr) => <Text key={nr.ruleId}>{nr.message}</Text>)}
-      {[...ordered, ...(m.notes ?? [])].map((f, i) => (<Finding key={f.id} first={i === 0 && m.status === 'findings'} f={f} task={tasks[f.id]} onCreateTask={createTask} act={acts[f.id]} onApply={apply} onSnooze={snooze} onDismiss={dismissIt} review={reviews[f.id] ?? f.reviewed} onReview={review} />))}
+      {shown.map((f, i) => (<Finding key={f.id} first={i === 0 && m.status === 'findings' && filter === 'all'} f={f} task={tasks[f.id]} onCreateTask={createTask} act={acts[f.id]} onApply={apply} onSnooze={snooze} onDismiss={dismissIt} review={reviews[f.id] ?? f.reviewed} onReview={review} />))}
       <Button onClick={load}>Check again</Button>
     </Stack>,
   );

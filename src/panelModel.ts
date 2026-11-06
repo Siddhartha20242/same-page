@@ -17,6 +17,8 @@ export interface Span { start: number; end: number }
 export interface Suggestion {
   before?: string; after?: string; method?: 'deterministic' | 'llm'; note?: string;
   pageId?: string; line?: number; target?: string;
+  /** Up to three lines of the page above and below the line, so the approver can see where the edit lands without opening the page. */
+  context?: { before: string[]; after: string[] };
   beforeHighlight?: Span; afterHighlight?: Span;
   unavailable?: string;
 }
@@ -30,7 +32,7 @@ const spanOf = (line: string | undefined, want: (version: string) => boolean): S
 export type PanelModel =
   | { issueKey: string; status: 'unchecked'; reason: string; message?: undefined }
   | { issueKey: string; status: 'clean'; pagesChecked: number; pageTitles?: string[]; hidden?: number; skippedRules?: string[] }
-  | { issueKey: string; status: 'findings' | 'notes'; verdict: Verdict; pagesChecked: number; pageTitles?: string[]; findings: PanelFinding[]; notes: PanelFinding[]; hidden?: number; noisyRules?: NoisyRule[]; skippedRules?: string[] }
+  | { issueKey: string; status: 'findings' | 'notes'; verdict: Verdict; pagesChecked: number; pageTitles?: string[]; findings: PanelFinding[]; notes: PanelFinding[]; hidden?: number; noisyRules?: NoisyRule[]; skippedRules?: string[]; override?: { until: string; reason: string } }
   | { issueKey?: string; status: 'error'; message: string };
 
 /** What buildPanelModel needs from Atlassian (and from fakes in tests). */
@@ -49,6 +51,12 @@ interface IssueCheck {
 const ticketLine = (key: string, w?: { apiVersion?: string; status?: string; missingField?: string }) =>
   w?.apiVersion ? `${key} targets ${w.apiVersion}` : w?.missingField ? `${key} has no ${w.missingField}` : w?.status ? `${key} is ${w.status}` : `${key}`;
 
+/** Up to three lines either side of line `line` (1-based), each cut to 200 characters. */
+export function contextAround(text: string, line: number): { before: string[]; after: string[] } {
+  const lines = text.split('\n').map((l) => l.slice(0, 200));
+  return { before: lines.slice(Math.max(0, line - 4), Math.max(0, line - 1)), after: lines.slice(line, line + 3) };
+}
+
 export async function buildPanelModel(issueKey: string, deps: PanelDeps, { llm }: { llm?: Llm | null } = {}): Promise<PanelModel> {
   const run = { ...deps, getPageBody: deps.getPageBody && cached(deps.getPageBody) };
   const issue: Issue = await deps.loadIssue(issueKey);
@@ -66,7 +74,7 @@ export async function buildPanelModel(issueKey: string, deps: PanelDeps, { llm }
     if (f.ruleId === 'R1_VERSION_MISMATCH' && f.severity !== 'info') {
       const p = await proposeFix({ finding: f, page, workItem: item.workItem, llm });
       suggestion = p.ok
-        ? { before: p.before, after: p.after, method: p.method, note: p.note, pageId: p.pageId, line: p.line, target, beforeHighlight: spanOf(p.before, (v) => v !== target), afterHighlight: spanOf(p.after, (v) => v === target) }
+        ? { before: p.before, after: p.after, method: p.method, note: p.note, pageId: p.pageId, line: p.line, target, context: contextAround(page.text, p.line), beforeHighlight: spanOf(p.before, (v) => v !== target), afterHighlight: spanOf(p.after, (v) => v === target) }
         : { unavailable: p.reason };
     }
     if (f.evidence.fact) {

@@ -32,6 +32,10 @@ import { tuningHint } from './core/tuning';
 import { parsePageLink } from './core/linkPage';
 import { loadReviewCounts } from './core/review';
 import { buildPilotReport } from './core/pilotReport';
+import { activeOverride, grantOverride, revokeOverride } from './core/breakGlass';
+import { loadDraftCounts, recordDrafted } from './core/draft';
+import { runPlayground } from './core/playground';
+import { buildAuditExport } from './core/ledgerExport';
 import { addCanon, checkCanon, deleteCanon, loadCanon } from './core/canon';
 import { canonDeps } from './canonDeps';
 import { checkPage, bylineTitle } from './core/pageCheck';
@@ -43,6 +47,13 @@ const resolver = new Resolver();
 
 // The rules every check runs: the ten built-in rules plus the rules this site's administrators defined.
 const rulesNow = async () => [...BUILT_IN_RULES, ...(await loadCustomRules({ get: (k) => kvs.get(k), set: (k, v) => kvs.set(k, v) }))];
+
+// Severity settings for built-in rules plus any team rule saved as a draft. Draft rules run but are hidden everywhere (see core/ruleCatalog withSeverities).
+const overridesNow = async () => {
+  const o = await loadSeverityOverrides(store);
+  for (const d of await loadCustomDefs(store)) if (d.severity === 'draft') o[d.id] = 'draft';
+  return o;
+};
 
 const makeDeps = () => createDeps({
   requestJira: (path) => api.asUser().requestJira(assumeTrustedRoute(path)),
@@ -93,7 +104,8 @@ const whoAmI = async (context?: Ctx): Promise<string> => {
 };
 
 // Gate snapshots are a cache of the latest check, so a validator click is cheap. Anything that changes the answer clears it.
-const clearGate = async (issueKey: string) => { try { await store.set(gateKey(issueKey), null); } catch { /* best effort */ } };
+// Forge storage rejects a null value, so clearing is an old, empty snapshot: the gate does not trust one older than five minutes and checks live instead.
+const clearGate = async (issueKey: string) => { try { await store.set(gateKey(issueKey), { at: '1970-01-01T00:00:00.000Z', blockers: [] }); } catch { /* best effort */ } };
 
 const issueKeyOf = (context?: Ctx) => context?.extension?.issue?.key;
 
@@ -101,7 +113,9 @@ resolver.define('getPanel', async ({ context }: Req) => {
   const issueKey = issueKeyOf(context);
   if (!issueKey) return { status: 'error', message: 'This panel must be opened from a Jira issue.' };
   try {
-    const model = filterModelByTriage(withSeverities(await buildPanelModel(issueKey, { ...makeDeps(), rules: await rulesNow() }, { llm: forgeLlm }) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as never;
+    const sev = withSeverities(await buildPanelModel(issueKey, { ...makeDeps(), rules: await rulesNow() }, { llm: forgeLlm }) as never, await overridesNow()) as { drafted?: { id: string; ruleId: string }[] };
+    await recordDrafted(store, sev.drafted ?? []);          // what a draft rule would have raised, counted once; nothing is shown for it
+    const model = filterModelByTriage(sev as never, await loadTriage(issueKey, store)) as never;
     const shown = model as { findings?: { id: string }[]; notes?: { id: string }[] };
     const firsts = await markSeen(store, [...(shown.findings ?? []), ...(shown.notes ?? [])].map((f) => f.id));
     for (const id of firsts) {
@@ -112,6 +126,8 @@ resolver.define('getPanel', async ({ context }: Req) => {
     if (snap) { try { await store.set(gateKey(issueKey), snap); } catch { /* best effort */ } }
     // Marks a person made on these findings (real or false alarm), so the panel can show them. Counts only; findings are never changed by a mark.
     const lists = model as { findings?: { id: string; reviewed?: string }[]; notes?: { id: string; reviewed?: string }[] };
+    const ov = await activeOverride(store, issueKey);
+    (model as { override?: { until: string; reason: string } }).override = ov ? { until: ov.until, reason: ov.reason } : undefined;
     const marks = await loadReviewMarks(store, [...(lists.findings ?? []), ...(lists.notes ?? [])].map((f) => f.id));
     for (const f of [...(lists.findings ?? []), ...(lists.notes ?? [])]) if (marks[f.id]) f.reviewed = marks[f.id];
     // Dismissal learning: a calm hint only. Findings, severities and blockers are never hidden or changed because a rule is noisy.
@@ -203,7 +219,8 @@ resolver.define('getRules', async () => {
   const overrides = await loadSeverityOverrides(store);
   const outcomes = await loadOutcomes(store);
   const reviews = await loadReviewCounts(store);
-  return { canEdit: await isJiraAdmin(), gateMode: toGateMode(await store.get(GATE_MODE_KEY).catch(() => null)), canon: await loadCanon(store), templates: TEMPLATES, custom: await loadCustomDefs(store), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0, markedReal: reviews[r.ruleId]?.real ?? 0, markedFalse: reviews[r.ruleId]?.false ?? 0, hint: tuningHint({ severity: overrides[r.ruleId] ?? r.defaultSeverity, real: reviews[r.ruleId]?.real ?? 0, falseAlarm: reviews[r.ruleId]?.false ?? 0, dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 }) })) };
+  const drafts = await loadDraftCounts(store);
+  return { canEdit: await isJiraAdmin(), gateMode: toGateMode(await store.get(GATE_MODE_KEY).catch(() => null)), canon: await loadCanon(store), templates: TEMPLATES, custom: (await loadCustomDefs(store)).map((c) => ({ ...c, draftHits: drafts[c.id] ?? 0 })), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0, markedReal: reviews[r.ruleId]?.real ?? 0, markedFalse: reviews[r.ruleId]?.false ?? 0, draftHits: drafts[r.ruleId] ?? 0, hint: tuningHint({ severity: (overrides[r.ruleId] ?? r.defaultSeverity) === 'block' ? 'block' : 'warn', real: reviews[r.ruleId]?.real ?? 0, falseAlarm: reviews[r.ruleId]?.false ?? 0, dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 }) })) };
 });
 resolver.define('setRuleSeverity', async ({ payload }: Req<{ ruleId?: string; severity?: string }>) => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change a rule severity.' };
@@ -251,6 +268,16 @@ resolver.define('checkCanon', async () => {
     const out = await checkCanon(facts, canonDeps());
     return { ok: true, ...out };
   } catch (e) { if (needsConsent(e)) throw e; return { ok: false, reason: 'The check could not finish. Try again.' }; }
+});
+// Rule playground: paste sample text and see which rules would fire. Reads nothing from the site and saves nothing.
+resolver.define('playground', async ({ payload }: Req<Record<string, unknown>>) => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can use the playground.' };
+  return runPlayground(payload ?? {}, await rulesNow(), await loadCanon(store));
+});
+// Audit export for an auditor: hashes only, no page text. Verify offline with scripts/verify-export.mjs.
+resolver.define('exportAudit', async () => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can export the audit trail.' };
+  return { ok: true, text: JSON.stringify(await buildAuditExport(store as KV, { max: 100 }), null, 1) };
 });
 resolver.define('exportCustomRules', async () => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can export custom rules.' };
@@ -302,6 +329,36 @@ resolver.define('linkPage', async ({ payload, context }: Req<{ url?: string }>) 
   if (!res.ok) return { ok: false, reason: res.status === 403 ? 'You do not have permission to edit this work item.' : `Jira did not save the link (HTTP ${res.status}).` };
   await clearGate(issueKey);
   return { ok: true, title };
+});
+
+// Break glass. Project administrators (or Jira administrators) only. The reason is required, the override lasts 24 hours for this one work item,
+// and both granting and using it are recorded in the hash chain. The validator cannot ask for input at transition time, so this is done beforehand.
+const canOverride = async (issueKey: string): Promise<boolean> => {
+  const project = issueKey.split('-')[0] ?? '';
+  if (!/^[A-Z][A-Z0-9_]*$/.test(project)) return false;
+  try {
+    const r = await api.asUser().requestJira(assumeTrustedRoute(`/rest/api/3/mypermissions?projectKey=${project}&permissions=ADMINISTER_PROJECTS,ADMINISTER`));
+    if (!r.ok) return false;
+    const p = ((await r.json()) as { permissions?: Record<string, { havePermission?: boolean }> }).permissions ?? {};
+    return Boolean(p.ADMINISTER_PROJECTS?.havePermission || p.ADMINISTER?.havePermission);
+  } catch { return false; }
+};
+resolver.define('grantBreakGlass', async ({ payload, context }: Req<{ reason?: string }>) => {
+  const issueKey = issueKeyOf(context);
+  if (!issueKey) return { ok: false, reason: 'Open this from a work item.' };
+  if (!(await canOverride(issueKey))) return { ok: false, reason: 'Only a project administrator or a Jira administrator can use break glass.' };
+  const g = await grantOverride(store, { issueKey, reason: payload?.reason, by: context?.accountId });
+  if (!g.ok) return { ok: false, reason: g.why };
+  await recordHandling(store as KV, { event: 'OVERRIDE', ruleId: 'GATE', issueKey, note: `reason: ${g.override.reason}`, by: context?.accountId });
+  await clearGate(issueKey);
+  return { ok: true, until: g.override.until };
+});
+resolver.define('revokeBreakGlass', async ({ context }: Req) => {
+  const issueKey = issueKeyOf(context);
+  if (!issueKey) return { ok: false, reason: 'Open this from a work item.' };
+  if (!(await canOverride(issueKey))) return { ok: false, reason: 'Only a project administrator or a Jira administrator can revoke it.' };
+  await revokeOverride(store, issueKey);
+  return { ok: true };
 });
 
 resolver.define('triage', async ({ payload, context }: Req<{ findingId?: string; kind?: string; reason?: string }>) => {
@@ -398,10 +455,20 @@ export const validator = async (event: { issue?: { key?: string }; user?: { acco
   const started = Date.now();
   const d = await decideTransition({
     issueKey, store, canView: canViewAs(event?.user?.accountId),
-    live: async () => snapshotFromModel(filterModelByTriage(withSeverities(await buildPanelModel(issueKey, { ...appDeps(), rules: await rulesNow() }) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as never),
+    live: async () => snapshotFromModel(filterModelByTriage(withSeverities(await buildPanelModel(issueKey, { ...appDeps(), rules: await rulesNow() }) as never, await overridesNow()) as never, await loadTriage(issueKey, store)) as never),
   });
   console.log(`same-page gate ${issueKey}: ${d.result ? 'allow' : 'BLOCK'} (${d.basis}) ${Date.now() - started}ms${d.note ? ` ${d.note}` : ''}`);
-  const final = applyGateMode(d, toGateMode(await store.get(GATE_MODE_KEY).catch(() => null)));
+  let final = applyGateMode(d, toGateMode(await store.get(GATE_MODE_KEY).catch(() => null)));
+  if (!final.result) {
+    // Break glass: a project administrator allowed this one work item through, with a reason, for a limited time. It is recorded each time it is used.
+    const ov = await activeOverride(store, issueKey);
+    if (ov) {
+      await bump(store, 'gateOverrides');
+      await recordHandling(store as KV, { event: 'OVERRIDE_USED', ruleId: 'GATE', issueKey, note: 'transition allowed by break-glass override' });
+      console.log(`same-page gate ${issueKey}: ALLOWED by break-glass override`);
+      final = { result: true, watched: false };
+    }
+  }
   if (final.watched) { await bump(store, 'gateWouldBlock'); console.log(`same-page gate ${issueKey}: WATCH ONLY, would have refused`); }
   else if (!final.result) await bump(store, 'gateBlocks');
   return final.result ? { result: true } : { result: false, errorMessage: final.errorMessage };
@@ -523,8 +590,9 @@ export const statusWatch = async (event: SoftGateEvent) => {
       store,
       postComment: postCommentAsApp,
       blockers: async (issueKey) => {
-        const model = filterModelByTriage(withSeverities(await buildPanelModel(issueKey, { ...appDeps(), rules: await rulesNow() }) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as { status?: string; findings?: { id: string; ruleId: string; severity: string }[] };
+        const model = filterModelByTriage(withSeverities(await buildPanelModel(issueKey, { ...appDeps(), rules: await rulesNow() }) as never, await overridesNow()) as never, await loadTriage(issueKey, store)) as { status?: string; findings?: { id: string; ruleId: string; severity: string }[] };
         if (model.status === 'unchecked' || model.status === 'error') return null;
+        const warm = snapshotFromModel(model as never); if (warm) await store.set(gateKey(issueKey), warm).catch(() => undefined);      // keep the gate's cache warm so the validator answers from it instantly
         return (model.findings ?? []).filter((f) => f.severity === 'block').map((f) => ({ id: f.id, ruleId: f.ruleId }));
       },
     });
@@ -533,7 +601,7 @@ export const statusWatch = async (event: SoftGateEvent) => {
       store,
       postComment: postCommentAsApp,
       findings: async (issueKey) => {
-        const model = filterModelByTriage(withSeverities(await buildPanelModel(issueKey, { ...appDeps(), rules: await rulesNow() }) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as { status?: string; findings?: { id: string; ruleId: string }[] };
+        const model = filterModelByTriage(withSeverities(await buildPanelModel(issueKey, { ...appDeps(), rules: await rulesNow() }) as never, await overridesNow()) as never, await loadTriage(issueKey, store)) as { status?: string; findings?: { id: string; ruleId: string }[] };
         if (model.status === 'unchecked' || model.status === 'error') return null;
         return (model.findings ?? []).map((f) => ({ id: f.id, ruleId: f.ruleId }));
       },

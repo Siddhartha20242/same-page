@@ -11,7 +11,7 @@ import { HISTORICAL_RE } from './lineGuards';
 // Lines worded as history ("previously", "deprecated", ...) are skipped, like the built-in rules.
 
 export type CustomTemplate = 'phrase-while-status' | 'phrase-with-label' | 'label-needs-phrase';
-export interface CustomRuleDef { id: string; name: string; template: CustomTemplate; phrase: string; value: string; severity: 'block' | 'warn' }
+export interface CustomRuleDef { id: string; name: string; template: CustomTemplate; phrase: string; value: string; severity: 'block' | 'warn' | 'draft' }
 export interface CustomRuleInput { name?: unknown; template?: unknown; phrase?: unknown; value?: unknown; severity?: unknown }
 
 export const MAX_CUSTOM_RULES = 10;
@@ -35,7 +35,7 @@ export function validateCustomRule(input: CustomRuleInput): { ok: true; def: Omi
   if (phrase.length < 3) return { ok: false, reason: 'The phrase must be at least 3 characters, so it does not match everything.' };
   if (!value || value === '!') return { ok: false, reason: template === 'phrase-while-status' ? 'Enter the status, for example "Done" or "!Done".' : 'Enter the label or component name.' };
   if (template !== 'phrase-while-status' && value.startsWith('!')) return { ok: false, reason: 'Only the status template accepts a ! in front of the value.' };
-  const severity = input.severity === 'block' ? 'block' : 'warn';
+  const severity = input.severity === 'block' ? 'block' : input.severity === 'draft' ? 'draft' : 'warn';
   return { ok: true, def: { name, template, phrase, value, severity } };
 }
 
@@ -45,12 +45,12 @@ export function compileRule(def: CustomRuleDef): Rule {
   const why = `Your team defined this rule ("${def.name}").`;
   return {
     id: def.id,
-    severity: def.severity,
+    severity: def.severity === 'block' ? 'block' : 'warn',      // a draft rule is hidden by the severity settings, see withSeverities
     why,
     run({ workItem, page }: Pair): Finding[] {
       const item = workItem as Pair['workItem'] & { labels?: string[]; components?: string[] };
       const tags = [...(item.labels ?? []), ...(item.components ?? [])].map((t) => t.toLowerCase());
-      const base = { ruleId: def.id, severity: def.severity, why };
+      const base = { ruleId: def.id, severity: (def.severity === 'block' ? 'block' : 'warn') as 'block' | 'warn', why };
       const evidenceItem = { key: workItem.key, status: workItem.status };
       if (def.template === 'label-needs-phrase') {
         if (!tags.includes(def.value.toLowerCase()) || has(page.text, def.phrase)) return [];

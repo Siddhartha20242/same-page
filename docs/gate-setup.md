@@ -39,6 +39,12 @@ Remove the rule in the same workflow editor (Validate details > the rule > delet
 ## Try it without risk: watch only
 Before you let the gate stop anyone, open **Same Page > Show the ten rules** in the panel (as a Jira administrator) and choose **Watch only** under Gate mode. The validator then allows every transition and only counts the ones it would have refused; the overview shows "N would have been refused in watch-only mode". After a week or two, review those and the findings behind them, then choose **Enforce**. Enforce is the default.
 
+## Emergencies: break glass
+A blocker can be a false alarm at the worst moment. A project administrator (or Jira administrator) can open the work item's Same Page panel, choose **Need to ship anyway? Break glass…**, write a reason (for example "Emergency hotfix for INC-991") and allow that one work item through the gate for 24 hours. The validator cannot ask for input while a transition runs, so this is done beforehand. The reason and who granted it are sealed in the audit chain, each use is sealed too, findings are still shown, and **Revoke it now** ends it.
+
+## Introducing a rule safely: draft, warning, blocker
+New rules can start in **Draft** (Rules and settings): they run and are counted, but show nothing and cannot block. The Rules list shows how many findings a draft rule would have raised on your site. Move it to Warning when it looks right, and to Blocker only when you want it to stop transitions.
+
 ## If the validator is unavailable
 `jira:workflowValidator` is a Preview Forge module. Same Page is designed so that nothing important depends on it:
 - **Not attached, or not available on your site:** the panel still finds and explains every contradiction. **Create review task**

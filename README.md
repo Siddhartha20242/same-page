@@ -6,6 +6,7 @@
 - **What it is:** a Forge app for Jira and Confluence that checks a work item against the pages linked to it.
 - **What is different:** it can refuse a Jira transition (for example to Done) while a blocking contradiction is open, and the refusal shows the proof: the page's own line next to Jira's own field.
 - **No model in detection.** Fixed rules decide, so every finding can be repeated and explained. A person approves every fix.
+- **What it also understands:** OpenAPI specs written in YAML as well as JSON, and it skips sections headed Legacy, Deprecated, Archive or Previous versions.
 - **What it catches:** a stale API version, a deprecated decision, a closed ticket still cited as open, and times, limits and dates that differ, plus rules and declared facts your own admin adds, anywhere on the site.
 - **What is proven:** it runs on real Jira and Confluence sites and in Rovo. **What is not:** no real team has used it yet, so its accuracy on real documents is unmeasured. Every finding has real / false-alarm buttons for that.
 - **Try it in five minutes:** see [Try it](#try-it).
@@ -61,6 +62,9 @@ Tools such as code-to-docs generators start from the code and use a model to dra
 | Gate (optional) | A Jira workflow validator refuses the transition and names the rule, the page, the next step and a short **evidence id** that is the same id the panel shows for that finding. It fails open on any error. The panel and review tasks work without it. |
 | Your team's rules | A Jira administrator can add up to 10 rules of their own from three fixed templates (a phrase on the page while the status is, or is not, a value; a phrase while the work item has a label or component; a label that needs a phrase). They are plain-text matches, with a preview of what a rule would find on the current work item before it is saved. They run in the panel, the gate, the soft gate, the weekly scan and the agent. Rules can be copied as text and pasted into another site, and every imported rule is checked like a typed one. |
 | Facts everyone should agree on | An administrator declares a fact once ("access token expiry" is "1 hour", "api rate limit" is "100 requests per minute"), and **Check the whole site now** searches Confluence for pages that state it differently. It needs no Jira link, so it reaches pages nobody connected to a work item. It reports and never edits. The same matching as rules R8 to R10: same kind of value, same unit, two shared subject words, and history, dated log lines, examples, defaults and different audiences ("for admin users", "in staging") skipped. |
+| Introduce a rule safely | Every rule has three stages. **Draft** runs and is counted but shows nothing and cannot block; **Warning** shows findings and sends notices; **Blocker** can also stop a transition. The Rules list shows how many findings a draft rule would have raised, so a new rule can be tried on real data before anyone sees it. |
+| Break glass | When a blocker is a false alarm during an emergency, a project administrator can let one work item through the gate for 24 hours. A written reason is required, and granting and every use are recorded in the audit chain. It can be revoked, and findings are still shown. |
+| Rule playground | An administrator pastes sample work item and page text and sees which rules, team rules and declared facts would fire, with the triggering line. Nothing is read from the site or saved. |
 | Try the gate safely | An administrator can set the gate to **watch only**: it allows every transition and only counts the ones it would have refused, shown on the overview. Switch to enforcing when the team trusts it. |
 | Pilot report | One button produces a plain-text summary of what Same Page found on a site and what the team marked, with the caveats built in and no page text or names, ready to paste into a message. |
 | Catch it as it happens | Editing a work item's summary or description into a contradiction leaves one notice comment right then, and so does moving it to Done with a blocking one open. Notices name rules and a count, never page text, and never block. |
@@ -148,7 +152,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 - The Confluence byline finds work items only by Jira keys written in the page text, so a page that is linked from an epic but never names it shows "not checked".
 - The site-wide fact check reads at most 8 pages per fact (the first Confluence returns for the subject's nouns) and 5 facts per run, so a clean result means those pages agree, not every page. It finds only times, limits and dates, and only a differently worded line that uses the same unit and shares two subject words.
 - Custom rules are plain-text matches from three templates, not a pattern language, and they run everywhere except the Confluence byline. A phrase that contains history wording (for example "legacy") is skipped on that line, like the built-in rules.
-- R5 reads OpenAPI 3 **JSON** held in a linked Confluence page. It does not read attachments or YAML.
+- R5 reads OpenAPI 3 in **JSON or YAML** held in a linked Confluence page (in a code block or plain text). It does not read attachments.
 - The gate works only in **company-managed** projects (Jira does not offer validators in team-managed ones).
 - The audit log is **tamper-evident, not tamper-proof**. It detects rewritten history; it cannot stop someone with storage write
   access from rewriting the whole chain.
@@ -170,7 +174,7 @@ The full log, including every bug the real site exposed, is in [docs/live-result
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      293 tests and the 30-pair fixture set
+test/  fixtures/      312 tests and the 30-pair fixture set
 scripts/              live gate check, receipt verifier, payload capture
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -182,7 +186,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 293 tests, all passing (see docs/tests.md)
+npm test            # 312 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

@@ -29,8 +29,29 @@ const ENTITIES: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>
 // Confluence storage-format body -> plain text with line breaks kept.
 // Code macros keep their text in a CDATA block (raw, not entity-escaped). It is real documentation (curl lines, request examples), so it is
 // kept; table cells are separated so "1" and "POST /api/v1/charge" do not run together into "1POST /api/v1/charge".
+// Sections under a heading that says the content is retired ("Legacy endpoints", "Deprecated", "Archive", "Previous versions", "Historical") describe the past
+// on purpose, so they are left out of what the rules read, up to the next heading of the same or a higher level.
+const LEGACY_HEADING = /\b(legacy|deprecated|retir(?:ed|ing)|archiv(?:e|ed)|historical|previous versions?|old versions?|end[- ]of[- ]life)\b/i;
+export function stripLegacySections(html = ''): string {
+  const HEADING = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
+  let out = ''; let last = 0; let skipLevel = 0;
+  for (const m of html.matchAll(HEADING)) {
+    const level = Number(m[1]);
+    const idx = m.index ?? 0;
+    if (!skipLevel) out += html.slice(last, idx);
+    if (skipLevel && level <= skipLevel) skipLevel = 0;
+    if (!skipLevel) {
+      if (LEGACY_HEADING.test(m[2]!.replace(/<[^>]+>/g, ''))) skipLevel = level;
+      else out += m[0];
+    }
+    last = idx + m[0].length;
+  }
+  if (!skipLevel) out += html.slice(last);
+  return out;
+}
+
 export function storageToText(html = ''): string {
-  return html
+  return stripLegacySections(html)
     .replace(/<ac:plain-text-body>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/ac:plain-text-body>/gi, (_m, code: string) => `\n${code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}\n`)
     .replace(/<\/t[dh]>/gi, ' | ')
     .replace(/<(br|\/p|\/li|\/h[1-6]|\/tr)\s*\/?>/gi, '\n')

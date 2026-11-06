@@ -1,6 +1,7 @@
 // Reading an OpenAPI document that lives in a Confluence page (JSON in a code block), and checking doc lines like "POST /api/v1/charge"
 // against it. Deterministic: no model, no network. A doc is compared with the real artifact, not just with a ticket.
-// Only OpenAPI 3.x JSON is read; YAML is not (a documented limit).
+// OpenAPI 3.x in JSON or YAML is read, from a code block or plain text on a linked page. Attachments are not.
+import { parse as parseYaml } from 'yaml';
 
 export interface Operation { method: string; path: string; deprecated: boolean }
 export interface Spec { operations: Operation[]; basePaths: string[]; title?: string }
@@ -23,26 +24,51 @@ function jsonObjectAround(text: string, at: number): string | null {
   return null;
 }
 
-/** The OpenAPI document inside a page's text, or null when the page is not a spec. Never throws. */
-export function extractOpenApi(text: string): Spec | null {
-  const m = /"openapi"\s*:\s*"3\./.exec(text ?? '');
-  if (!m) return null;
-  try {
-    const raw = jsonObjectAround(text, m.index);
-    if (!raw) return null;
-    const doc = JSON.parse(raw) as { info?: { title?: string }; servers?: { url?: string }[]; paths?: Record<string, Record<string, { deprecated?: boolean } | unknown>> };
-    if (!doc.paths || typeof doc.paths !== 'object') return null;
-    const operations: Operation[] = [];
-    for (const [path, item] of Object.entries(doc.paths)) {
-      if (!item || typeof item !== 'object') continue;
-      for (const method of METHODS) {
-        const op = (item as Record<string, unknown>)[method];
-        if (op && typeof op === 'object') operations.push({ method: method.toUpperCase(), path, deprecated: (op as { deprecated?: boolean }).deprecated === true });
-      }
+type OpenApiDoc = { info?: { title?: string }; servers?: { url?: string }[]; paths?: Record<string, Record<string, { deprecated?: boolean } | unknown>> };
+
+function specFromDoc(doc: OpenApiDoc): Spec | null {
+  if (!doc || typeof doc !== 'object' || !doc.paths || typeof doc.paths !== 'object') return null;
+  const operations: Operation[] = [];
+  for (const [path, item] of Object.entries(doc.paths)) {
+    if (!item || typeof item !== 'object') continue;
+    for (const method of METHODS) {
+      const op = (item as Record<string, unknown>)[method];
+      if (op && typeof op === 'object') operations.push({ method: method.toUpperCase(), path, deprecated: (op as { deprecated?: boolean }).deprecated === true });
     }
-    const basePaths = (doc.servers ?? []).map((s) => { try { return new URL(s.url ?? '', 'https://x.invalid').pathname.replace(/\/+$/, ''); } catch { return ''; } }).filter((p) => p && p !== '/');
-    return { operations, basePaths, title: doc.info?.title };
-  } catch { return null; }
+  }
+  const basePaths = (doc.servers ?? []).map((s) => { try { return new URL(s.url ?? '', 'https://x.invalid').pathname.replace(/\/+$/, ''); } catch { return ''; } }).filter((p) => p && p !== '/');
+  return { operations, basePaths, title: doc.info?.title };
+}
+
+// A YAML spec in a code block: from the "openapi: 3." line, keep following lines while they look like YAML (indented, blank, a comment, a list item
+// or a top-level key), then parse that block. The parser never runs code and aliases are capped. Anything that does not parse is simply not a spec.
+const YAML_TOP_KEY = /^[A-Za-z0-9_$"'/{}.-]+\s*:/;
+function yamlBlockFrom(text: string, at: number): string {
+  const lines = text.slice(text.lastIndexOf('\n', at) + 1).split('\n');
+  const out: string[] = [];
+  for (const line of lines.slice(0, 5000)) {
+    if (line.trim() === '' || /^[ \t#-]/.test(line) || YAML_TOP_KEY.test(line)) out.push(line); else break;
+  }
+  return out.join('\n');
+}
+
+/** The OpenAPI document inside a page's text (JSON or YAML), or null when the page is not a spec. Never throws. */
+export function extractOpenApi(text: string): Spec | null {
+  const t = text ?? '';
+  try {
+    const jm = /"openapi"\s*:\s*"3\./.exec(t);
+    if (jm) {
+      const raw = jsonObjectAround(t, jm.index);
+      return raw ? specFromDoc(JSON.parse(raw) as OpenApiDoc) : null;
+    }
+    const ym = /^[ \t]*openapi:\s*["']?3\./m.exec(t);
+    if (ym) {
+      const block = yamlBlockFrom(t, ym.index);
+      if (block.length > 400_000) return null;
+      return specFromDoc(parseYaml(block, { maxAliasCount: 50, schema: 'core' }) as OpenApiDoc);
+    }
+  } catch { /* not a readable spec */ }
+  return null;
 }
 
 const segs = (p: string) => p.split('/').filter(Boolean);

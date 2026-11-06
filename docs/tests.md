@@ -1,12 +1,13 @@
 # What the tests cover
 
-`npm test` runs 293 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
+`npm test` runs 312 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|
 | Rules and engine | `engine`, `rules2`, `rule6`, `rule7`, `limits`, `messy`, `weakness`, `roast`, `scale` | Each rule fires on its case and stays silent on near misses, dated and historical lines, real-world version formats, batching and rate-limit retries. |
 | Panel, actions, triage | `app`, `actions`, `apply`, `propose`, `noisy`, `metrics`, `release` | The panel model, Apply (re-verified before writing), snooze and dismiss, the noisy-rule hint, counters. |
 | Numbers, dates, descriptions | `facts` | R8 to R10 fire on the review's own example and stay silent on equal values in other units, other subjects, qualifiers, ranges, history and defaults; ADF descriptions become text; the panel shows no Apply for them. |
+| Break glass, draft stage, playground, YAML, legacy sections, export | `breakglass`, `draft`, `playground`, `yamlspec`, `ledgerexport`, `agehint` | An override needs a reason, lasts 24 hours for one work item, expires and revokes, and is sealed in the chain; a draft rule is counted and hidden; the playground fires rules on pasted text; YAML specs are read and bad YAML or alias bombs are ignored; sections under Legacy headings are skipped; the audit export verifies offline and fails if an entry is edited; the age hint never gives a probability; and nothing writes a null to storage. |
 | Fact registry | `canon`, `facts` | A declared fact must read as exactly one value; the site-wide check finds disagreeing pages that were never linked, skips history, defaults and other audiences, respects the page and time limits, and its search words keep synonyms such as "lasts" findable. |
 | Custom rules | `custom` | The three templates, plain-text matching, history skipping, input checks, the cap of ten, stable ids, a preview that saves nothing, and the evidence id in a gate refusal. |
 | Handling timeline | `handling` | Events join the same verified chain, record who and why only where a person acted, break the chain if edited, and never throw. |
