@@ -120,3 +120,21 @@ test('the demo data holds a token-expiry contradiction that R8 finds without any
   assert.deepEqual(ids(DEMO_EPIC_DESCRIPTION, storageToText(DEMO_PAGE_HTML)), ['R8_DURATION_DIFFERS']);
   assert.equal(p.workItem.apiVersion, undefined);
 });
+
+test('reworded durations and number words meet the same value: half an hour, thirty minutes, 1h30m, an hour and a half', () => {
+  assert.deepEqual(ids('Access token expiry should be 1 hour', 'Tokens last half an hour.'), ['R8_DURATION_DIFFERS']);
+  assert.deepEqual(ids('Access token expiry should be 1 hour', 'Access tokens expire after thirty minutes.'), ['R8_DURATION_DIFFERS']);
+  assert.deepEqual(ids('Token expiry is 90 minutes', 'Tokens expire after an hour and a half.'), []);
+  assert.deepEqual(ids('Token expiry is 90 minutes', 'Tokens expire after 1h30m.'), []);
+  assert.deepEqual(ids('Token expiry is 90 minutes', 'Tokens expire after 1 hour 30 minutes.'), []);
+  assert.deepEqual(ids('Token expiry is 1 hour', 'Tokens expire after an hour.'), []);
+  assert.deepEqual(ids('Token expiry is 15 minutes', 'Tokens expire after a quarter of an hour.'), []);
+  assert.deepEqual(ids('Token expiry is 1 hour', 'Tokens expire after a quarter of an hour.'), ['R8_DURATION_DIFFERS']);
+});
+
+test('number words count only right before a unit, and rates and other prose are left alone', () => {
+  assert.deepEqual(ids('Rate limit is 25 requests per minute', 'The rate limit is twenty five requests per minute.'), []);
+  assert.deepEqual(ids('Rate limit is 200 requests per minute', 'The rate limit is a hundred requests per minute.'), ['R9_LIMIT_DIFFERS']);
+  assert.deepEqual(ids('Rate limit is 100 requests a day', 'The rate limit is 100 requests per day.'), []);
+  assert.deepEqual(ids('Token expiry is 1 hour', 'One of the pages says tokens expire soon. Only one user can log in.'), []);
+});

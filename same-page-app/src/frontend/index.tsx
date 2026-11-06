@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import ForgeReconciler, { Button, Code, Heading, Inline, Lozenge, SectionMessage, Spinner, Stack, Strike, Text, Textfield } from '@forge/react';
+import ForgeReconciler, { Button, Code, Heading, Inline, Lozenge, SectionMessage, Spinner, Stack, Strike, Text, TextArea, Textfield } from '@forge/react';
 import { invoke as bridgeInvoke } from '@forge/bridge';
 import type { PanelFinding, PanelModel, Span } from '../core/panelModel';
 
@@ -52,13 +52,44 @@ const BeforeAfter = ({ s, done }: { s: NonNullable<PanelFinding['suggestion']>; 
   </Stack>
 );
 
-type RuleRow = { ruleId: string; short: string; name: string; checks: string; pain: string; severity: 'block' | 'warn'; changed: boolean; dismissed?: number; acted?: number };
+type RuleRow = { ruleId: string; short: string; name: string; checks: string; pain: string; severity: 'block' | 'warn'; changed: boolean; dismissed?: number; acted?: number; markedReal?: number; markedFalse?: number; hint?: string | null };
 type CustomDef = { id: string; name: string; template: string; phrase: string; value: string; severity: 'block' | 'warn' };
 type TemplateInfo = { id: string; label: string; sentence: string };
 type RulesReply = { canEdit: boolean; rules: RuleRow[]; custom?: CustomDef[]; templates?: TemplateInfo[] };
 
 // Team-defined rules: pick one of three templates, type a phrase and a value, preview what it would find on this work item, then save.
 // Nothing is saved by a preview. Only a Jira administrator sees the form; everyone can see the saved rules.
+// Copy a site's team rules as text and paste them into another site. Each imported rule is checked like a typed one.
+const ShareRules = ({ custom, onImported }: { custom: CustomDef[]; onImported: () => void }) => {
+  const [exported, setExported] = useState<string | null>(null);
+  const [text, setText] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  const doExport = async () => {
+    try { const r = await invoke<{ ok?: boolean; text?: string; reason?: string }>('exportCustomRules'); if (r?.ok) { setExported(r.text ?? ''); setMsg(null); } else setMsg(r?.reason ?? 'Not exported.'); }
+    catch { setMsg('Not exported. Try again.'); }
+  };
+  const doImport = async () => {
+    try {
+      const r = await invoke<{ ok?: boolean; added?: number; skipped?: number; reasons?: string[]; reason?: string }>('importCustomRules', { text });
+      if (r?.ok) { setMsg(`Added ${r.added ?? 0} rule${r.added === 1 ? '' : 's'}${r.skipped ? `, skipped ${r.skipped}${r.reasons?.length ? ` (${r.reasons.join(' ')})` : ''}` : ''}.`); onImported(); }
+      else setMsg(r?.reason ?? 'Not imported.');
+    } catch { setMsg('Not imported. Try again.'); }
+  };
+  return (
+    <Stack space="space.100">
+      <Heading size="xsmall">Share rules between sites</Heading>
+      <Inline space="space.100" shouldWrap>
+        {custom.length ? <Button onClick={doExport}>Show my rules as text to copy</Button> : null}
+      </Inline>
+      {exported !== null ? <Code>{exported}</Code> : null}
+      <Text>To bring rules from another site, paste the text here.</Text>
+      <TextArea placeholder="Paste exported rule text" onChange={(e) => setText(e.target.value)} />
+      <Button onClick={doImport}>Import these rules</Button>
+      {msg ? <Text>{msg}</Text> : null}
+    </Stack>
+  );
+};
+
 const CustomRules = ({ data, onChanged }: { data: RulesReply; onChanged: () => void }) => {
   const templates = data.templates ?? [];
   const [template, setTemplate] = useState(templates[0]?.id ?? 'phrase-while-status');
@@ -101,6 +132,7 @@ const CustomRules = ({ data, onChanged }: { data: RulesReply; onChanged: () => v
           {data.canEdit ? <Button isDisabled={busy} onClick={() => remove(c.id)}>Delete this rule</Button> : null}
         </Inline>
       )) : <Text>No team rules yet.</Text>}
+      {data.canEdit ? <ShareRules custom={custom} onImported={onChanged} /> : null}
       {data.canEdit ? (
         <Stack space="space.100">
           <Text>Add a rule. Phrases are matched as plain text, ignoring case, and lines worded as history (previously, deprecated…) are skipped. A site can have up to 10.</Text>
@@ -157,6 +189,8 @@ const RulesList = () => {
             {data.canEdit ? <Button onClick={() => change(r, r.severity === 'block' ? 'warn' : 'block')}>{r.severity === 'block' ? 'Make it a warning' : 'Make it a blocker'}</Button> : null}
           </Inline>
           <Text>{`${r.checks} ${r.pain}`}</Text>
+          {(r.markedReal ?? 0) + (r.markedFalse ?? 0) > 0 ? <Text>{`Marked by your team: ${r.markedReal ?? 0} real, ${r.markedFalse ?? 0} false alarm.`}</Text> : null}
+          {r.hint ? <Text>{`Suggestion: ${r.hint}`}</Text> : null}
           {(r.dismissed ?? 0) + (r.acted ?? 0) > 0 ? <Text>{`On this site: acted on ${r.acted ?? 0}, dismissed ${r.dismissed ?? 0} (${Math.round((100 * (r.dismissed ?? 0)) / ((r.dismissed ?? 0) + (r.acted ?? 0)))}% dismissed).`}</Text> : null}
         </Stack>
       ))}
@@ -191,6 +225,29 @@ const TargetForm = ({ onSaved }: { onSaved: () => void }) => {
   );
 };
 
+// Link a Confluence page to this work item so it is checked from now on. The address must be on this site.
+const LinkPage = ({ onLinked }: { onLinked: () => void }) => {
+  const [url, setUrl] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const link = async () => {
+    setBusy(true); setMsg(null);
+    try { const r = await invoke<ActionReply & { title?: string }>('linkPage', { url }); if (r?.ok === false) setMsg(r.reason ?? 'Not linked.'); else onLinked(); }
+    catch { setMsg('Not linked. Try again.'); }
+    setBusy(false);
+  };
+  return (
+    <Stack space="space.050">
+      <Text>Link a Confluence page to this work item (paste its address)</Text>
+      <Inline space="space.100" alignBlock="center">
+        <Textfield placeholder="Address of a page on this site" onChange={(e) => setUrl(e.target.value)} />
+        <Button isDisabled={busy} onClick={link}>{busy ? 'Linking…' : 'Link this page'}</Button>
+      </Inline>
+      {msg ? <Text>{msg}</Text> : null}
+    </Stack>
+  );
+};
+
 // The trust layer: what was read and which rules ran, always shown, in the same place whether or not anything was found.
 // Rules that could not run on this work item are named, so a result is never read as a full check when it was not.
 const Checked = ({ titles, count, found, skipped, onSaved }: { titles?: string[]; count: number; found: number; skipped?: string[]; onSaved?: () => void }) => (
@@ -200,6 +257,7 @@ const Checked = ({ titles, count, found, skipped, onSaved }: { titles?: string[]
     {skipped?.length ? <Text>{`Did not run: ${skipped.join('; ')}.`}</Text> : null}
     {skipped?.some((x) => /target version/.test(x)) && onSaved ? <TargetForm onSaved={onSaved} /> : null}
     <Text>Rules only, no AI in detection, so every finding can be explained and repeated.</Text>
+    {onSaved ? <LinkPage onLinked={onSaved} /> : null}
     <RulesList />
   </Stack>
 );
@@ -421,6 +479,7 @@ const App = () => {
           {targetState.status === 'error' ? <SectionMessage appearance="error" title="Not saved">{targetState.message}</SectionMessage> : null}
         </Stack>
       ) : null}
+      <LinkPage onLinked={load} />
       {seed.status === 'done' && seed.linked
         ? <SectionMessage appearance="success" title="Demo data created">{`Open ${seed.epicKey} (the epic it names), then the Same Page panel in its apps menu. You should see 3 contradictions. Start with the runbook version one: it has a verified fix you can Apply, and you can then watch the page change in Confluence. The token expiry one (1 hour against 30 minutes) has no Apply, because Same Page cannot tell which side is right.`}</SectionMessage>
         : (

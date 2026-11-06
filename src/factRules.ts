@@ -56,8 +56,30 @@ const END = String.raw`(?![\w])(?!\.\d)`;
 const toNum = (s: string) => Number(s.replace(',', '.'));
 const RANGE_AFTER = /^\s*(?:-|–|—|to)\s*\d/i;
 
+// Wording that means a number, turned into digits before facts are read, so "half an hour", "thirty minutes" and "1h30m" meet "30 minutes",
+// "30 minutes" and "90 minutes". Only fixed phrases and number words that sit right before a unit are changed; nothing is guessed.
+const ONES: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19 };
+const TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+const UNIT_WORDS = '(?:ms|milliseconds?|seconds?|secs?|minutes?|mins?|hours?|hrs?|days?|weeks?|requests?|reqs?|calls?|retries|retry|attempts?|connections?|items?|records?|rows?|entries|users?|messages?|events?|jobs?|workers?|threads?|nodes?|replicas?|partitions?|kb|mb|gb|tb)';
+const NUMBER_WORD = new RegExp(`\\b(?:(${Object.keys(TENS).join('|')})(?:[ -](${Object.keys(ONES).slice(0, 9).join('|')}))?|(${Object.keys(ONES).join('|')})|(?:a|one) hundred)(?=\\s*${UNIT_WORDS}\\b)`, 'gi');
+
+export function normalizeWording(line: string): string {
+  let s = line;
+  s = s.replace(/\b(\d+)\s*(?:h|hr|hrs|hours?)\s*(?:and\s*)?(\d+)\s*(?:m|min|mins|minutes?)\b/gi, (_m, h, m) => `${Number(h) * 60 + Number(m)} minutes`);
+  s = s.replace(/\b(?:an|one) hour and a half\b/gi, '90 minutes');
+  s = s.replace(/\bhalf (?:an|a) hour\b/gi, '30 minutes').replace(/\b(?:a )?quarter (?:of an |of a |)hour\b/gi, '15 minutes');
+  s = s.replace(NUMBER_WORD, (m, tens, ones, one) => {
+    if (/hundred/i.test(m)) return '100';
+    if (tens) return String(TENS[String(tens).toLowerCase()]! + (ones ? ONES[String(ones).toLowerCase()]! : 0));
+    return String(ONES[String(one).toLowerCase()]);
+  });
+  // "an hour", "a minute" only after a word that makes it a length of time ("after an hour"), never in a rate such as "100 requests a day".
+  s = s.replace(/\b(after|within|for|in|than|is|be|to|of|about|exactly|only|just|every|past)\s+(?:a|an)\s+(hour|minute|second|day|week)\b/gi, (_m, w, u) => `${w} 1 ${u}`);
+  return s;
+}
+
 export function extractFacts(text: string): { facts: Fact[]; lines: string[] }[] {
-  return text.split('\n').map((line) => ({ lines: [line], facts: factsInLine(line) }));
+  return text.split('\n').map((line) => ({ lines: [line], facts: factsInLine(normalizeWording(line)) }));
 }
 
 function factsInLine(line: string): Fact[] {

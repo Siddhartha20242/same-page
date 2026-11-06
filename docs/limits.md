@@ -64,3 +64,10 @@ Forge storage holds small records only (triage, counters, one audit entry per ap
 
 ## What we have not measured
 We have not load tested the app. The limits above are budgets chosen to stay inside Forge's function time limits, and they were exercised on small sites only.
+
+## Change notices and linking
+| Item | Behaviour |
+|---|---|
+| Change notice | Fires on an edit to the summary or description only, once per distinct set of contradictions, and not when the same event moves the item to Done. It runs as the app and may read pages the editor cannot, which is why it names no page text. |
+| Link a page | One page address at a time, on the same site only, and only if the person can read it. |
+| Number words | Fixed phrases and number words right before a unit ("thirty minutes", "half an hour", "1h30m", "an hour and a half"). Looser wording ("a short while") is not read. |

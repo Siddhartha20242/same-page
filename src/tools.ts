@@ -10,6 +10,7 @@ import { headOf } from './ledgerStore.ts';
 import type { KV } from './ledgerStore.ts';
 import { loadImpact } from './impact.ts';
 import { loadReviewCounts } from './review.ts';
+import { tuningHint } from './tuning.ts';
 
 // Tools for AI agents (Rovo agents and, via rovo:mcp, third-party clients such as Cursor or Claude Code). READ-ONLY by design:
 // the docs say agents run by automation rules will not invoke actions with CREATE, UPDATE, DELETE or TRIGGER verbs.
@@ -123,7 +124,7 @@ export async function ruleHealth(kv: KV) {
     const o = outcomes[ruleId] ?? { dismissed: 0, acted: 0 };
     const total = (o.dismissed || 0) + (o.acted || 0);
     const rv = reviews[ruleId] ?? { real: 0, false: 0 };
-    return { id: ruleId.split('_')[0], name, severity: overrides[ruleId] ?? defaultSeverity, changedOnThisSite: Boolean(overrides[ruleId]), acted: o.acted || 0, dismissed: o.dismissed || 0, dismissedPercent: total ? Math.round((100 * (o.dismissed || 0)) / total) : null, looksNoisy: noisy.has(ruleId), markedReal: rv.real, markedFalseAlarm: rv.false };
+    return { id: ruleId.split('_')[0], name, severity: overrides[ruleId] ?? defaultSeverity, changedOnThisSite: Boolean(overrides[ruleId]), acted: o.acted || 0, dismissed: o.dismissed || 0, dismissedPercent: total ? Math.round((100 * (o.dismissed || 0)) / total) : null, looksNoisy: noisy.has(ruleId), markedReal: rv.real, markedFalseAlarm: rv.false, suggestion: tuningHint({ severity: (overrides[ruleId] ?? defaultSeverity) as 'block' | 'warn', real: rv.real, falseAlarm: rv.false, dismissed: o.dismissed || 0, acted: o.acted || 0 }) };
   };
   const custom = await loadCustomDefs(kv);
   return {

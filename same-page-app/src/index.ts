@@ -20,14 +20,17 @@ import type { LedgerEntry } from './core/ledger';
 import { decideTransition, gateKey, snapshotFromModel } from './core/gate';
 import type { CanView } from './core/gate';
 import { runOverview } from './core/overview';
-import { runSoftGate } from './core/softGate';
+import { runSoftGate, runChangeNudge } from './core/softGate';
 import type { SoftGateEvent } from './core/softGate';
 import { runDriftScan, loadDrift } from './core/drift';
 import { loadImpact, setMinutesPerFix } from './core/impact';
 import { markFinding, loadReviewMarks } from './core/review';
 import { RULE_CATALOG, loadSeverityOverrides, saveSeverity, withSeverities } from './core/ruleCatalog';
 import { BUILT_IN_RULES } from './core/rules';
-import { TEMPLATES, addCustomRule, deleteCustomRule, loadCustomDefs, loadCustomRules, previewRule } from './core/customRules';
+import { TEMPLATES, addCustomRule, deleteCustomRule, exportRules, importRules, loadCustomDefs, loadCustomRules, previewRule } from './core/customRules';
+import { tuningHint } from './core/tuning';
+import { parsePageLink } from './core/linkPage';
+import { loadReviewCounts } from './core/review';
 import { checkPage, bylineTitle } from './core/pageCheck';
 import type { PageCheck } from './core/pageCheck';
 
@@ -196,7 +199,8 @@ const isJiraAdmin = async (): Promise<boolean> => {
 resolver.define('getRules', async () => {
   const overrides = await loadSeverityOverrides(store);
   const outcomes = await loadOutcomes(store);
-  return { canEdit: await isJiraAdmin(), templates: TEMPLATES, custom: await loadCustomDefs(store), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 })) };
+  const reviews = await loadReviewCounts(store);
+  return { canEdit: await isJiraAdmin(), templates: TEMPLATES, custom: await loadCustomDefs(store), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0, markedReal: reviews[r.ruleId]?.real ?? 0, markedFalse: reviews[r.ruleId]?.false ?? 0, hint: tuningHint({ severity: overrides[r.ruleId] ?? r.defaultSeverity, real: reviews[r.ruleId]?.real ?? 0, falseAlarm: reviews[r.ruleId]?.false ?? 0, dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 }) })) };
 });
 resolver.define('setRuleSeverity', async ({ payload }: Req<{ ruleId?: string; severity?: string }>) => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change a rule severity.' };
@@ -215,6 +219,15 @@ resolver.define('saveCustomRule', async ({ payload }: Req<Record<string, unknown
 resolver.define('deleteCustomRule', async ({ payload }: Req<{ id?: string }>) => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change custom rules.' };
   return deleteCustomRule(store, String(payload?.id ?? ''));
+});
+resolver.define('exportCustomRules', async () => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can export custom rules.' };
+  const defs = await loadCustomDefs(store);
+  return defs.length ? { ok: true, text: exportRules(defs) } : { ok: false, reason: 'There are no custom rules to export yet.' };
+});
+resolver.define('importCustomRules', async ({ payload }: Req<{ text?: unknown }>) => {
+  if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can import custom rules.' };
+  return importRules(store, payload?.text);
 });
 resolver.define('previewCustomRule', async ({ payload, context }: Req<Record<string, unknown>>) => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can preview custom rules.' };
@@ -237,6 +250,26 @@ resolver.define('reviewFinding', async ({ payload, context }: Req<{ findingId?: 
   const f = [...(lists.findings ?? []), ...(lists.notes ?? [])].find((x) => x.id === payload?.findingId);
   if (!f) return { ok: false, reason: 'That finding is no longer present. Refresh the panel.' };
   return markFinding(store, { id: f.id, ruleId: f.ruleId, verdict: payload?.verdict });
+});
+
+// Link a page: add a Confluence page on this site to the work item as a web link. Reads the page as the person first, so a page they cannot
+// read is never linked; the address must be on this site. Nothing is sent anywhere else.
+resolver.define('linkPage', async ({ payload, context }: Req<{ url?: string }>) => {
+  const issueKey = issueKeyOf(context);
+  if (!issueKey) return { ok: false, reason: 'Open this from a work item.' };
+  const parsed = parsePageLink(payload?.url, context?.siteUrl);
+  if (!parsed.ok) return parsed;
+  const read = await api.asUser().requestConfluence(route`/wiki/api/v2/pages/${parsed.pageId}`);
+  if (read.status === 404 || read.status === 403) return { ok: false, reason: 'You cannot read that page, so it was not linked.' };
+  if (!read.ok) return { ok: false, reason: `Confluence did not answer (HTTP ${read.status}). Try again.` };
+  const title = String(((await read.json()) as { title?: string }).title ?? 'Confluence page').slice(0, 200);
+  const res = await api.asUser().requestJira(route`/rest/api/3/issue/${issueKey}/remotelink`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ object: { url: parsed.url, title } }),
+  });
+  if (!res.ok) return { ok: false, reason: res.status === 403 ? 'You do not have permission to edit this work item.' : `Jira did not save the link (HTTP ${res.status}).` };
+  await clearGate(issueKey);
+  return { ok: true, title };
 });
 
 resolver.define('triage', async ({ payload, context }: Req<{ findingId?: string; kind?: string; reason?: string }>) => {
@@ -461,6 +494,16 @@ export const statusWatch = async (event: SoftGateEvent) => {
       },
     });
     console.log(`same-page soft gate ${event?.issue?.key ?? '?'}: ${out}`);
+    const nudge = await runChangeNudge(event, {
+      store,
+      postComment: postCommentAsApp,
+      findings: async (issueKey) => {
+        const model = filterModelByTriage(withSeverities(await buildPanelModel(issueKey, { ...appDeps(), rules: await rulesNow() }) as never, await loadSeverityOverrides(store)) as never, await loadTriage(issueKey, store)) as { status?: string; findings?: { id: string; ruleId: string }[] };
+        if (model.status === 'unchecked' || model.status === 'error') return null;
+        return (model.findings ?? []).map((f) => ({ id: f.id, ruleId: f.ruleId }));
+      },
+    });
+    console.log(`same-page change nudge ${event?.issue?.key ?? '?'}: ${nudge}`);
   } catch (e) { console.log(`same-page soft gate: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`); }
 };
 

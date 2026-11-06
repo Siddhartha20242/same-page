@@ -57,3 +57,7 @@ We have not obtained any security certification or compliance attestation for th
 Questions or deletion help: {{SUPPORT_CONTACT}}
 
 We will update this page if the app's data handling changes.
+
+## Added since the first version of this page
+- **Change notices.** When a work item's summary or description is edited, the app checks it against its linked pages as the app, and may post one comment on the work item. The comment names rules and a count, never a page title or text. The app stores a short marker of what it noted, per work item, so it does not repeat itself.
+- **Linking a page.** If a person pastes a Confluence page address in the panel, the app reads that page as the person and, if they can read it, adds it to the work item as a web link. Nothing is sent outside Atlassian.

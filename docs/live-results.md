@@ -140,3 +140,9 @@ After deploying the 100-request budget to production, the same question ("Is pro
 One wording problem: the tool returned `status: ready` for "the scan finished", and the agent repeated that next to "not ready", which read as a contradiction. The tool now returns `status: scan complete`; that change is covered by tests and has not been deployed.
 
 After the `scan complete` wording change was deployed to production, the same question on the demo site gave the same coverage (18 items not checked: 8 unreadable pages, 8 with no related page, 2 not reached before the budget ran out; MOBL-58 Blocked; MOBL-2 Clean) and the answer opened with "A scan of the project's open items revealed significant documentation contradictions and coverage gaps". The earlier sentence that read "ready" beside "not ready" no longer appeared.
+
+## 2026-11-06: change notice and link a page (app version 7.22)
+Observed on the development site on SCRUM-5:
+- **Change notice.** After the description was edited to "Access token expiry should be two hours" (the page says 30 minutes), the app posted one comment: "Same Page: after this edit, 1 contradiction with the linked docs is still open (R8 Duration differs)… This is a notice, not a block." It named the rule and a count, no page text. The finding also shows number words work: "two hours" was read as 2 hours.
+- **Link a page.** An address on another site was refused ("Only pages on bhattaraiankit2212.atlassian.net can be linked here."). A real page address was linked, and the panel then read "Read 2 linked pages". The test link stays on SCRUM-5.
+Not observed: rule export and import, the tuning suggestions (they need at least 5 marks on a rule), and the notice staying quiet on an unrelated edit.

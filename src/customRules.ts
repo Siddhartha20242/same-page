@@ -71,6 +71,11 @@ export function compileRule(def: CustomRuleDef): Rule {
   };
 }
 
+/** The saved rules as text a person can copy to another site. No ids: the other site assigns its own. */
+export function exportRules(defs: CustomRuleDef[]): string {
+  return JSON.stringify({ samePageRules: 1, rules: defs.map(({ name, template, phrase, value, severity }) => ({ name, template, phrase, value, severity })) }, null, 1);
+}
+
 export interface RuleStore { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<unknown> }
 interface Saved { rules: CustomRuleDef[]; next: number }
 const KEY = 'rules:custom';
@@ -108,4 +113,17 @@ export async function deleteCustomRule(store: RuleStore, id: string): Promise<{ 
 export function previewRule(input: CustomRuleInput): { ok: true; rule: Rule } | { ok: false; reason: string } {
   const v = validateCustomRule(input);
   return v.ok ? { ok: true, rule: compileRule({ id: 'C0_CUSTOM', ...v.def }) } : v;
+}
+
+/** Adds rules from exported text. Every rule is checked like a typed one; bad or surplus rules are skipped and counted, and nothing partial is hidden. */
+export async function importRules(store: RuleStore, text: unknown): Promise<{ ok: true; added: number; skipped: number; reasons: string[] } | { ok: false; reason: string }> {
+  let parsed: { samePageRules?: unknown; rules?: unknown };
+  try { parsed = JSON.parse(String(text ?? '').slice(0, 20000)); } catch { return { ok: false, reason: 'That is not valid rule text. Paste the text exactly as it was copied.' }; }
+  if (parsed?.samePageRules !== 1 || !Array.isArray(parsed.rules)) return { ok: false, reason: 'That text is not a Same Page rule export.' };
+  let added = 0; let skipped = 0; const reasons: string[] = [];
+  for (const r of (parsed.rules as CustomRuleInput[]).slice(0, MAX_CUSTOM_RULES)) {
+    const out = await addCustomRule(store, r ?? {});
+    if (out.ok) added++; else { skipped++; if (reasons.length < 3) reasons.push(out.reason); }
+  }
+  return { ok: true, added, skipped, reasons };
 }

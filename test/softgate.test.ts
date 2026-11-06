@@ -81,3 +81,40 @@ test('the weekly scan also says how many contradictions were resolved since the 
   const c = await runDriftScan(deps, store, () => Date.parse('2026-11-15T00:00:00Z'));
   assert.equal(c.projects.PAY?.resolvedSincePrevious, 0);
 });
+
+import { runChangeNudge, editedText, nudgeText } from '../src/softGate.ts';
+const edit = { issue: { key: 'PAY-1' }, changelog: { items: [{ field: 'description', toString: 'Access token expiry should be 1 hour' }] } };
+
+test('change nudge: an edit that leaves a contradiction gets one notice with rules and a count, never page text', async () => {
+  const calls: string[] = [];
+  const deps = { store: mem(), findings: async () => [{ id: 'a', ruleId: 'R8_DURATION_DIFFERS' }], postComment: async (_k: string, t: string) => { calls.push(t); } };
+  assert.equal(editedText(edit), true);
+  assert.equal(await runChangeNudge(edit, deps), 'commented');
+  assert.equal(await runChangeNudge(edit, deps), 'already-noted');
+  assert.equal(calls.length, 1);
+  assert.match(calls[0]!, /after this edit, 1 contradiction with the linked docs is still open \(R8 Duration differs\)/);
+  assert.match(calls[0]!, /notice, not a block/);
+});
+
+test('change nudge: stays quiet for other edits, a move to Done, the app\'s own edits, a clean item, and an unreadable one', async () => {
+  const mk = (f: { id: string; ruleId: string }[] | null) => ({ store: mem(), findings: async () => f, postComment: async () => { throw new Error('should not comment'); } });
+  assert.equal(await runChangeNudge({ ...edit, changelog: { items: [{ field: 'labels' }] } }, mk([{ id: 'a', ruleId: 'R8_DURATION_DIFFERS' }])), 'ignored');
+  assert.equal(await runChangeNudge({ ...edit, selfGenerated: true }, mk([{ id: 'a', ruleId: 'R8_DURATION_DIFFERS' }])), 'ignored');
+  assert.equal(await runChangeNudge({ issue: { key: 'PAY-1' }, changelog: { items: [{ field: 'description' }, { field: 'status', toString: 'Done' }] } }, mk([{ id: 'a', ruleId: 'R8_DURATION_DIFFERS' }])), 'ignored');
+  assert.equal(await runChangeNudge(edit, mk([])), 'clean');
+  assert.equal(await runChangeNudge(edit, mk(null)), 'unchecked');
+});
+
+test('change nudge: once the contradiction is fixed and then returns, it is news again', async () => {
+  const calls: string[] = [];
+  const store = mem();
+  let found = [{ id: 'a', ruleId: 'R8_DURATION_DIFFERS' }];
+  const deps = { store, findings: async () => found, postComment: async (_k: string, t: string) => { calls.push(t); } };
+  await runChangeNudge(edit, deps);
+  found = [];
+  assert.equal(await runChangeNudge(edit, deps), 'clean');
+  found = [{ id: 'a', ruleId: 'R8_DURATION_DIFFERS' }];
+  assert.equal(await runChangeNudge(edit, deps), 'commented');
+  assert.equal(calls.length, 2);
+  assert.match(nudgeText([{ id: 'a', ruleId: 'R1_VERSION_MISMATCH' }, { id: 'b', ruleId: 'R8_DURATION_DIFFERS' }]), /2 contradictions with the linked docs are still open/);
+});
