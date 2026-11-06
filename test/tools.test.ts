@@ -87,7 +87,7 @@ test('project brief: a verdict per open item, what could not be checked, and no 
     ...s,
     searchIssues: async () => [{ key: 'PAY-1', summary: 'Migrate Payment API to v2' }, { key: 'PAY-2', summary: 'Improve search' }],
   } as never) as { status: string; counts?: { withContradictions: number }; items?: { issueKey: string; verdict: string }[]; notice?: string };
-  assert.equal(r.status, 'ready');
+  assert.equal(r.status, 'scan complete');
   assert.equal(r.items?.find((i) => i.issueKey === 'PAY-1')?.verdict, 'Blocked');
   assert.ok(r.notice);
   assert.equal((await projectBrief({ projectKey: 'PAY" OR 1=1' }, { ...s, searchIssues: async () => [] } as never) as { status: string }).status, 'error');

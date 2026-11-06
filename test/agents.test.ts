@@ -66,7 +66,7 @@ test('the project brief covers a full list of 20 items instead of stopping at th
     searchPages: async () => [],
   };
   const r = await projectBrief({ projectKey: 'PAY' }, deps as never) as { items: { reasonNotChecked?: string }[]; status: string };
-  assert.equal(r.status, 'ready');
+  assert.equal(r.status, 'scan complete');
   assert.equal(r.items.length, 20);
   assert.equal(r.items.filter((i) => /not reached/.test(i.reasonNotChecked ?? '')).length, 0);
 });

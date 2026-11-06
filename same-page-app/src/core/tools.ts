@@ -76,7 +76,7 @@ export async function projectBrief({ projectKey }: { projectKey?: unknown }, dep
   const out = await runOverview(projectKey, deps, { maxMs: 22000, maxRequests: 100 });
   if (out.status === 'error') return { status: 'error', reason: out.message, notice: NOTICE };
   return {
-    status: 'ready', summary: out.summaryLine, coverage: out.coverageLine,
+    status: 'scan complete', summary: out.summaryLine, coverage: out.coverageLine,
     counts: { checked: out.checked, withContradictions: out.withContradictions, notChecked: out.unchecked },
     items: out.rows.map((r) => ({ issueKey: r.key, summary: quote(r.summary), verdict: r.verdict, findings: r.findings, ...(r.reason ? { reasonNotChecked: r.reason } : {}) })),
     ...(weekly ? { weeklyScan: weekly.project ? { scannedOn: weekly.at.slice(0, 10), openEpicsWithContradictions: weekly.project.withContradictions, checked: weekly.project.checked, newSinceTheScanBefore: weekly.project.newSincePrevious, resolvedSinceTheScanBefore: weekly.project.resolvedSincePrevious ?? 0 } : { scannedOn: weekly.at.slice(0, 10), note: 'no open epics in this project were covered by the weekly scan' } } : {}),

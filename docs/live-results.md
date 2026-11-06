@@ -134,3 +134,7 @@ Not observed: an agent answering with real handling events, and how Rovo chooses
 Observed on the development site on SCRUM-5: each finding showed "Was this a real contradiction?" with "Yes, it is real" and "No, false alarm". Clicking the first changed it to "Marked real" at once, and after "Check again" it still read "Marked real", so the mark was saved. This test mark is on the test work item and counts as 1 real on that site.
 Not observed: the overview line with the review summary, changing a mark, and the agents reporting the counts.
 Also changed, not observed live: the release check's request budget went from 60 to 100 (time limit 22 seconds, so it still fits the default function timeout). Forge's linter does not allow a longer timeout on action functions.
+
+## 2026-11-06: release check after the larger budget (production, demo site)
+After deploying the 100-request budget to production, the same question ("Is project MOBL ready to ship?") on the demo site reached all but 2 of the 20 items. Before the change, 12 were not reached. The answer: "not ready", MOBL-58 Blocked with 2 findings, one clean item, 8 items with unreadable pages, 8 with no related page, and 2 (MOBL-12, MOBL-9) not reached before the request budget ran out.
+One wording problem: the tool returned `status: ready` for "the scan finished", and the agent repeated that next to "not ready", which read as a contradiction. The tool now returns `status: scan complete`; that change is covered by tests and has not been deployed.
