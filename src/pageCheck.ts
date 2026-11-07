@@ -44,13 +44,15 @@ export async function checkPage(pageId: string, d: PageCheckDeps): Promise<PageC
   }
   const issues: PageIssue[] = [];
   const checked: string[] = [];
+  // Each loaded ticket's last status change, read once up front: the work item under test needs its own, and R6 needs the closing time of the others.
+  const transitions = new Map<string, { at: string; by: string | null } | null>(await Promise.all([...loaded.keys()].map(async (k) => [k, await d.getTransition(k)] as const)));
   for (const [key, issue] of loaded) {
     const apiVersion = deriveTargetVersion(issue);
-    const transition = await d.getTransition(key);
+    const transition = transitions.get(key) ?? null;
     if (!apiVersion) { skipped.push({ key, reason: 'no target version on the work item' }); continue; }
     if (!transition) { skipped.push({ key, reason: 'no status change recorded' }); continue; }
     const workItem: WorkItem = { ...issue, apiVersion, statusChangedAt: transition.at, statusChangedBy: transition.by, text: [issue.summary, issue.description].filter(Boolean).join('\n') };
-    const cited = Object.fromEntries([...loaded].filter(([k, i]) => k !== key && i.status).map(([k, i]) => [k, { status: i.status }]));
+    const cited = Object.fromEntries([...loaded].filter(([k, i]) => k !== key && i.status).map(([k, i]) => [k, { status: i.status, ...(transitions.get(k)?.at ? { changedAt: transitions.get(k)!.at } : {}) }]));
     checked.push(key);
     for (const f of check({ workItem, page, siblings: [page], cited }).findings) {
       if (f.severity === 'info') continue;

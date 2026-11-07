@@ -30,7 +30,7 @@ export function refsInLine(line: string): VersionRef[] {
   for (const m of line.matchAll(VTOKEN_RE)) {
     if (phase && !m[0].includes('.')) continue;
     if (PACKAGE_PART.test(line.slice(Math.max(0, (m.index ?? 0) - 2), m.index))) continue;     // io.swagger.core.v3: a package name
-    if (/^v\d+\.\d+\.\d+/i.test(m[0]) || (m[0].split('.').length >= 3)) continue;               // v0.8.0: another product's release number, not an API version
+    if (m[0].split('.').length >= 3) continue;      // v0.8.0: another product's release number, not an API version. Trade-off: an SDK written as v1.2.3 is not compared with the target either (see README limits).
     refs.push({ version: `v${m[1]}`, index: m.index ?? 0, text: m[0], kind: 'token' });
   }
   if (PHRASE_CONTEXT_RE.test(line)) {
@@ -179,14 +179,18 @@ export const statusClaim: Rule = {
 
 // R6: a doc line like "POST /api/v1/charge" disagrees with an OpenAPI spec held in another linked page: the spec marks the operation
 // deprecated (blocks), or has no such operation in the same API (warns). The doc is checked against the artifact itself, not a ticket.
+// The spec in a page is read once per page object, because every rule run asks about every sibling (a YAML parse is not free).
+const specs = new WeakMap<Page, ReturnType<typeof extractOpenApi>>();
+const specOf = (p: Page): ReturnType<typeof extractOpenApi> => { if (!specs.has(p)) specs.set(p, extractOpenApi(p.text)); return specs.get(p) ?? null; };
+
 export const specDisagrees: Rule = {
   id: 'R5_SPEC_DISAGREES',
   severity: 'block',
   why: 'The documented call does not match the API spec, so anyone following the page may call something that is retired or does not exist.',
   run({ workItem, page, siblings }: Pair): Finding[] {
-    if (!siblings?.length || extractOpenApi(page.text)) return [];                 // nothing to compare with, or this page IS the spec
+    if (!siblings?.length || specOf(page)) return [];                              // nothing to compare with, or this page IS the spec
     let spec: ReturnType<typeof extractOpenApi> = null; let specTitle = '';
-    for (const s of siblings) { if (s.id === page.id) continue; const found = extractOpenApi(s.text); if (found) { spec = found; specTitle = s.title; break; } }
+    for (const s of siblings) { if (s.id === page.id) continue; const found = specOf(s); if (found) { spec = found; specTitle = s.title; break; } }
     if (!spec) return [];
     const out: Finding[] = [];
     page.text.split('\n').forEach((line, i) => {
@@ -214,6 +218,8 @@ export const specDisagrees: Rule = {
 // R6: a page says a ticket it mentions is still open ("blocked by PAY-9", "PAY-9 is in progress") but Jira says that ticket is closed.
 // Warn only, so it never blocks a transition. The mentioned ticket's status arrives in `cited`; with no data the rule stays silent.
 const CLOSED_STATUSES = ['done', 'closed', 'resolved', 'released', 'cancelled', 'canceled', 'complete', 'completed', "won't do", 'wont do'];
+/** True for a status R6 treats as closed. Only those tickets need their closing time read. */
+export const isClosedStatus = (status: unknown): boolean => CLOSED_STATUSES.includes(String(status ?? '').toLowerCase());
 const OPEN_AFTER = /\b(is|are|still|currently)\s+(open|pending|in progress|blocked|not\s+(?:yet\s+)?(?:done|merged|released|shipped|finished))\b/i;
 const OPEN_BEFORE = /\b(waiting\s+(?:on|for)|blocked\s+by|pending)\s+$/i;
 export const citedTicketClosed: Rule = {
@@ -223,7 +229,7 @@ export const citedTicketClosed: Rule = {
   run({ workItem, page, cited }: Pair): Finding[] {
     if (!cited) return [];
     const out: Finding[] = [];
-    const keys = Object.keys(cited).filter((k) => k !== workItem.key && CLOSED_STATUSES.includes(String(cited[k]?.status ?? '').toLowerCase()));
+    const keys = Object.keys(cited).filter((k) => k !== workItem.key && isClosedStatus(cited[k]?.status));
     if (!keys.length) return [];
     // A page edited after the ticket closed was written with the answer available, so a leftover "waiting on" line is history, not news (R4 applies the same test to the work item).
     const closedAfterEdit = (k: string) => { const at = cited[k]?.changedAt; return Boolean(at) && new Date(page.modifiedAt) >= new Date(String(at)); };

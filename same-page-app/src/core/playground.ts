@@ -29,5 +29,5 @@ export function runPlayground(input: PlaygroundInput, rules: Rule[], canon: Cano
     if (!fact) continue;
     for (const d of disagreements(fact, page).disagree) hits.push({ kind: 'fact', label: `Fact: ${c.subject} = ${c.value}`, severity: 'finding', summary: `The sample page says ${d.pageValue}`, line: d.line, snippet: d.snippet });
   }
-  return { ok: true, hits, note: 'Nothing was read from your site or saved. The sample work item counts as changed just now and the sample page as last edited long ago, so version and status rules can fire.' };
+  return { ok: true, hits, note: 'Nothing was read from your site or saved. The sample work item counts as changed just now and the sample page as last edited long ago, so version and status rules can fire. Rules that need a spec page (R5), the status of another ticket (R6) or a second page (R7) cannot be tried here.' };
 }

@@ -107,15 +107,19 @@ export async function findingHistory({ issueKey }: { issueKey?: string }, kv: KV
   if (!KEY_RE.test(String(issueKey ?? ''))) return { error: 'issueKey must look like PAY-123', notice: NOTICE };
   const { length } = await headOf(kv);
   const events: { at: string; rule: string; event: string; note: string }[] = [];
-  for (let i = Math.max(0, length - 400); i < length; i++) {
-    const e = (await kv.get(`ledger:e:${i}`)) as { at?: string; ruleId?: string; issueKey?: string | null; evidence?: { page?: { snippet?: string } } } | undefined;
+  // The latest 400 entries, read 25 at a time in parallel instead of one after another.
+  const from = Math.max(0, length - 400);
+  const entries: unknown[] = [];
+  for (let b = from; b < length; b += 25) entries.push(...(await Promise.all(Array.from({ length: Math.min(25, length - b) }, (_, k) => kv.get(`ledger:e:${b + k}`)))));
+  for (const raw of entries) {
+    const e = raw as { at?: string; ruleId?: string; issueKey?: string | null; evidence?: { page?: { snippet?: string } } } | undefined;
     if (!e || e.issueKey !== issueKey) continue;
     const [rule = '', event = 'FOUND'] = String(e.ruleId ?? '').split(':');
     events.push({ at: String(e.at ?? ''), rule, event, note: quote(String(e.evidence?.page?.snippet ?? '').replace(/\s+by\s+\S+$/, '')) });
   }
   return {
     issueKey, status: events.length ? 'found' : 'none', events: events.slice(-30),
-    note: events.length ? 'Events come from the hash-chained handling timeline. Verify the chain in the Same Page panel (Show the audit trail). The latest 400 chain entries were searched.' : 'No handling events are recorded for this work item on this site.',
+    note: events.length ? 'Events come from the hash-chained handling timeline. Verify the chain in the Same Page panel (the Audit trail tab). The latest 400 chain entries were searched.' : 'No handling events are recorded for this work item on this site.',
     notice: NOTICE,
   };
 }

@@ -4,6 +4,7 @@ import { rankCandidates } from './candidates';
 import { verifyChain } from './ledger';
 import type { LedgerEntry } from './ledger';
 import type { CandidatePage } from './candidates';
+import { isClosedStatus } from './rules';
 import type { Finding, Issue, Page, Rule, VersionSource, WorkItem } from './types';
 
 /** What getPageBody may return: plain text, or text plus real metadata. Null when the viewer cannot read the page. */
@@ -57,20 +58,20 @@ export function cached<A, R>(fn: (arg: A) => R): (arg: A) => R {
 }
 
 // Statuses of the other tickets the loaded pages mention (rule R6). At most 5 extra reads, and any failure just leaves that ticket out.
+// R6 only looks at closed tickets, so a ticket's closing time (a changelog read) is fetched only for those, and the tickets are read in parallel.
 const TICKET_KEY = /(?<![A-Za-z0-9-])[A-Z][A-Z0-9_]+-\d+(?![0-9])/g;
-async function loadCited(own: string, pages: Page[], loadIssue?: (key: string) => Promise<Issue>, getTransition?: IssueDeps['getTransition']): Promise<Record<string, { status: string; changedAt?: string }> | undefined> {
+export async function loadCited(own: string, pages: Page[], loadIssue?: (key: string) => Promise<Issue>, getTransition?: IssueDeps['getTransition']): Promise<Record<string, { status: string; changedAt?: string }> | undefined> {
   if (!loadIssue) return undefined;
   const keys = [...new Set(pages.flatMap((p) => p.text.match(TICKET_KEY) ?? []))].filter((k) => k !== own).slice(0, 5);
-  const out: Record<string, { status: string; changedAt?: string }> = {};
-  for (const k of keys) {
+  const rows = await Promise.all(keys.map(async (k): Promise<[string, { status: string; changedAt?: string }] | null> => {
     try {
       const i = await loadIssue(k);
-      if (!i?.status) continue;
-      const changedAt = await getTransition?.(k).then((t) => t?.at, () => undefined);   // when it last changed status; unknown just means the rule cannot use the edit-time test
-      out[k] = { status: i.status, ...(changedAt ? { changedAt } : {}) };
-    } catch { /* unreadable or missing: skip */ }
-  }
-  return out;
+      if (!i?.status) return null;
+      const changedAt = isClosedStatus(i.status) ? await getTransition?.(k).then((t) => t?.at, () => undefined) : undefined;   // unknown just means R6 cannot use the edit-time test
+      return [k, { status: i.status, ...(changedAt ? { changedAt } : {}) }];
+    } catch { return null; /* unreadable or missing: skip */ }
+  }));
+  return Object.fromEntries(rows.filter((r): r is [string, { status: string; changedAt?: string }] => r !== null));
 }
 
 // One issue. Two-stage discovery keeps API use low: `searchPages` returns light metadata (an excerpt in `text`),

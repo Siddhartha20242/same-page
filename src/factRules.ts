@@ -91,9 +91,21 @@ export function normalizeWording(line: string): string {
   return s;
 }
 
-export function extractFacts(text: string): { facts: Fact[]; lines: string[] }[] {
-  return text.split('\n').map((line) => ({ lines: [line], facts: factsInLine(normalizeWording(line)) }));
+// `norm` is the line after wording was turned into digits. Fact indexes point into it, so anything that slices the line by a fact's index must slice `norm`, not the original.
+// The result is cached by input text: the three fact rules and the panel's "read from ticket" list all read the same ticket and page.
+type Extracted = { facts: Fact[]; lines: string[]; norm: string }[];
+const extracted = new Map<string, Extracted>();
+export function extractFacts(text: string): Extracted {
+  const hit = extracted.get(text);
+  if (hit) return hit;
+  const out = text.split('\n').map((line) => { const norm = normalizeWording(line); return { lines: [line], norm, facts: factsInLine(norm) }; });
+  if (extracted.size >= 32) extracted.clear();
+  extracted.set(text, out);
+  return out;
 }
+
+// Unit factors multiply floats (1.1 * 3600 is 3960.0000000000005), so values are rounded to 12 significant digits before they are compared.
+const norm = (n: number): number => (Number.isFinite(n) ? Number(n.toPrecision(12)) : n);
 
 function factsInLine(line: string): Fact[] {
   const out: Fact[] = [];
@@ -128,15 +140,15 @@ function factsInLine(line: string): Fact[] {
   for (const m of line.matchAll(new RegExp(`${NUM}\\s*(ms|msec|milliseconds?|secs?|seconds?|mins?|minutes?|hrs?|hours?|days?|weeks?|wk)${END}`, 'gi'))) {
     const idx = m.index ?? 0; const end = idx + m[0].length;
     if (RANGE_AFTER.test(line.slice(end)) || /\d\s*[a-z]{0,12}\s*(?:[-–—]|to)\s*$/i.test(line.slice(Math.max(0, idx - 24), idx))) continue;
-    push({ kind: 'duration', unit: 'time', value: toNum(m[1]!) * (DURATION_UNITS[m[2]!.toLowerCase()] ?? NaN), text: m[0], index: idx }, floorOf(), end);
+    push({ kind: 'duration', unit: 'time', value: norm(toNum(m[1]!) * (DURATION_UNITS[m[2]!.toLowerCase()] ?? NaN)), text: m[0], index: idx }, floorOf(), end);
   }
   for (const m of line.matchAll(new RegExp(`${NUM}(ms|s|h|d|w)${END}`, 'g'))) {   // "30s", "2h": a letter unit only when it touches the number
     const idx = m.index ?? 0; const end = idx + m[0].length;
-    push({ kind: 'duration', unit: 'time', value: toNum(m[1]!) * (DURATION_UNITS[m[2]!] ?? NaN), text: m[0], index: idx }, floorOf(), end);
+    push({ kind: 'duration', unit: 'time', value: norm(toNum(m[1]!) * (DURATION_UNITS[m[2]!] ?? NaN)), text: m[0], index: idx }, floorOf(), end);
   }
   for (const m of line.matchAll(new RegExp(`${NUM}\\s*(kib|mib|gib|tib|kb|mb|gb|tb)${END}`, 'gi'))) {
     const idx = m.index ?? 0;
-    push({ kind: 'limit', unit: 'bytes', value: toNum(m[1]!) * (SIZE[m[2]!.toLowerCase()] ?? NaN), text: m[0], index: idx }, floorOf(), idx + m[0].length);
+    push({ kind: 'limit', unit: 'bytes', value: norm(toNum(m[1]!) * (SIZE[m[2]!.toLowerCase()] ?? NaN)), text: m[0], index: idx }, floorOf(), idx + m[0].length);
   }
   for (const m of line.matchAll(/(?<![\w.])port\s*[:=]?\s*(\d{2,5})(?!\w)(?!\.\d)/gi)) {
     const idx = m.index ?? 0;
@@ -148,7 +160,7 @@ function factsInLine(line: string): Fact[] {
     if (RANGE_AFTER.test(line.slice(end))) continue;
     const per = m[4] ? PER[m[4].toLowerCase().replace(/s$/, '')] ?? PER[m[4].toLowerCase()] : undefined;
     const count = toNum(m[1]!) * (m[2] ? 1000 : 1);
-    push({ kind: 'limit', unit: `${COUNT_UNITS[m[3]!.toLowerCase()]}${per ? '/time' : ''}`, value: per ? count / per : count, text: m[0], index: idx }, floorOf(), end);
+    push({ kind: 'limit', unit: `${COUNT_UNITS[m[3]!.toLowerCase()]}${per ? '/time' : ''}`, value: norm(per ? count / per : count), text: m[0], index: idx }, floorOf(), end);
   }
   return out.filter((f) => Number.isFinite(f.value));
 }
@@ -196,9 +208,10 @@ export function disagreements(canon: CanonFact, text: string): { disagree: Disag
   let agree = 0;
   text.split('\n').forEach((raw, i) => {
     if (HISTORICAL_RE.test(raw) || /\bdefault|\be\.g\.|\bfor example|\bexample\b/i.test(raw) || envOf(raw) !== canonEnv) return;
-    for (const f of factsInLine(normalizeWording(raw))) {
+    const normed = normalizeWording(raw);
+    for (const f of factsInLine(normed)) {
       if (f.kind !== canon.kind || !same(c, f)) continue;
-      if (f.kind !== 'date' && DATED_BEFORE.test(raw.slice(0, Math.max(0, raw.toLowerCase().indexOf(f.text.toLowerCase()))))) continue;
+      if (f.kind !== 'date' && DATED_BEFORE.test(normed.slice(0, f.index))) continue;     // the index points into the normalized line, so the prefix is taken from it
       if (f.value === canon.value) agree++;
       else disagree.push({ line: i + 1, snippet: raw.trim().slice(0, 240), pageValue: show(f) });
     }
@@ -230,13 +243,13 @@ function makeRule(id: string, kind: Kind, label: string, why: string): Rule {
       const ticket = extractFacts(ticketText).flatMap(({ facts, lines }) => facts.filter((f) => f.kind === kind).map((f) => ({ f, line: lines[0]!.trim() })));
       if (!ticket.length) return [];
       const rows = extractFacts(page.text).map((r, i) => ({ ...r, n: i + 1 }));
-      const pageFacts = rows.flatMap((r) => r.facts.filter((f) => f.kind === kind).map((f) => ({ f, line: r.lines[0]!, n: r.n })));
+      const pageFacts = rows.flatMap((r) => r.facts.filter((f) => f.kind === kind).map((f) => ({ f, line: r.lines[0]!, norm: r.norm, n: r.n })));
       const out: Finding[] = [];
       const seen = new Set<string>();
       for (const p of pageFacts) {
         const line = p.line;
         if (HISTORICAL_RE.test(line) || /\bdefault|\be\.g\.|\bfor example|\bexample\b/i.test(line)) continue;
-        if (kind !== 'date' && DATED_BEFORE.test(line.slice(0, p.f.index))) continue;
+        if (kind !== 'date' && DATED_BEFORE.test(p.norm.slice(0, p.f.index))) continue;
         const matches = ticket.filter((t) => same(t.f, p.f) && envOf(t.line) === envOf(line));
         if (!matches.length) continue;
         const values = new Set(matches.map((t) => t.f.value));
