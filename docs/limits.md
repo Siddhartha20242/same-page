@@ -59,7 +59,7 @@ One mark per finding id, at most 30 ids read per panel load, counts capped at 10
 | Limit | Value |
 |---|---|
 | Work items per `scan-issues` call | 10 |
-| Time and request budget per call | `scan-issues`: 40 seconds, 80 requests. `project-brief`: 22 seconds, 100 requests, so it fits inside the default function timeout. Items not reached are reported as unchecked. Since 7.53.0 up to three work items are checked at once (each one is admitted only if the request budget still covers its worst case), so more are reached in the same time; this is verified by tests, not yet measured on a live project. On a large project the brief can still stop before the last items. |
+| Time and request budget per call | `scan-issues`: 40 seconds, 80 requests. `project-brief`: 22 seconds, 100 requests, so it fits inside the default function timeout. Items not reached are reported as unchecked. Since 7.53.0 up to three work items are checked at once (each one is admitted only if the request budget still covers its worst case), which helps when time is the limit. Measured on 2026-11-08 on the production demo project (20 open items): the overview still checked 8 and left 12 unreached, the same as before, because the request budget (60 on the overview page) stops the run before the time budget does. So this change does not raise coverage there. On a large project the brief can still stop before the last items. |
 | Quoted text | flattened to one line, 160 characters, and marked as data to report, never instructions |
 
 ## The gate and the soft gate

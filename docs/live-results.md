@@ -237,3 +237,7 @@ Production was redeployed (Forge deploy at 15:27 UTC) and the install link was c
 ## 2026-11-07, tuning counts on the dev site
 
 On PAY-3 I dismissed the R4 finding with a reason. The finding count went from 3 to 2, the Audit trail added "#13 Dismissed, R4 Stale status claim, PAY-3" with the chain still intact, and the Rules tab showed "On this site: acted on 0, dismissed 1 (100% dismissed)" for R4. The "has been dismissed N of M times" hint needs at least 5 outcomes on one rule, so it was not reached here; that threshold is covered by the tests only, not by a live run.
+
+## 2026-11-08, production redeploy (7.53.0, parallel checks), overview coverage
+
+Production was redeployed with the change that checks up to three work items at once. On the demo project's Same Page overview (20 open items): 1 blocked, 1 clean, 18 not checked, of which 12 were "not reached before the time or request budget ran out", 4 had related pages the viewer cannot read, and 2 had no related page. This is the same result as before the change. The request budget, not time, is what stops the run, so the change did not increase coverage on this project. I did not run the release-check agent again.
