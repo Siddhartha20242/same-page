@@ -212,3 +212,9 @@ Two test pages were created in the dev Confluence and linked to the epic SCRUM-2
 - **Also seen.** The two R5 warnings for `POST /api/v2/charge` came from the older demo pages, because the quick test spec does not define that operation.
 Still unseen on a real site: rule export and import, and the tuning suggestions.
 
+## 2026-11-07: rule export and import on a real site (development site, PAY-3)
+- A team rule was created in the panel ("Export round trip test", phrase "frozen for audit", status Done). "Show my rules as text to copy" printed `{"samePageRules": 1, "rules": [{"name", "template", "phrase", "value", "severity"}]}` with no rule id, as designed.
+- A different rule written in that same format ("Imported copy test") was pasted into the import box. The first click on "Import these rules", made a fraction of a second after typing about 150 characters by automation, answered "That is not valid rule text". A second click a few seconds later imported it, and both rules were listed. The most likely cause is that the first click ran with the text from before the last keystrokes reached the app; a person who pastes and then moves the mouse does not hit that. It was not reproduced by hand.
+- Both test rules were deleted afterwards, and the list read "No team rules yet."
+Still unseen on a real site: the tuning suggestions.
+

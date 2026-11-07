@@ -142,6 +142,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 - The audit trail showing "Chain intact", its anchor on the work item, and an exported copy that passed `scripts/verify-export.mjs` while a one-field edit made it fail.
 - The pin guard commenting after the old version was edited back.
 - The soft gate, the change notices, the weekly scan, R8, team rules, link a page, the severity filter chips and the real or false alarm buttons.
+- Rule export and import: a saved team rule came out as `{"samePageRules": 1, ...}` text and a pasted rule went back in as a second rule. Both test rules were then deleted.
 - R9 and R10 firing in the rule playground on the deployed app. They have not yet fired on a real work item.
 - The patch preview on a real R1 finding, showing the lines around the change and the one line that changes. In the same test, a `v1` line under a "Legacy" heading was skipped, and an OpenAPI spec written in YAML inside a Confluence code block was read, which made R5 fire on a deprecated operation.
 - The optional AI fix on an ambiguous line, which passed the same verification when we switched the AI path on for a test.
@@ -177,7 +178,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 ## Plan
 
 1. Run a pilot first, with 1 to 3 teams over 1 to 2 weeks. Teams install the app on a test project and label each finding real or false alarm. We report counts and precision with the sample size, whatever they turn out to be. The method is in [docs/pilot-kit.md](docs/pilot-kit.md). No pilot has run yet, so no real-world precision or time-saved figure exists.
-2. Still unseen on a real site: rule export and import, and the tuning suggestions. They are covered by offline tests.
+2. Still unseen on a real site: the tuning suggestions, which need at least 5 handled findings on a rule. They are covered by offline tests.
 3. Choose the next rules from what the pilot's false alarms and misses say. Owners and on-call names are likely candidates.
 4. Maybe add an optional AI tier that may only propose candidates, shown only when both quoted lines exist verbatim, warn-only and off by default. It would cost money per call, so it is not built.
 
