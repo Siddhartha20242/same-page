@@ -163,7 +163,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 - There is no real-world accuracy figure. Precision and recall of 1.00 are on 30 fixtures the authors wrote, which guards against regressions and measures nothing. We also ran the engine on 559 page and ticket pairs from 12 public Apache projects ([docs/public-data-probe.md](docs/public-data-probe.md)). In the default mode it raised no finding. With the opt-in Fix Version source it raised 4, all false positives, because a product release number is not an API version, so that source stays off. We fixed the two false positives from the first probe (a dated status log and a delivery-phase "v1"), then checked on projects we had not tuned on. That check found more Fix Version false positives, and we guarded two of them. Public wikis rarely state hard facts, so there is still no true finding and no precision figure. The probe shows a low false-alarm rate. It does not show recall, and it is not a pilot. No real team has used the app yet, and [docs/pilot-kit.md](docs/pilot-kit.md) is the plan for collecting honest numbers.
 - R8 to R10 are new and tuned to stay quiet. They have not been run on a team's own documents. On a set of 42 reworded cases we wrote ourselves (`fixtures/rewording.json`), they catch 21 of 25 contradictions and leave all 17 agreeing statements alone. Because we wrote those cases, the figure guards our wording and does not measure real recall. The four they miss need real meaning: "the API allows 500 calls a minute" against "rate limit", "signed out after 45 minutes of inactivity" against "session timeout", "retried within 30 seconds" against "retry window", and "a couple of hours". A page that names only "the token" will not match a ticket about "auth token expiry", because we require two shared subject words.
 - Verification proves a fix is minimal, not that it is right. An edit must change only version references and clear the flagged contradiction. It does not prove the new version is correct, so a human always reviews it.
-- R1 needs a target version on the work item (in the summary, a component, or set from the panel). Without one, R1 is skipped and the panel says so, and the other rules still run. Free-form version names are not matched.
+- R1 needs a target version on the work item (in the summary, a component, or set from the panel). Without one, R1 is skipped and the panel says so, and the other rules still run. Free-form version names are not matched. A three-part number such as `v1.2.3` is read as another product's release number and is not compared with the target. That keeps a Kubernetes or tool version out of R1, and it also means an SDK pinned at `v1.2.3` is not flagged.
 - The Confluence byline finds work items only by Jira keys written in the page text, so a page linked from an epic that never names it shows "not checked".
 - The site-wide fact check reads at most 8 pages per fact (the first ones Confluence returns for the subject's nouns) and 5 facts per run. A clean result means those pages agree, not every page. It finds only times, limits and dates, and only a differently worded line that uses the same unit and shares two subject words.
 - Team rules are plain-text matches from three templates, with no pattern language. They run everywhere except the Confluence byline. A phrase containing history wording (for example "legacy") is skipped on that line, like the built-in rules.
@@ -188,7 +188,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      334 tests, the 30-pair fixture set and the reworded-case set
+test/  fixtures/      342 tests, the 30-pair fixture set and the reworded-case set
 scripts/              live gate check, receipt verifier, payload capture, public-data probe
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -199,7 +199,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 334 tests, all passing (see docs/tests.md)
+npm test            # 342 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

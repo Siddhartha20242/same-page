@@ -1,6 +1,6 @@
 # What the tests cover
 
-`npm test` runs 334 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
+`npm test` runs 342 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|
@@ -31,3 +31,6 @@ sites by hand, not by an automated test.
 Added on 2026-11-07: `rewording.test.ts` (42 reworded cases in `fixtures/rewording.json`: agreeing statements must never fire, and reworded contradictions are caught except four listed misses that need real meaning ("retry window" against "retried within", "timeout" against "signed out after", "rate limit" against "the API allows N calls", "a couple of hours"); `node scripts/recall-check.mjs` prints the tally, 21 of 25 caught and 17 of 17 left alone; the cases are written by the authors, so this guards wording and is not a measurement of real recall), `adminguard.test.ts` (every resolver checks administrator rights or is on a documented open list), `coresync.test.ts` (the engine copy bundled in the app matches `src/`), `phase.test.ts` (a delivery-phase "v1", a package name and another product's release number are not API versions).
 
 Added later on 2026-11-07: `readfromticket.test.ts` (the values read from a ticket are shown in the ticket's own words, capped and de-duplicated; the receipt uses an injectable clock) and two receipt tests in `tools.test.ts` (a receipt names the evidence ids and never claims the docs are correct).
+
+Added after the code review on 2026-11-07: `reviewfixes.test.ts` (equal values in different units do not differ by floating-point error; a dated log line is skipped by the site-wide check even when its wording was rewritten; facts are extracted once per text; closing times are read only for closed cited tickets and the tickets are read in parallel; the Confluence byline applies the same "page edited after the ticket closed" test as the panel; `findingHistory` reads in parallel batches and names the Audit trail tab; the playground says which rules it cannot try).
+
