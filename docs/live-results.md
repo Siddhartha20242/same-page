@@ -218,3 +218,8 @@ Still unseen on a real site: rule export and import, and the tuning suggestions.
 - Both test rules were deleted afterwards, and the list read "No team rules yet."
 Still unseen on a real site: the tuning suggestions.
 
+## 2026-11-07: after the production deploy that added the link fix and the blocking question (demo site)
+- **"What is blocking MOBL-58 from Done?"** to the on-call check. The new starter question "What is blocking SCRUM-2 from Done?" appeared on the agent's intro screen. The answer listed only the findings marked as blockers (the deprecated ADR-12 page and the runbook line that calls `/api/v1/charge` against a v2 target) and said they are what the Same Page transition gate refuses on when its validator is on that workflow and the gate is not in watch-only mode. It ended by telling the person to open the work item and use the Same Page panel to fix a page or hand it to the page owner. It gave no link.
+- **The invented-link check.** The second copy of the general agent, the one that invented `.../pages/12345` and `.../pages/67890` earlier, was asked "Do the docs for MOBL-58 contradict the ticket?" It named both pages by title and wrote no link. Its answer also carried the receipt line, "Same Page checked 2 linked pages for MOBL-58 and found these 2 contradictions (evidence #88e18eb9, …", the first time the receipt has been seen in a Rovo answer.
+- Not re-run: the release check on a whole project after this deploy.
+
