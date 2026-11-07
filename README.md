@@ -123,7 +123,7 @@ A Jira administrator can move any rule between Draft, Warning and Blocker from t
 ## Try it
 
 1. Install the app on a site that has Jira and Confluence, using the installation link in the Devpost submission. Install it for both products and accept the consent screens.
-2. Open any Jira work item, then the apps menu (the puzzle icon under the title) and choose Same Page.
+2. Open any Jira work item, then the apps menu (the puzzle icon under the title) and choose Same Page. On a site where the panel is already pinned, it sits below the linked pages.
 3. As a Jira administrator, click "Create demo data". It creates a runbook page, a deprecated decision page, an epic and the links between them. It is administrator-only because it creates work items and pages.
 4. Open the epic it names. You will see three contradictions with evidence: a stale runbook version, a deprecated decision, and a token expiry that the epic and the runbook state differently. Click "Apply" on the runbook version finding, then check the Confluence page history. Version 2 changes only the flagged line.
 5. Optional, and it needs a company-managed Jira project and a Jira admin: attach the gate to the Done transition by following [docs/gate-setup.md](docs/gate-setup.md), then try to move the epic to Done before fixing the page.
@@ -143,6 +143,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 - The pin guard commenting after the old version was edited back.
 - The soft gate, the change notices, the weekly scan, R8, team rules, link a page, the severity filter chips and the real or false alarm buttons.
 - R9 and R10 firing in the rule playground on the deployed app. They have not yet fired on a real work item.
+- The patch preview on a real R1 finding, showing the lines around the change and the one line that changes. In the same test, a `v1` line under a "Legacy" heading was skipped, and an OpenAPI spec written in YAML inside a Confluence code block was read, which made R5 fire on a deprecated operation.
 - The optional AI fix on an ambiguous line, which passed the same verification when we switched the AI path on for a test.
 - All six agents in Rovo chat. The on-call check and the release check were re-run after we fixed their prompts. The release check on a whole project took about 90 seconds to answer.
 
@@ -165,7 +166,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 - The Confluence byline finds work items only by Jira keys written in the page text, so a page linked from an epic that never names it shows "not checked".
 - The site-wide fact check reads at most 8 pages per fact (the first ones Confluence returns for the subject's nouns) and 5 facts per run. A clean result means those pages agree, not every page. It finds only times, limits and dates, and only a differently worded line that uses the same unit and shares two subject words.
 - Team rules are plain-text matches from three templates, with no pattern language. They run everywhere except the Confluence byline. A phrase containing history wording (for example "legacy") is skipped on that line, like the built-in rules.
-- R5 reads OpenAPI 3 in JSON or YAML held in a linked Confluence page, in a code block or plain text. It does not read attachments.
+- R5 reads OpenAPI 3 in JSON or YAML held in a linked Confluence page, in a code block or plain text. It does not read attachments. A spec that does not declare its base path (a `servers` entry) cannot be matched to a documented path that includes it, so R5 stays quiet rather than guess.
 - The gate works only in company-managed projects, because Jira does not offer validators in team-managed ones.
 - The audit log is tamper-evident. It detects rewritten history, but it cannot stop someone with storage write access from rewriting the whole chain.
 - We have not tried third-party MCP clients. The Rovo agent path is verified. `jira:workflowValidator` and `rovo:mcp` are Preview modules, and without the validator the panel and review tasks still work ([docs/gate-setup.md](docs/gate-setup.md)).
@@ -176,7 +177,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 ## Plan
 
 1. Run a pilot first, with 1 to 3 teams over 1 to 2 weeks. Teams install the app on a test project and label each finding real or false alarm. We report counts and precision with the sample size, whatever they turn out to be. The method is in [docs/pilot-kit.md](docs/pilot-kit.md). No pilot has run yet, so no real-world precision or time-saved figure exists.
-2. Still unseen on a real site: rule export and import, the tuning suggestions, the patch preview with context lines, YAML specs and legacy-section skipping. They are covered by offline tests.
+2. Still unseen on a real site: rule export and import, and the tuning suggestions. They are covered by offline tests.
 3. Choose the next rules from what the pilot's false alarms and misses say. Owners and on-call names are likely candidates.
 4. Maybe add an optional AI tier that may only propose candidates, shown only when both quoted lines exist verbatim, warn-only and off by default. It would cost money per call, so it is not built.
 

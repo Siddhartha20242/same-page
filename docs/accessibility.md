@@ -4,7 +4,7 @@ This is a review of what we built, checked against the live panel's accessibilit
 
 ## What holds
 - **Nothing is conveyed by color alone.** Severity is always written out (Blocker, Warning, Note) beside its color. Lifecycle steps, verdicts (Blocked, Warning, Clean, Not checked) and the Was and Is now labels are text.
-- **Every action is a native button with a text label** that says what it does ("Apply this edit to the page", "Create review task", "Dismiss with a reason…", "Show the ten rules"). None depends on an icon or on hover.
+- **Every action is a native button with a text label** that says what it does ("Apply this edit to the page", "Create review task", "Dismiss with a reason…", "Check the whole site now"). None depends on an icon or on hover.
 - **The panel is organised in tabs** (Findings, What was checked, Rules and settings, Audit trail) that are real tab controls, so a keyboard or screen reader user moves between them as tabs. The answer comes first: a status banner, then the findings.
 - **Icons always carry a text label** (severity, clean, chain status) and sit next to the written severity, never in place of it.
 - **Tables have a caption and header cells** (the project overview and the audit timeline).

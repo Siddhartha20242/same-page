@@ -32,7 +32,7 @@ Each finding in the panel has "Yes, it is real" and "No, false alarm" buttons, s
 | How long did this take to check by hand before? | time saved, in the user's estimate |
 
 ## The pilot report
-As a Jira administrator, open Same Page > Show the ten rules > Show the pilot report. It prints the counts, the real and false-alarm marks per rule and the caveats, with no page text or names. Paste it into your reply; that is all we need.
+As a Jira administrator, open the Same Page panel, then Rules and settings > Gate and pilot > Show the pilot report. It prints the counts, the real and false-alarm marks per rule and the caveats, with no page text or names. Paste it into your reply; that is all we need.
 
 ## How to report it
 - Report counts and the precision from the "real contradiction?" answers with the sample size ("7 of 9 shown findings were real").

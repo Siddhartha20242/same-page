@@ -761,7 +761,7 @@ const App = () => {
       ) : null}
       <LinkPage onLinked={load} />
       {seed.status === 'done' && seed.linked
-        ? <SectionMessage appearance="success" title="Demo data created">{`Open ${seed.epicKey} (the epic it names), then the Same Page panel in its apps menu. You should see 3 contradictions. Start with the runbook version one: it has a verified fix you can Apply, and you can then watch the page change in Confluence. The token expiry one (1 hour against 30 minutes) has no Apply, because Same Page cannot tell which side is right. A fact "access token expiry = 1 hour" was also declared: open Show the ten rules and click Check the whole site now to find a starter guide that was never linked to any work item and says 2 hours.`}</SectionMessage>
+        ? <SectionMessage appearance="success" title="Demo data created">{`Open ${seed.epicKey} (the epic it names), then the Same Page panel in its apps menu. You should see 3 contradictions. Start with the runbook version one: it has a verified fix you can Apply, and you can then watch the page change in Confluence. The token expiry one (1 hour against 30 minutes) has no Apply, because Same Page cannot tell which side is right. A fact "access token expiry = 1 hour" was also declared: open the Rules and settings tab, then Facts and team rules, and click Check the whole site now to find a starter guide that was never linked to any work item and says 2 hours.`}</SectionMessage>
         : (
           <>
             {seed.status === 'done' ? <SectionMessage appearance="warning" title="Demo data created, but the page link failed">{`${seed.linkNote ?? 'The pages were not linked to the epic.'} Click Create demo data again to retry the link.`}</SectionMessage> : null}

@@ -37,7 +37,7 @@ workflow validator named **Same Page contradiction check**. Verified on a real s
 Remove the rule in the same workflow editor (Validate details > the rule > delete), then **Update workflow**.
 
 ## Try it without risk: watch only
-Before you let the gate stop anyone, open **Same Page > Show the ten rules** in the panel (as a Jira administrator) and choose **Watch only** under Gate mode. The validator then allows every transition and only counts the ones it would have refused; the overview shows "N would have been refused in watch-only mode". After a week or two, review those and the findings behind them, then choose **Enforce**. Enforce is the default.
+Before you let the gate stop anyone, open the **Rules and settings** tab in the Same Page panel (as a Jira administrator), then **Gate and pilot**, and choose **Watch only** under Gate mode. The validator then allows every transition and only counts the ones it would have refused; the overview shows "N would have been refused in watch-only mode". After a week or two, review those and the findings behind them, then choose **Enforce**. Enforce is the default.
 
 ## Emergencies: break glass
 A blocker can be a false alarm at the worst moment. A project administrator (or Jira administrator) can open the work item's Same Page panel, choose **Need to ship anyway? Break glass…**, write a reason (for example "Emergency hotfix for INC-991") and allow that one work item through the gate for 24 hours. The validator cannot ask for input while a transition runs, so this is done beforehand. The reason and who granted it are sealed in the audit chain, each use is sealed too, findings are still shown, and **Revoke it now** ends it.

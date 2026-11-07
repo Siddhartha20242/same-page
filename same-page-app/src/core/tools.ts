@@ -154,7 +154,7 @@ export async function impactSummary(kv: KV) {
 // canon_check: pages anywhere on the site that state a declared fact with a different value. Needs no Jira link.
 export async function canonCheckTool(kv: KV, deps: CanonDeps) {
   const facts = await loadCanon(kv);
-  if (!facts.length) return { status: 'no facts', note: 'No facts have been declared on this site. A Jira administrator can add them under Same Page > Show the ten rules > Facts everyone should agree on.', notice: NOTICE };
+  if (!facts.length) return { status: 'no facts', note: 'No facts have been declared on this site. A Jira administrator can add them in the Same Page panel under Rules and settings > Facts and team rules.', notice: NOTICE };
   const { results, stoppedEarly } = await checkCanon(facts, deps);
   return {
     status: 'checked', stoppedEarly,
