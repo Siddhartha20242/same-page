@@ -59,7 +59,7 @@ What happens to the app's own storage after you uninstall is set by Atlassian's 
 We have not obtained any security certification or compliance attestation for this app. Same Page relies on the security of the Atlassian platform it runs on.
 
 ## Contact
-Questions or deletion help: {{SUPPORT_CONTACT}}
+Questions or deletion help: 2282614@mbmc.edu.np
 
 We will update this page if the app's data handling changes.
 

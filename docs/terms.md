@@ -27,4 +27,4 @@ The app is provided as is and as available, without warranties of any kind. To t
 See the Privacy Policy for what the app reads and stores.
 
 ## Changes and contact
-We may change these terms or the app. Contact: {{SUPPORT_CONTACT}}
+We may change these terms or the app. Contact: 2282614@mbmc.edu.np
