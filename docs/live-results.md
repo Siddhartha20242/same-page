@@ -233,3 +233,7 @@ Production was redeployed (Forge deploy at 15:27 UTC) and the install link was c
 
 - **Same Page on-call check**, "Can I trust the runbook for MOBL-58 right now?": answered "Contradiction found" and quoted both pages' lines next to what Jira says. It added no "no contradiction found" caveat.
 - **Same Page release check**, "Is project MOBL ready to ship?": answered "not ready", named the blocked work item with both reasons, and listed 18 other items it could not verify. It took about 90 seconds.
+
+## 2026-11-07, tuning counts on the dev site
+
+On PAY-3 I dismissed the R4 finding with a reason. The finding count went from 3 to 2, the Audit trail added "#13 Dismissed, R4 Stale status claim, PAY-3" with the chain still intact, and the Rules tab showed "On this site: acted on 0, dismissed 1 (100% dismissed)" for R4. The "has been dismissed N of M times" hint needs at least 5 outcomes on one rule, so it was not reached here; that threshold is covered by the tests only, not by a live run.
