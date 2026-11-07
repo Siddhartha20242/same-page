@@ -10,7 +10,7 @@ import { ruleLabel } from './ruleCatalog';
 //   4. The error message is the evidence packet, in plain text, so the person sees WHY at the moment they click.
 // Validator time limits are unverified (community reports ~10 s), so the live check runs under a strict budget.
 
-export interface GateBlocker { id: string; ruleId: string; summary: string; pageId?: string; pageTitle?: string; docLine?: string; ticket?: string; /** Set when the person making the transition cannot read the page: its text is never put in the message. */ hidden?: boolean }
+export interface GateBlocker { id: string; ruleId: string; summary: string; pageId?: string; /** The second page of a two-page finding (R7); its title is in the summary, so the viewer must be able to read it too. */ otherPageId?: string; pageTitle?: string; docLine?: string; ticket?: string; /** Set when the person making the transition cannot read the page: its text is never put in the message. */ hidden?: boolean }
 /** Can the person making the transition read this page? Must be answered by the platform, not guessed. */
 export type CanView = (pageId: string) => Promise<boolean>;
 export interface GateSnapshot { at: string; blockers: GateBlocker[] }
@@ -45,9 +45,13 @@ export function snapshotFromModel(model: PanelModel, now: () => number = Date.no
   if (model.status === 'clean') return { at, blockers: [] };
   const blockers = model.findings
     .filter((f) => blockOn.includes(f.severity as Severity))
-    .map((f) => ({ id: f.id, ruleId: f.ruleId, summary: f.summary, pageId: f.pageId, pageTitle: f.pageTitle, docLine: f.evidence?.docLine, ticket: f.evidence?.ticket }));
+    .map((f) => ({ id: f.id, ruleId: f.ruleId, summary: f.summary, pageId: f.pageId, ...(f.otherPageId ? { otherPageId: f.otherPageId } : {}), pageTitle: f.pageTitle, docLine: f.evidence?.docLine, ticket: f.evidence?.ticket }));
   return { at, blockers };
 }
+
+/** What the panel may leave in the gate's cache. The panel's check runs with the viewer's permissions, so pages they cannot read are missing from it: a snapshot with
+ *  blockers is evidence and may be kept, but an all-clear from one person's view says nothing about the site, so it is never cached from the panel. */
+export const cacheableFromPanel = (snap: GateSnapshot | null): GateSnapshot | null => (snap && snap.blockers.length ? snap : null);
 
 /** The short id the Same Page panel shows for the same finding, so a refusal and the panel can be matched by eye. */
 export const evidenceId = (b: { id: string }) => String(b.id).slice(0, 8);
@@ -70,7 +74,7 @@ export function formatBlockMessage(issueKey: string, blockers: GateBlocker[]): s
 export async function redactFor(blockers: GateBlocker[], canView?: CanView): Promise<GateBlocker[]> {
   return Promise.all(blockers.map(async (b) => {
     let ok = false;
-    try { ok = Boolean(canView && b.pageId && (await canView(b.pageId))); } catch { ok = false; }
+    try { ok = Boolean(canView && b.pageId && (await canView(b.pageId)) && (!b.otherPageId || (await canView(b.otherPageId)))); } catch { ok = false; }
     return ok ? b : { ...b, hidden: true };
   }));
 }

@@ -103,8 +103,11 @@ export function listRules() {
 
 // finding_history: what happened to the contradictions on one work item, from the sealed handling timeline. Newest last.
 // It reports events and rules, never the account ids of the people involved.
-export async function findingHistory({ issueKey }: { issueKey?: string }, kv: KV) {
+// `canSee` answers whether the caller may read the work item (the app asks Jira as the caller). Without that, history for a key the caller cannot browse would leak the
+// reasons and task keys people typed, so a work item the caller cannot see answers exactly like one with no history.
+export async function findingHistory({ issueKey }: { issueKey?: string }, kv: KV, canSee?: (issueKey: string) => Promise<boolean>) {
   if (!KEY_RE.test(String(issueKey ?? ''))) return { error: 'issueKey must look like PAY-123', notice: NOTICE };
+  if (canSee && !(await canSee(String(issueKey)))) return { issueKey, status: 'none', events: [], note: 'No handling events are recorded for this work item on this site.', notice: NOTICE };
   const { length } = await headOf(kv);
   const events: { at: string; rule: string; event: string; note: string }[] = [];
   // The latest 400 entries, read 25 at a time in parallel instead of one after another.

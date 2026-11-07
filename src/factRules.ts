@@ -35,6 +35,9 @@ const stem = (w: string): string => {
   return s.length > 3 && s.endsWith('e') ? s.slice(0, -1) : s;
 };
 
+/** True for a word the matcher reads as "expire" (expiry, timeout, ttl, lifetime, valid, lasts, lives...). The site-wide search leaves these out of its keyword list. */
+export const isExpiryWord = (w: string): boolean => /^(expir|valid)\w*$/.test(w) || stem(w) === stem('expire');
+
 const wordsOf = (s: string): string[] => (s.toLowerCase().match(/[a-z][a-z0-9]*/g) ?? []);
 
 // The words that name WHAT a number is about: the clause before it, back to the nearest boundary, at most 8 words.

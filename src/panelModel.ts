@@ -92,7 +92,7 @@ export async function buildPanelModel(issueKey: string, deps: PanelDeps, { llm }
     const other = f.evidence.other;
     view.push({
       id: fingerprint(f), ruleId: f.ruleId, severity: f.severity, summary: f.summary, why: f.why, foundBecause: f.foundBecause,
-      pageId: f.pageId, pageTitle: f.pageTitle,
+      pageId: f.pageId, pageTitle: f.pageTitle, ...(other?.pageId ? { otherPageId: String(other.pageId) } : {}),
       evidence: { docLine: f.evidence.page?.snippet, docHighlight, moreStale: f.evidence.page?.moreStale, sourceLabel: other ? 'Other page says' : spec ? 'Spec says' : 'Jira says', docModifiedAt: f.evidence.page?.modifiedAt, ticket: f.evidence.fact ? `${issueKey} says: ${f.evidence.fact.ticketLine.slice(0, 200)}` : other ? `"${other.pageTitle ?? 'another page'}" says: ${other.snippet}` : f.evidence.cited ? `${f.evidence.cited.key} is ${f.evidence.cited.status} in Jira` : spec ? `The API spec "${spec.title ?? 'spec'}" ${spec.detail}` : ticketLine(issueKey, f.evidence.workItem), ticketChangedAt: f.evidence.workItem?.statusChangedAt, ticketChangedBy: f.evidence.workItem?.statusChangedBy ?? null },
       suggestion,
     });

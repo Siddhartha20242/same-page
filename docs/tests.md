@@ -1,6 +1,6 @@
 # What the tests cover
 
-`npm test` runs 342 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
+`npm test` runs 348 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|
@@ -33,4 +33,6 @@ Added on 2026-11-07: `rewording.test.ts` (42 reworded cases in `fixtures/rewordi
 Added later on 2026-11-07: `readfromticket.test.ts` (the values read from a ticket are shown in the ticket's own words, capped and de-duplicated; the receipt uses an injectable clock) and two receipt tests in `tools.test.ts` (a receipt names the evidence ids and never claims the docs are correct).
 
 Added after the code review on 2026-11-07: `reviewfixes.test.ts` (equal values in different units do not differ by floating-point error; a dated log line is skipped by the site-wide check even when its wording was rewritten; facts are extracted once per text; closing times are read only for closed cited tickets and the tickets are read in parallel; the Confluence byline applies the same "page edited after the ticket closed" test as the panel; `findingHistory` reads in parallel batches and names the Audit trail tab; the playground says which rules it cannot try).
+
+Added after the second code review on 2026-11-07: `reviewfixes2.test.ts` (finding history for a work item the caller cannot see answers like one with no history; the audit trail shows a viewer only the current work item; a two-page finding is shown only to someone who can read both pages; the panel never caches an all-clear; the site-wide search leaves out the matcher's own expiry words; a fact check reads pages together and once).
 

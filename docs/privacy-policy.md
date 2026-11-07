@@ -19,6 +19,7 @@ For one ambiguous line, the app can ask a model to reword that single line. This
 ## What is stored
 In Forge storage for your installation:
 - Dismiss and snooze records: an identifier for the finding, the reason a person typed, their account ID, and the date.
+- The Audit trail tab lists the latest entries for the work item you are viewing. A Jira administrator sees the latest entries across the site. The chain's length, head hash and counters are shown to everyone.
 - An audit chain: one entry for each fix a person applied and for each step in a finding's handling (first shown, dismissed with the reason, snoozed, review task created). Entries for a person's actions name that person's account ID. Nothing records who merely viewed a finding. Each entry holds the rule, the work item key, the page ID, a short snippet (up to 200 characters) of the old and new line (or of the reason or task key for a handling step) line, a timestamp, and hashes.
 - Facts a Jira administrator declared (a short subject and a value, for example "access token expiry" and "1 hour"), and nothing found by checking them. A site check reads Confluence pages as the person who runs it, shows the matching lines to that person, and stores nothing from them.
 - Custom rules a Jira administrator wrote: the rule name, one of three templates, a phrase and a status or label. Treat them as visible to every user of the app on your site.
@@ -31,7 +32,7 @@ In Forge storage for your installation:
 - Soft-gate markers: for a work item that was moved to Done with a blocking contradiction, a short marker (which findings the notice covered and when), so the same notice is not posted twice.
 - A weekly scan summary: per project, how many open epics had contradictions, which work item keys, and when the scan ran. No page text or titles.
 - Counters: how many findings were shown, applied, dismissed, snoozed, turned into review tasks, and how many transitions were blocked. The counters hold no page text, titles, or names.
-- A short cache for the pre-ship gate, per work item: the blocking finding, page title, and the flagged line.
+- A short cache for the pre-ship gate, per work item: the blocking finding, page title, and the flagged line. The panel keeps an entry only when it holds a blocker; an all-clear is never cached from a person's view, because that person may not be able to read every linked page.
 - A cache of AI-reworded lines, only if the optional AI path is on.
 - Demo data identifiers, only if you click Create demo data.
 

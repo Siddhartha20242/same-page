@@ -13,6 +13,8 @@ export interface PanelFinding {
   why: string;
   foundBecause?: string[];
   pageId?: string;
+  /** For a finding that compares two pages (R7): the other page, so the gate can check the viewer may read it too. */
+  otherPageId?: string;
   pageTitle?: string;
   evidence: { docLine?: string; docHighlight?: Span; moreStale?: number; sourceLabel?: string; docModifiedAt?: string; ticket?: string; ticketChangedAt?: string; ticketChangedBy?: string | null };
   suggestion?: Suggestion | null;

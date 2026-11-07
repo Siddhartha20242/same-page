@@ -10,14 +10,14 @@ import { filterModelByTriage, loadNoisyRules, loadOutcomes, recordOutcome, withN
 import { seedDemo, DEMO_CANON } from './core/seed';
 import { createSeedDeps } from './core/seedDeps';
 import { forgeLlm } from './llm';
-import { appendToStore, headOf, verifyStored } from './core/ledgerStore';
+import { appendToStore, headOf, recentForViewer, verifyStored } from './core/ledgerStore';
 import { bump, markSeen, readCounts } from './core/metrics';
 import { recordHandling } from './core/handling';
 import { addPin, PIN_PROPERTY, processPageUpdate } from './core/pin';
 import type { Pin } from './core/pin';
 import type { KV } from './core/ledgerStore';
 import type { LedgerEntry } from './core/ledger';
-import { decideTransition, gateKey, snapshotFromModel, applyGateMode, toGateMode, GATE_MODE_KEY } from './core/gate';
+import { decideTransition, gateKey, snapshotFromModel, cacheableFromPanel, applyGateMode, toGateMode, GATE_MODE_KEY } from './core/gate';
 import type { CanView } from './core/gate';
 import { runOverview } from './core/overview';
 import { runSoftGate, runChangeNudge } from './core/softGate';
@@ -122,7 +122,9 @@ resolver.define('getPanel', async ({ context }: Req) => {
       const f = [...(shown.findings ?? []), ...(shown.notes ?? [])].find((x) => x.id === id) as { ruleId?: string; pageId?: string } | undefined;
       if (f?.ruleId) await recordHandling(store as KV, { event: 'DISCOVERED', ruleId: f.ruleId, issueKey, pageId: f.pageId });
     }
-    const snap = snapshotFromModel(model);
+    // The panel runs with THIS viewer's permissions, so pages they cannot read are missing from the model. A snapshot with blockers is evidence and is kept for the gate; an
+    // all-clear is never cached from here, because the gate trusts a fresh all-clear without re-checking (the app-scoped soft gate warms that case).
+    const snap = cacheableFromPanel(snapshotFromModel(model));
     if (snap) { try { await store.set(gateKey(issueKey), snap); } catch { /* best effort */ } }
     // Marks a person made on these findings (real or false alarm), so the panel can show them. Counts only; findings are never changed by a mark.
     const lists = model as { findings?: { id: string; reviewed?: string }[]; notes?: { id: string; reviewed?: string }[] };
@@ -179,13 +181,15 @@ resolver.define('applyFix', async ({ payload, context }: Req<{ findingId?: strin
       ruleId: `${out.ruleId}:APPLIED`,
       evidence: { page: { id: out.pageId, line: out.line, snippet: `${out.before} -> ${out.after}`, modifiedAt: new Date().toISOString() }, workItem: { key: issueKey } },
     });
-    await api.asUser().requestJira(route`/rest/api/3/issue/${issueKey}/properties/same-page.lastReceipt`, {
+    const anchor = await api.asUser().requestJira(route`/rest/api/3/issue/${issueKey}/properties/same-page.lastReceipt`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ seq: entry.seq, entryHash: entry.entryHash, at: entry.at, ruleId: entry.ruleId }),
     });
+    const anchored = anchor.ok;                                                                       // a person without edit rights on the issue gets a 403 here
+    if (!anchored) console.log(`same-page ledger: the receipt was sealed but not anchored on ${issueKey} (HTTP ${anchor.status})`);
     try { await writePin(out.pageId, issueKey); }                                                    // pin guard: watch this page for a regression
     catch (e) { console.log(`same-page pin: ${e instanceof Error ? e.message : String(e)}`); }
-    return { ...out, receipt: entry };
+    return { ...out, receipt: entry, anchored };
   } catch (e) {
     console.log(`same-page ledger: could not seal the applied fix: ${e instanceof Error ? e.message : String(e)}`);
     return out;
@@ -193,14 +197,13 @@ resolver.define('applyFix', async ({ payload, context }: Req<{ findingId?: strin
 });
 
 // The audit trail the panel shows: chain status, length, and the last three entries. Verifying reads every entry once (paged), so it runs on request.
-resolver.define('ledgerView', async () => {
+resolver.define('ledgerView', async ({ context }: Req) => {
   const { length, head } = await headOf(store as KV);
   const verified = await verifyStored(store as KV);
-  const recent = [];
-  for (let i = Math.max(0, length - 8); i < length; i++) {
-    const e = (await kvs.get(`ledger:e:${i}`)) as LedgerEntry | undefined;
-    if (e) recent.push({ seq: e.seq, at: e.at, ruleId: e.ruleId, issueKey: e.issueKey, entryHash: e.entryHash.slice(0, 12), prevHash: e.prevHash.slice(0, 12) });
-  }
+  // Entries name work items, so a viewer sees the entries for the work item they are on; only a Jira administrator sees the latest site-wide. The chain's length, head and counts are hashes and totals.
+  const from = Math.max(0, length - 60);
+  const [admin, raw] = await Promise.all([isJiraAdmin(), Promise.all(Array.from({ length: length - from }, (_, k) => kvs.get(`ledger:e:${from + k}`)))]);
+  const recent = recentForViewer(raw as (LedgerEntry | undefined)[], { admin, current: issueKeyOf(context) }).map((e) => ({ seq: e.seq, at: e.at, ruleId: e.ruleId, issueKey: e.issueKey, entryHash: e.entryHash.slice(0, 12), prevHash: e.prevHash.slice(0, 12) }));
   const counts = await readCounts(store);
   return verified.ok
     ? { status: 'verified', length, head: head.slice(0, 12), recent, counts }
@@ -216,11 +219,9 @@ const isJiraAdmin = async (): Promise<boolean> => {
   } catch { return false; }
 };
 resolver.define('getRules', async () => {
-  const overrides = await loadSeverityOverrides(store);
-  const outcomes = await loadOutcomes(store);
-  const reviews = await loadReviewCounts(store);
-  const drafts = await loadDraftCounts(store);
-  return { canEdit: await isJiraAdmin(), gateMode: toGateMode(await store.get(GATE_MODE_KEY).catch(() => null)), canon: await loadCanon(store), templates: TEMPLATES, custom: (await loadCustomDefs(store)).map((c) => ({ ...c, draftHits: drafts[c.id] ?? 0 })), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0, markedReal: reviews[r.ruleId]?.real ?? 0, markedFalse: reviews[r.ruleId]?.false ?? 0, draftHits: drafts[r.ruleId] ?? 0, hint: tuningHint({ severity: (overrides[r.ruleId] ?? r.defaultSeverity) === 'block' ? 'block' : 'warn', real: reviews[r.ruleId]?.real ?? 0, falseAlarm: reviews[r.ruleId]?.false ?? 0, dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 }) })) };
+  // Independent reads, so they run together.
+  const [overrides, outcomes, reviews, drafts, canEdit, mode, canon, customDefs] = await Promise.all([loadSeverityOverrides(store), loadOutcomes(store), loadReviewCounts(store), loadDraftCounts(store), isJiraAdmin(), store.get(GATE_MODE_KEY).catch(() => null), loadCanon(store), loadCustomDefs(store)]);
+  return { canEdit, gateMode: toGateMode(mode), canon, templates: TEMPLATES, custom: customDefs.map((c) => ({ ...c, draftHits: drafts[c.id] ?? 0 })), rules: RULE_CATALOG.map((r) => ({ ...r, severity: overrides[r.ruleId] ?? r.defaultSeverity, changed: Boolean(overrides[r.ruleId]), dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0, markedReal: reviews[r.ruleId]?.real ?? 0, markedFalse: reviews[r.ruleId]?.false ?? 0, draftHits: drafts[r.ruleId] ?? 0, hint: tuningHint({ severity: (overrides[r.ruleId] ?? r.defaultSeverity) === 'block' ? 'block' : 'warn', real: reviews[r.ruleId]?.real ?? 0, falseAlarm: reviews[r.ruleId]?.false ?? 0, dismissed: outcomes[r.ruleId]?.dismissed ?? 0, acted: outcomes[r.ruleId]?.acted ?? 0 }) })) };
 });
 resolver.define('setRuleSeverity', async ({ payload }: Req<{ ruleId?: string; severity?: string }>) => {
   if (!(await isJiraAdmin())) return { ok: false, reason: 'Only a Jira administrator can change a rule severity.' };

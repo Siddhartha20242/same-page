@@ -1,4 +1,4 @@
-import { canonFromSentence, disagreements } from './factRules';
+import { canonFromSentence, disagreements, isExpiryWord } from './factRules';
 import type { Disagreement } from './factRules';
 
 // Fact registry. A Jira administrator declares a few facts the whole site should agree on ("access token expiry" is "1 hour"), and Same Page
@@ -58,17 +58,18 @@ export interface PageDisagreement { pageId: string; title: string; found: Disagr
 export interface CanonResult { id: string; subject: string; value: string; pagesRead: number; agreeing: number; pages: PageDisagreement[]; note?: string }
 
 // Words the matcher treats as one idea ("expiry", "expires", "lasts", "timeout"...) are left out of the search, so a page that says "lasts" is still found.
-// The search narrows by the nouns; the matching itself (same value kind, same unit, two shared subject words) decides.
-const SAME_IDEA = /^(expir\w*|ttl|timeouts?|lifetime|valid\w*|lasts?)$/;
+// The search narrows by the nouns; the matching itself (same value kind, same unit, two shared subject words) decides. The word list is the matcher's own (isExpiryWord).
 export const searchWords = (subject: string): string[] => {
   const all = [...new Set(subject.toLowerCase().match(/[a-z0-9]{4,}/g) ?? [])];
-  const nouns = all.filter((w) => !SAME_IDEA.test(w));
+  const nouns = all.filter((w) => !isExpiryWord(w));
   return (nouns.length ? nouns : all).slice(0, 3);
 };
 
 /** Checks each declared fact against the pages Confluence returns for its words. At most 8 pages per fact, 5 facts per run, and a time limit. */
 export async function checkCanon(facts: CanonDef[], deps: CanonDeps, { maxMs = 20000, now = Date.now }: { maxMs?: number; now?: () => number } = {}): Promise<{ results: CanonResult[]; stoppedEarly: boolean }> {
   const started = now();
+  const pageOf = new Map<string, Promise<{ title: string; text: string } | null>>();     // a page found by two facts is read once
+  const getPage = (id: string) => { if (!pageOf.has(id)) pageOf.set(id, Promise.resolve(deps.getPage(id)).catch(() => null)); return pageOf.get(id)!; };
   const results: CanonResult[] = [];
   let stoppedEarly = false;
   for (const f of facts.slice(0, 5)) {
@@ -78,9 +79,10 @@ export async function checkCanon(facts: CanonDef[], deps: CanonDeps, { maxMs = 2
     const hits = (await deps.search(searchWords(f.subject)).catch(() => [])).slice(0, 8);
     const pages: PageDisagreement[] = [];
     let agreeing = 0; let read = 0;
-    for (const h of hits) {
-      if (now() - started > maxMs) { stoppedEarly = true; break; }
-      const p = await deps.getPage(h.id).catch(() => null);
+    if (now() - started > maxMs) { stoppedEarly = true; break; }
+    const bodies = await Promise.all(hits.map((h) => getPage(h.id)));                  // the (at most 8) pages of one fact are read together
+    for (const [i, h] of hits.entries()) {
+      const p = bodies[i];
       if (!p) continue;
       read++;
       const d = disagreements(canon, p.text);

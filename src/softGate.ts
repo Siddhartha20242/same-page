@@ -50,7 +50,7 @@ export async function runSoftGate(event: SoftGateEvent, { store, blockers, postC
 // ---- change nudge: catch a contradiction at the moment it is made ----
 // When someone edits a work item's summary or description, check it against its linked docs right then. If the edit leaves a contradiction
 // (any severity above a note), leave ONE notice comment naming the rules and a count, never page titles or text. It never blocks and it stays
-// quiet when nothing contradicts, when the item is already Done (the soft gate covers that), and when the same set was already noted.
+// quiet when nothing contradicts, when the edit is the move to Done itself (the soft gate covers that), and when the same set was already noted. An edit to an item that is already in Done is still noted: a contradiction introduced there is news.
 export const nudgeKey = (issueKey: string) => `nudge:${issueKey}`;
 
 export function editedText(event: SoftGateEvent): boolean {

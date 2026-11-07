@@ -55,3 +55,10 @@ export async function verifyAnchorStored(kv: KV, record: AnchorRecord): Promise<
   const at = record.ledgerLength === 0 ? GENESIS : (await kv.get(entryKey(record.ledgerLength - 1))).entryHash;
   return at === record.ledgerHead ? { ok: true } : { ok: false, reason: 'history was rewritten since the anchor' };
 }
+
+/** The latest ledger entries a viewer may see, oldest first. Entries name work items, so a Jira administrator sees the latest site-wide and anyone else only the
+ *  entries for the work item they are looking at. */
+export function recentForViewer<T extends { issueKey?: string | null }>(entries: (T | undefined | null)[], { admin, current, max = 8 }: { admin: boolean; current?: string; max?: number }): T[] {
+  return entries.filter((e): e is T => Boolean(e) && (admin || (current !== undefined && e!.issueKey === current))).slice(-max);
+}
+

@@ -40,9 +40,17 @@ export const projectBrief = async (payload?: { projectKey?: string }) => {
 export const listRules = async () => rules();
 
 const kv = { get: (k: string) => kvs.get(k), set: (k: string, v: unknown) => kvs.set(k, v) };
+// Reads the work item as the caller: Jira's own permissions decide whether the caller may see its history.
+const canSee = async (issueKey: string): Promise<boolean> => {
+  try { await baseDeps().loadIssue(issueKey); return true; } catch (e) {
+    const status = (e as { status?: number } | null)?.status;
+    if (status === 401 || status === 403 || status === 404) return false;
+    throw e;
+  }
+};
 export const findingHistory = async (payload?: { issueKey?: string }) => {
   console.log(`same-page tool finding-history ${String(payload?.issueKey ?? '').slice(0, 40)}`);
-  return history({ issueKey: payload?.issueKey }, kv);
+  return history({ issueKey: payload?.issueKey }, kv, canSee);
 };
 export const ruleHealth = async () => { console.log('same-page tool rule-health'); return health(kv); };
 export const impactSummary = async () => { console.log('same-page tool impact-summary'); return impact(kv); };
