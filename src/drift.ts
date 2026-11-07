@@ -31,14 +31,14 @@ export async function runDriftScan(deps: DriftDeps, store: DriftStore, now: () =
     if (r.verdict === 'Blocked' || r.verdict === 'Warning') {
       p.withContradictions++;
       p.keys.push(r.key);
-      if (!previous?.projects[projectOf(r.key)]?.keys.includes(r.key)) p.newSincePrevious++;
+      if (!previous?.projects?.[projectOf(r.key)]?.keys?.includes(r.key)) p.newSincePrevious++;
     }
   }
   // Resolved: contradicting at the last scan, and now checked without one. An item that could not be checked this time is not counted as resolved.
   const checkedNow = new Set(rows.filter((r) => r.verdict !== 'Not checked').map((r) => r.key));
   for (const [proj, prev] of Object.entries(previous?.projects ?? {})) {
     const p = projects[proj];
-    if (p) p.resolvedSincePrevious = prev.keys.filter((k) => checkedNow.has(k) && !p.keys.includes(k)).length;
+    if (p) p.resolvedSincePrevious = (prev?.keys ?? []).filter((k) => checkedNow.has(k) && !p.keys.includes(k)).length;
   }
   const snap: DriftSnapshot = { hadPrevious: Boolean(previous), at: new Date(now()).toISOString(), projects, scanned: rows.length, notChecked: rows.filter((r) => r.verdict === 'Not checked').length };
   await store.set(DRIFT_KEY, snap);

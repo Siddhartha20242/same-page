@@ -15,11 +15,19 @@ export interface AnchorRecord { ledgerLength: number; ledgerHead: string }
 const HEAD = 'ledger:head';
 const entryKey = (seq: number) => `ledger:e:${seq}`;
 
+// Two requests can append at once. Forge storage has no conditional write on plain keys, so each writer reads its entry back: if a concurrent writer took the same
+// sequence number, the writer whose entry was overwritten appends again after it. The chain always stays valid. A narrow window remains (an overwrite landing after the
+// read-back), in which one event can be lost; docs/limits.md says so.
+const APPEND_TRIES = 3;
 export async function appendToStore(kv: KV, finding: Pick<Finding, 'ruleId' | 'evidence'>, now?: () => string): Promise<LedgerEntry> {
-  const head: LedgerHead = (await kv.get(HEAD)) ?? { length: 0, head: GENESIS };
-  const entry = nextEntry({ seq: head.length, prevHash: head.head }, finding, now);
-  await kv.set(entryKey(entry.seq), entry);
-  await kv.set(HEAD, { length: entry.seq + 1, head: entry.entryHash });
+  let entry!: LedgerEntry;
+  for (let attempt = 0; attempt < APPEND_TRIES; attempt++) {
+    const head: LedgerHead = (await kv.get(HEAD)) ?? { length: 0, head: GENESIS };
+    entry = nextEntry({ seq: head.length, prevHash: head.head }, finding, now);
+    await kv.set(entryKey(entry.seq), entry);
+    await kv.set(HEAD, { length: entry.seq + 1, head: entry.entryHash });
+    if ((await kv.get(entryKey(entry.seq)))?.entryHash === entry.entryHash) return entry;
+  }
   return entry;
 }
 
@@ -30,8 +38,7 @@ export async function verifyStored(kv: KV, { pageSize = 100 }: { pageSize?: numb
   const { length, head } = await headOf(kv);
   let prevHash = GENESIS;
   for (let from = 0; from < length; from += pageSize) {
-    const page: LedgerEntry[] = [];
-    for (let seq = from; seq < Math.min(length, from + pageSize); seq++) page.push(await kv.get(entryKey(seq)));
+    const page: LedgerEntry[] = await Promise.all(Array.from({ length: Math.min(length, from + pageSize) - from }, (_, k) => kv.get(entryKey(from + k))));      // a page is read together
     if (page.some((e) => !e)) return { ok: false, reason: 'an entry is missing' };
     const v = verifyChain(page, { startSeq: from, startPrevHash: prevHash });
     if (!v.ok) return v;

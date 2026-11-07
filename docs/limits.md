@@ -92,6 +92,9 @@ We have not load tested the app. The limits above are budgets chosen to stay ins
 | Link a page | One page address at a time, on the same site only, and only if the person can read it. |
 | Number words | Fixed phrases and number words right before a unit ("thirty minutes", "half an hour", "1h30m", "an hour and a half"). Looser wording ("a short while") is not read. |
 
+## The audit log under simultaneous writes
+Forge storage cannot do a conditional write on a plain key, so the ledger cannot make an append atomic. Each writer reads its entry back and appends again if a concurrent writer took the same sequence number. The chain stays valid, but if an overwrite lands after the read-back one of the two events is lost, and nothing reports it. Making it airtight needs declared storage entities (a manifest change); that is not done.
+
 ## Wording the number and date rules do and do not read (2026-11-07)
 Read: "2 hours", "120 mins", "2h", "7200 seconds", "two hrs", "half an hour", "1h30m", "an hour", "25 megabytes", and the verbs "expires", "times out", "timed out", "valid for", "lasts" and "lives for". A value that is the same in other words never fires.
 Not read: vague amounts ("a couple of hours"), and a statement about a different thing even when the number is the same ("signed out after 45 minutes of inactivity" against a "session timeout"). The rules also need two shared subject words, so a page that names only "the token" does not match a ticket about the "auth token expiry". These are misses, not errors: the rules stay silent rather than guess, and no model is used to widen them because that would cost money per call and let a misread number become a "proven" finding.

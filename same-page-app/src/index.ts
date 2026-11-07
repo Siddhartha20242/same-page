@@ -117,11 +117,11 @@ resolver.define('getPanel', async ({ context }: Req) => {
     await recordDrafted(store, sev.drafted ?? []);          // what a draft rule would have raised, counted once; nothing is shown for it
     const model = filterModelByTriage(sev as never, await loadTriage(issueKey, store)) as never;
     const shown = model as { findings?: { id: string }[]; notes?: { id: string }[] };
-    const firsts = await markSeen(store, [...(shown.findings ?? []), ...(shown.notes ?? [])].map((f) => f.id));
-    for (const id of firsts) {
-      const f = [...(shown.findings ?? []), ...(shown.notes ?? [])].find((x) => x.id === id) as { ruleId?: string; pageId?: string } | undefined;
-      if (f?.ruleId) await recordHandling(store as KV, { event: 'DISCOVERED', ruleId: f.ruleId, issueKey, pageId: f.pageId });
-    }
+    const present = [...(shown.findings ?? []), ...(shown.notes ?? [])] as { id: string; ruleId?: string; pageId?: string }[];
+    await markSeen(store, present.map((f) => f.id), async (id) => {         // the first-seen event is written before the finding counts as seen
+      const f = present.find((x) => x.id === id);
+      return f?.ruleId ? recordHandling(store as KV, { event: 'DISCOVERED', ruleId: f.ruleId, issueKey, pageId: f.pageId }) : true;
+    });
     // The panel runs with THIS viewer's permissions, so pages they cannot read are missing from the model. A snapshot with blockers is evidence and is kept for the gate; an
     // all-clear is never cached from here, because the gate trusts a fresh all-clear without re-checking (the app-scoped soft gate warms that case).
     const snap = cacheableFromPanel(snapshotFromModel(model));

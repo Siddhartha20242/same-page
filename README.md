@@ -169,7 +169,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 - Team rules are plain-text matches from three templates, with no pattern language. They run everywhere except the Confluence byline. A phrase containing history wording (for example "legacy") is skipped on that line, like the built-in rules.
 - R5 reads OpenAPI 3 in JSON or YAML held in a linked Confluence page, in a code block or plain text. It does not read attachments. A spec that does not declare its base path (a `servers` entry) cannot be matched to a documented path that includes it, so R5 stays quiet rather than guess.
 - The gate works only in company-managed projects, because Jira does not offer validators in team-managed ones.
-- The audit log is tamper-evident. It detects rewritten history, but it cannot stop someone with storage write access from rewriting the whole chain.
+- The audit log is tamper-evident. It detects rewritten history, but it cannot stop someone with storage write access from rewriting the whole chain. Forge storage has no conditional write on plain keys, so two requests that append at the same instant are handled by reading the entry back and retrying. That keeps the chain valid, but in a very narrow window one of the two events can still be lost.
 - We have not tried third-party MCP clients. The Rovo agent path is verified. `jira:workflowValidator` and `rovo:mcp` are Preview modules, and without the validator the panel and review tasks still work ([docs/gate-setup.md](docs/gate-setup.md)).
 - If the optional AI path is off or its daily cap is reached, an ambiguous line gets no automatic edit. The panel says so and offers a review task instead. Detection is unaffected.
 - A rule that people mostly dismiss (at least 5 outcomes, half or more dismissed) adds one calm line to the panel. It never hides findings, changes severity, or suppresses a blocker.
@@ -188,7 +188,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      348 tests, the 30-pair fixture set and the reworded-case set
+test/  fixtures/      355 tests, the 30-pair fixture set and the reworded-case set
 scripts/              live gate check, receipt verifier, payload capture, public-data probe
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -199,7 +199,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 348 tests, all passing (see docs/tests.md)
+npm test            # 355 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

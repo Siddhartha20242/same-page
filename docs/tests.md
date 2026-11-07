@@ -1,6 +1,6 @@
 # What the tests cover
 
-`npm test` runs 348 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
+`npm test` runs 355 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|
@@ -35,4 +35,6 @@ Added later on 2026-11-07: `readfromticket.test.ts` (the values read from a tick
 Added after the code review on 2026-11-07: `reviewfixes.test.ts` (equal values in different units do not differ by floating-point error; a dated log line is skipped by the site-wide check even when its wording was rewritten; facts are extracted once per text; closing times are read only for closed cited tickets and the tickets are read in parallel; the Confluence byline applies the same "page edited after the ticket closed" test as the panel; `findingHistory` reads in parallel batches and names the Audit trail tab; the playground says which rules it cannot try).
 
 Added after the second code review on 2026-11-07: `reviewfixes2.test.ts` (finding history for a work item the caller cannot see answers like one with no history; the audit trail shows a viewer only the current work item; a two-page finding is shown only to someone who can read both pages; the panel never caches an all-clear; the site-wide search leaves out the matcher's own expiry words; a fact check reads pages together and once).
+
+Added after the third code review on 2026-11-07: `reviewfixes3.test.ts` (a fully dismissed result keeps what was read and which rules were skipped; the noisy-rule judgement from counters matches the one from a list; two and three simultaneous ledger appends keep a valid chain without overwriting each other, and a page of entries is verified in parallel; a drift scan survives a malformed previous snapshot; a finding whose first-seen event failed is retried; two people dismissing different findings at the same moment both stick). `breakglass.test.ts` was also changed: it revoked with the real clock but checked with a fake one, so it passed or failed depending on the hour of the day.
 

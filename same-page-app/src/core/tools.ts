@@ -5,7 +5,7 @@ import { runOverview } from './overview';
 import type { OverviewDeps } from './overview';
 import { RULE_CATALOG, loadSeverityOverrides } from './ruleCatalog';
 import { loadCustomDefs } from './customRules';
-import { loadOutcomes, ruleNoise } from './triage';
+import { loadOutcomes, ruleNoiseFromCounts } from './triage';
 import { headOf } from './ledgerStore';
 import type { KV } from './ledgerStore';
 import { loadImpact } from './impact';
@@ -132,11 +132,7 @@ export async function ruleHealth(kv: KV) {
   const overrides = await loadSeverityOverrides(kv);
   const outcomes = await loadOutcomes(kv);
   const reviews = await loadReviewCounts(kv);
-  const history = Object.entries(outcomes).flatMap(([ruleId, c]) => [
-    ...Array.from({ length: Math.min(1000, Number(c?.dismissed) || 0) }, () => ({ ruleId, outcome: 'dismissed' as const })),
-    ...Array.from({ length: Math.min(1000, Number(c?.acted) || 0) }, () => ({ ruleId, outcome: 'acted' as const })),
-  ]);
-  const noisy = new Set(ruleNoise(history).filter((r) => r.noisy).map((r) => r.ruleId));
+  const noisy = new Set(ruleNoiseFromCounts(outcomes).filter((r) => r.noisy).map((r) => r.ruleId));
   const row = (ruleId: string, name: string, defaultSeverity: string) => {
     const o = outcomes[ruleId] ?? { dismissed: 0, acted: 0 };
     const total = (o.dismissed || 0) + (o.acted || 0);

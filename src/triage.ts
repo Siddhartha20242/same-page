@@ -48,7 +48,8 @@ export function filterModelByTriage<M extends TriageModel>(model: M, records: Tr
   const findings = (model.findings ?? []).filter(open);
   const notes = (model.notes ?? []).filter(open);
   const hidden = (model.findings?.length ?? 0) + (model.notes?.length ?? 0) - findings.length - notes.length;
-  if (!findings.length && !notes.length) return { issueKey: model.issueKey, status: 'clean', pagesChecked: model.pagesChecked, hidden } as M & { hidden: number };
+  // Everything is hidden: the result reads as clean, but what was read and which rules were skipped still belong to it, so only the finding fields are dropped.
+  if (!findings.length && !notes.length) { const { findings: _f, notes: _n, verdict: _v, ...rest } = model; return { ...rest, status: 'clean', hidden } as unknown as M & { hidden: number }; }
   return { ...model, findings, notes, status: findings.length ? 'findings' : 'notes', verdict: findings.some((f) => f.severity === 'block') ? 'BLOCKED' : findings.length ? 'WARN' : 'PASS', hidden };
 }
 
@@ -102,15 +103,21 @@ export async function recordOutcome(store: OutcomeStore, ruleId: string | undefi
   } catch { /* never break the caller */ }
 }
 
+const clampCount = (n: unknown) => Math.min(MAX_COUNT, Math.max(0, Math.floor(Number(n) || 0)));
+
+/** The same judgement as ruleNoise, from the stored counters directly. Building one object per outcome just to count them ran on every panel load. */
+export function ruleNoiseFromCounts(all: Outcomes, { minSamples = 5, threshold = 0.5 }: { minSamples?: number; threshold?: number } = {}) {
+  return Object.entries(all).slice(0, 50).flatMap(([ruleId, c]) => {
+    const dismissed = clampCount(c?.dismissed);
+    const total = dismissed + clampCount(c?.acted);
+    return total ? [{ ruleId, samples: total, rate: dismissed / total, noisy: total >= minSamples && dismissed / total >= threshold }] : [];
+  });
+}
+
 /** Rules the existing detector calls noisy (ruleNoise defaults), with the wording the panel shows. Empty when there is no data. */
 export async function loadNoisyRules(store: OutcomeStore): Promise<NoisyRule[]> {
   try {
-    const all = await loadOutcomes(store);
-    const history = Object.entries(all).slice(0, 50).flatMap(([ruleId, c]) => [
-      ...Array.from({ length: Math.min(MAX_COUNT, Math.max(0, Math.floor(Number(c?.dismissed) || 0))) }, () => ({ ruleId, outcome: 'dismissed' as const })),
-      ...Array.from({ length: Math.min(MAX_COUNT, Math.max(0, Math.floor(Number(c?.acted) || 0))) }, () => ({ ruleId, outcome: 'acted' as const })),
-    ]);
-    return ruleNoise(history).filter((r) => r.noisy).map((r) => {
+    return ruleNoiseFromCounts(await loadOutcomes(store)).filter((r) => r.noisy).map((r) => {
       const dismissed = Math.round(r.rate * r.samples);
       return { ruleId: r.ruleId, dismissed, total: r.samples, message: `Rule ${r.ruleId.split('_')[0]} has been dismissed ${dismissed} of ${r.samples} times on this site. If it is usually wrong for your team, a site admin can change its severity under Rules.` };
     });

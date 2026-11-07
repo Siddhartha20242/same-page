@@ -25,7 +25,7 @@ test('an override lasts 24 hours for that work item only, expires, and can be re
   assert.equal((await activeOverride(s, 'PAY-1', () => t + 3600_000))?.reason, 'Emergency hotfix for INC-991');
   assert.equal(await activeOverride(s, 'PAY-2', () => t + 3600_000), null);                 // another work item: not covered
   assert.equal(await activeOverride(s, 'PAY-1', () => t + 25 * 3600_000), null);            // expired
-  await revokeOverride(s, 'PAY-1');
+  await revokeOverride(s, 'PAY-1', () => t + 1800_000);                                     // the same fake clock: a revoke stamped with the real time made this test pass or fail by the hour of the day
   assert.equal(await activeOverride(s, 'PAY-1', () => t + 3600_000), null);
   assert.equal((await grantOverride(s, { issueKey: 'PAY-1', reason: 'no' })).ok, false);
 });

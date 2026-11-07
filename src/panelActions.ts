@@ -64,6 +64,9 @@ export async function triageFinding(
     next = (kind === 'snooze' ? snoozeById(records, findingId as string, until as string, by) : dismissById(records, findingId as string, reason, by));
   } catch (e) { return { ok: false, reason: e instanceof Error ? e.message : String(e) }; }
   await store.set(key(issueKey), next);
+  // Another person may have written this work item's records at the same moment, and the later write would drop this one. Read it back and, if it is missing, add it again.
+  const back = ((await store.get(key(issueKey))) ?? {}) as TriageRecords;
+  if (!back[findingId as string]) await store.set(key(issueKey), { ...back, [findingId as string]: next[findingId as string]! });
   if (kind === 'dismiss') await recordOutcome(store, target.ruleId, 'dismissed');       // feeds the calm "noisy rule" line; never hides anything
   return { ok: true, ruleId: target.ruleId, pageId: target.pageId } as ActionResult;
 }
