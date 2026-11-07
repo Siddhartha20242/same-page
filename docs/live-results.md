@@ -226,3 +226,10 @@ Still unseen on a real site: the tuning suggestions.
 ## 2026-11-07: production 3.14.0 (demo site, MOBL-58)
 After the production deploy with the two code-review rounds, the panel on MOBL-58 showed "2 contradictions found" with the R1 finding (the runbook's `/api/v1/charge` line beside "MOBL-58 targets v2"), and the Audit trail tab loaded with "Chain intact". It read "Nothing has been sealed yet" next to a counter of 2 findings shown: those findings were counted before handling events were recorded in the chain, so no event exists for them. Not checked on production: the as-non-administrator view of the Audit trail and the findings history tool for an issue the caller cannot see (one account; both are covered by offline tests).
 
+
+## 2026-11-07, production redeploy (round 3 fixes)
+
+Production was redeployed (Forge deploy at 15:27 UTC) and the install link was checked afterwards: it is unchanged and still follows the latest production deploy. On the demo site, work item MOBL-58:
+
+- **Same Page on-call check**, "Can I trust the runbook for MOBL-58 right now?": answered "Contradiction found" and quoted both pages' lines next to what Jira says. It added no "no contradiction found" caveat.
+- **Same Page release check**, "Is project MOBL ready to ship?": answered "not ready", named the blocked work item with both reasons, and listed 18 other items it could not verify. It took about 90 seconds.
