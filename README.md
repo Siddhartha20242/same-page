@@ -206,3 +206,7 @@ npm run typecheck
 Requires Node 24. To verify an Apply receipt offline: `node scripts/verify-receipt.mjs`.
 
 To deploy your own copy, install the Forge CLI (Node 24.22 or later), then from `same-page-app/` run `forge register`, `forge deploy`, and `forge install` for Jira and for Confluence.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
