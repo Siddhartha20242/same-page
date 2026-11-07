@@ -157,6 +157,25 @@ test('a 429 stops the batch for a later retry instead of failing the release che
   assert.equal(out.job.pending[0], 'P-2', 'the rate-limited issue is retried, not skipped');
 });
 
+test('checking a few issues at once covers more of a release in the same time, in the original order', async () => {
+  const { issues, deps } = release(24);
+  const slow = { ...deps, getTransition: async () => { await new Promise((r) => setTimeout(r, 15)); return { at: NEW, by: 'd' }; } };
+  const keys = issues.map((i) => i.key);
+  const one = await runBatch(createJob(keys), slow, { maxMs: 120, maxRequests: 10000, concurrency: 1 });
+  const three = await runBatch(createJob(keys), slow, { maxMs: 120, maxRequests: 10000, concurrency: 3 });
+  assert.ok(three.job.items.length > one.job.items.length, `${three.job.items.length} checked at 3 at a time, ${one.job.items.length} one at a time`);
+  assert.deepEqual(three.job.items.map((i) => i.key), keys.slice(0, three.job.items.length), 'results stay in the order the keys were given');
+});
+
+test('a 429 inside a group keeps the limited issue and everything after it for the next batch', async () => {
+  const { issues, deps } = release(6);
+  const limited = { ...deps, loadIssue: async (k: string) => { if (k === 'P-1') throw Object.assign(new Error('rate limited'), { status: 429, retryAfter: 12 }); return issues.find((i) => i.key === k) as Issue; } };
+  const out = await runBatch(createJob(issues.map((i) => i.key)), limited, { maxRequests: 1000, concurrency: 3 });
+  assert.equal(out.job.retryAfterSec, 12);
+  assert.deepEqual(out.job.items.map((i) => i.key), ['P-0']);
+  assert.deepEqual(out.job.pending, ['P-1', 'P-2', 'P-3', 'P-4', 'P-5'], 'nothing is skipped or checked twice');
+});
+
 test('an unexpected error on one issue marks it unchecked and the run continues', async () => {
   const { issues, deps } = release(3);
   const bad = { ...deps, getTransition: async () => { throw new Error('boom'); } };

@@ -17,9 +17,12 @@ export const worstCaseRequests = (maxPages = 5): number => 1 /* load issue */ + 
 
 export const createJob = (keys: string[]): Job => ({ pending: [...keys], items: [], batches: 0, retryAfterSec: null });
 
+/** Issues checked at the same time. Small, so the 100-requests-per-minute egress limit is still respected by the budget above. */
+export const CONCURRENCY = 3;
+
 const COUNTED: Record<string, number> = { loadIssue: 1, getTransition: 1, getRemoteLinkIds: 1, searchPages: 1, getPageBody: 2 };   // weight = HTTP requests per call
 
-export async function runBatch(job: Job, deps: JobDeps, { maxMs = 45000, maxRequests = 90, now = Date.now }: { maxMs?: number; maxRequests?: number; now?: () => number } = {}): Promise<{ job: Job; done: boolean; requests: number }> {
+export async function runBatch(job: Job, deps: JobDeps, { maxMs = 45000, maxRequests = 90, now = Date.now, concurrency = CONCURRENCY }: { maxMs?: number; maxRequests?: number; now?: () => number; concurrency?: number } = {}): Promise<{ job: Job; done: boolean; requests: number }> {
   const start = now();
   let requests = 0;
   // Wrapping arbitrary dependency functions by name is dynamic, so this one record is `any` at the wrapper boundary.
@@ -32,17 +35,27 @@ export async function runBatch(job: Job, deps: JobDeps, { maxMs = 45000, maxRequ
 
   const next: Job = { ...job, pending: [...job.pending], items: [...job.items], batches: job.batches + 1, retryAfterSec: null };
   const worst = worstCaseRequests(deps.maxPages ?? 5);
+  // Issues are checked a few at a time. Each one in a wave is admitted only if the request budget still covers its worst case, so a wave
+  // can never spend more than the limit. A 429 keeps the rate-limited issue and every issue after it in the wave pending for the next
+  // batch, and results are stored in the original order.
   while (next.pending.length) {
-    if (now() - start >= maxMs || requests + worst > maxRequests) break;
-    const key = next.pending[0] as string;
-    try {
-      next.items.push(await checkIssue(await counted.loadIssue(key), counted as JobDeps));
-    } catch (err) {
-      const e = err as HttpError | null;
-      if (e?.status === 429) { next.retryAfterSec = e.retryAfter ?? 60; break; }       // retry this issue in the next batch
-      next.items.push({ key, status: 'unchecked', reason: `could not be checked (${e?.message ?? 'error'})` });
+    if (now() - start >= maxMs) break;
+    const room = Math.floor((maxRequests - requests) / worst);
+    const size = Math.min(Math.max(1, concurrency), room, next.pending.length);
+    if (size < 1) break;
+    const wave = next.pending.slice(0, size);
+    const settled = await Promise.allSettled(wave.map(async (key) => checkIssue(await counted.loadIssue(key), counted as JobDeps)));
+    let done = 0, limited = false;
+    for (let i = 0; i < wave.length; i++) {
+      const r = settled[i] as PromiseSettledResult<ItemResult>;
+      if (r.status === 'fulfilled') { next.items.push(r.value); done++; continue; }
+      const e = r.reason as HttpError | null;
+      if (e?.status === 429) { next.retryAfterSec = e.retryAfter ?? 60; limited = true; break; }
+      next.items.push({ key: wave[i] as string, status: 'unchecked', reason: `could not be checked (${e?.message ?? 'error'})` });
+      done++;
     }
-    next.pending.shift();
+    next.pending.splice(0, done);
+    if (limited) break;
   }
   return { job: next, done: next.pending.length === 0, requests };
 }
