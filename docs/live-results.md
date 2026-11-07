@@ -223,3 +223,6 @@ Still unseen on a real site: the tuning suggestions.
 - **The invented-link check.** The second copy of the general agent, the one that invented `.../pages/12345` and `.../pages/67890` earlier, was asked "Do the docs for MOBL-58 contradict the ticket?" It named both pages by title and wrote no link. Its answer also carried the receipt line, "Same Page checked 2 linked pages for MOBL-58 and found these 2 contradictions (evidence #88e18eb9, …", the first time the receipt has been seen in a Rovo answer.
 - Not re-run: the release check on a whole project after this deploy.
 
+## 2026-11-07: production 3.14.0 (demo site, MOBL-58)
+After the production deploy with the two code-review rounds, the panel on MOBL-58 showed "2 contradictions found" with the R1 finding (the runbook's `/api/v1/charge` line beside "MOBL-58 targets v2"), and the Audit trail tab loaded with "Chain intact". It read "Nothing has been sealed yet" next to a counter of 2 findings shown: those findings were counted before handling events were recorded in the chain, so no event exists for them. Not checked on production: the as-non-administrator view of the Audit trail and the findings history tool for an issue the caller cannot see (one account; both are covered by offline tests).
+
