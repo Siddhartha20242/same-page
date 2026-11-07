@@ -144,7 +144,7 @@ After the `scan complete` wording change was deployed to production, the same qu
 ## 2026-11-06: change notice and link a page (app version 7.22)
 Observed on the development site on SCRUM-5:
 - **Change notice.** After the description was edited to "Access token expiry should be two hours" (the page says 30 minutes), the app posted one comment: "Same Page: after this edit, 1 contradiction with the linked docs is still open (R8 Duration differs)… This is a notice, not a block." It named the rule and a count, no page text. The finding also shows number words work: "two hours" was read as 2 hours.
-- **Link a page.** An address on another site was refused ("Only pages on bhattaraiankit2212.atlassian.net can be linked here."). A real page address was linked, and the panel then read "Read 2 linked pages". The test link stays on SCRUM-5.
+- **Link a page.** An address on another site was refused ("Only pages on the demo site can be linked here."). A real page address was linked, and the panel then read "Read 2 linked pages". The test link stays on SCRUM-5.
 Not observed: rule export and import, the tuning suggestions (they need at least 5 marks on a rule), and the notice staying quiet on an unrelated edit.
 
 ## 2026-11-06: gate mode and the pilot report (app version 7.23)
