@@ -188,7 +188,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      355 tests, the 30-pair fixture set and the reworded-case set
+test/  fixtures/      360 tests, the 30-pair fixture set and the reworded-case set
 scripts/              live gate check, receipt verifier, payload capture, public-data probe
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -199,7 +199,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 355 tests, all passing (see docs/tests.md)
+npm test            # 360 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 
