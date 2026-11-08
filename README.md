@@ -190,7 +190,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      365 tests, the 30-pair fixture set and the reworded-case set
+test/  fixtures/      366 tests, the 30-pair fixture set and the reworded-case set
 scripts/              live gate check, receipt verifier, payload capture, public-data probe
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -201,11 +201,11 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 365 tests, all passing (see docs/tests.md)
+npm test            # 366 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 
-Requires Node 24. These two commands also run on every push in GitHub Actions (`.github/workflows/ci.yml`). How a change reaches Forge, and the deploy failures that were actually hit, are in [docs/deploy.md](docs/deploy.md). To verify an Apply receipt offline: `node scripts/verify-receipt.mjs`.
+Requires Node 24. These two commands also run on every push in GitHub Actions (`.github/workflows/ci.yml`). How a change reaches Forge, and the deploy failures that were actually hit, are in [docs/deploy.md](docs/deploy.md). A reviewer's summary of data handling and dependencies is in [docs/security.md](docs/security.md); recent versions are in [docs/changelog.md](docs/changelog.md); who it is for and how a team would adopt it is in [docs/business-case.md](docs/business-case.md). To verify an Apply receipt offline: `node scripts/verify-receipt.mjs`.
 
 To deploy your own copy, install the Forge CLI (Node 24.22 or later), then from `same-page-app/` run `forge register`, `forge deploy`, and `forge install` for Jira and for Confluence.
 

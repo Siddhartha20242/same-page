@@ -44,6 +44,16 @@ test('YAML that is not a spec, broken YAML and aliases bombs are ignored, never 
   assert.doesNotThrow(() => extractOpenApi(bomb));
 });
 
+test('deeply nested YAML (the shape of the yaml stack-overflow advisory) is ignored, never thrown, and quick', () => {
+  const nested = (n: number) => `openapi: 3.0.0\ninfo: ${'['.repeat(n)}${']'.repeat(n)}\npaths: {}\n`;
+  for (const n of [1_000, 20_000, 150_000]) {
+    const started = Date.now();
+    assert.doesNotThrow(() => extractOpenApi(nested(n)));
+    assert.ok(Date.now() - started < 3000, `depth ${n} took ${Date.now() - started} ms`);
+  }
+  assert.doesNotThrow(() => extractOpenApi(`openapi: 3.0.0\ninfo: ${'{a: '.repeat(60_000)}1${'}'.repeat(60_000)}\n`));
+});
+
 test('JSON specs are still read as before', () => {
   const json = '{"openapi":"3.0.0","paths":{"/charge":{"post":{}}}}';
   assert.equal(extractOpenApi(json)!.operations.length, 1);
