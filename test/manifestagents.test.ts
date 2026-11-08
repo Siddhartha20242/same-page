@@ -9,10 +9,10 @@ const m = parse(readFileSync(new URL('../same-page-app/manifest.yml', import.met
 const agents = m.modules['rovo:agent'];
 const actions = new Set(m.modules.action.map((a) => a.key));
 
-test('there are six agents with distinct keys and names', () => {
-  assert.equal(agents.length, 6);
-  assert.equal(new Set(agents.map((a) => a.key)).size, 6);
-  assert.equal(new Set(agents.map((a) => a.name)).size, 6);
+test('there are nine agents with distinct keys and names', () => {
+  assert.equal(agents.length, 9);
+  assert.equal(new Set(agents.map((a) => a.key)).size, 9);
+  assert.equal(new Set(agents.map((a) => a.name)).size, 9);
 });
 
 test('every agent names only actions the app defines, and has starters and a description', () => {
@@ -45,6 +45,25 @@ test('the on-call agent says "no contradiction found" is not proof, and the docs
   const docs = agents.find((a) => a.key === 'same-page-docs-owner-agent')!.prompt;
   assert.match(docs, /Group what the tools return by\s+page/i);
   assert.match(docs, /order the pages/i);                                 // seen live: it grouped by page but did not rank them
+});
+
+test('the developer, digest and incident agents keep to what the tools can show', () => {
+  const by = (k: string) => agents.find((a) => a.key === k)!;
+  const dev = by('same-page-dev-agent').prompt;
+  assert.match(dev, /not that the documentation is correct/i);
+  assert.match(dev, /could not be checked/i);
+  assert.match(dev, /Do not tell the developer which side is right/i);
+  const digest = by('same-page-digest-agent').prompt;
+  assert.match(digest, /never estimate or extrapolate/i);                   // numbers come from the tools only
+  assert.match(digest, /no\s+weekly scan yet/i);
+  assert.match(digest, /Do not rank people or\s+teams/i);
+  const incident = by('same-page-incident-agent').prompt;
+  assert.match(incident, /do not say a document caused the incident/i);      // the rules show disagreement, not cause
+  assert.match(incident, /do not return people/i);
+  for (const k of ['same-page-dev-agent', 'same-page-digest-agent', 'same-page-incident-agent']) {
+    for (const c of by(k).conversationStarters) assert.ok(c.length <= 85, `${k} starter too long: ${c}`);
+    assert.doesNotMatch(by(k).conversationStarters.join(' '), /\b[A-Z][A-Z0-9]+-\d+\b/, `${k} starters must not name a work item key`);
+  }
 });
 
 test('every MCP tool is also an action, so agents and MCP clients see the same checks', () => {
