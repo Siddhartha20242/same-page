@@ -259,3 +259,10 @@ Added a developer check, a team digest and an incident review agent (nine in tot
 ## 2026-11-08, release check by fix version (dev 7.57.0)
 
 Added an optional fix version to the project check, so a release owner can ask about one Jira release instead of a whole project. Deployed to the development environment only; the dev site has no Rovo, and production is still on 7.56.0. Covered by tests (query building, rejection of unsafe version names before any search, Jira's 400 for an unknown version turned into a plain message, the weekly scan left out next to a single release, the agent prompt). Not yet seen live: that Rovo passes the version name to the action, that the MCP tool accepts the new input, and what the answer looks like on a real release.
+
+### Release by fix version, observed on production (7.57.0)
+
+On the production demo site, with the release check agent, MOBL-58 open as context:
+- "Is release Version 1.0 of project MOBL ready to ship?" ("Version 1.0" is the only fix version in the MOBL project and holds 7 open work items). The agent passed the version through and answered "Could not be checked": none of the 7 open items could be verified against documentation, listing MOBL-14, 15, 16, 17 and 27 as having related pages that are not readable with the viewer's permissions, and MOBL-13 and MOBL-18 as having no related page. It did not call the release ready.
+- "Is release Version 9.9 of project MOBL ready to ship?" ("Version 9.9" does not exist). The agent answered "Could not be checked": no open work items were found for that release (or none visible), so no readiness verdict could be given. Jira's search returned HTTP 200 with an empty list for the unknown version, not a 400, so the tool's "Jira has no such version" message did not fire; the empty-result wording was used instead.
+Not tried: a version whose items have readable pages and contradictions; the MCP tool with the new input; more than 20 open items in one version.
