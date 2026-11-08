@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildOverview, overviewJql, runOverview, MAX_ITEMS } from '../src/overview.ts';
+import { buildOverview, overviewJql, runOverview, sanitizeCarried, MAX_ITEMS } from '../src/overview.ts';
 import { checkPage, bylineTitle } from '../src/pageCheck.ts';
 import { createJob } from '../src/job.ts';
 import type { Issue } from '../src/types.ts';
@@ -46,6 +46,44 @@ test('a request budget stops the run and says checked first N of M', async () =>
   assert.ok(r.attempted < 6 && r.attempted > 0);
   assert.match(r.coverageLine ?? '', new RegExp(`first ${r.attempted} of 6`));
   assert.ok(r.rows.slice(r.attempted).every((x) => x.verdict === 'Not checked' && /not reached/.test(x.reason ?? '')));
+});
+
+test('Check the rest continues a stopped run: it finishes the project and never rechecks decided items', async () => {
+  const items = Array.from({ length: 6 }, (_, i) => issue(`PAY-${i + 1}`, 'Migrate to v2'));
+  const loaded: string[] = [];
+  const deps = { searchIssues: async () => items, loadIssue: async (k: string) => { loaded.push(k); return items.find((i) => i.key === k) as Issue; },
+    getTransition: async () => T, getRemoteLinkIds: async () => [], searchPages: async () => [], getPageBody: async () => null };
+  let r = await runOverview('PAY', deps, { maxRequests: 30 });
+  if (r.status !== 'ready') return assert.fail('expected ready');
+  assert.ok(r.remaining > 0);
+  for (let i = 0; i < 6 && r.status === 'ready' && r.remaining > 0; i++) {
+    const before = loaded.length;
+    r = await runOverview('PAY', deps, { maxRequests: 30 }, sanitizeCarried(JSON.parse(JSON.stringify(r.rows))));
+    if (r.status !== 'ready') return assert.fail('expected ready');
+    assert.ok(loaded.length > before, 'each continuation checks something new');
+  }
+  if (r.status !== 'ready') return assert.fail('expected ready');
+  assert.equal(r.remaining, 0);
+  assert.equal(r.rows.filter((x) => x.verdict === 'Not checked' && /not reached/.test(x.reason ?? '')).length, 0);
+  assert.deepEqual([...new Set(loaded)].sort(), items.map((i) => i.key).sort());
+  assert.equal(loaded.length, 6, 'every item was loaded exactly once across all runs');
+});
+
+test('carried rows from the page are checked for shape, and undecided rows are dropped', () => {
+  const kept = sanitizeCarried([
+    { key: 'PAY-1', summary: 'ok', verdict: 'Clean', findings: 0 },
+    { key: 'PAY-2', summary: 'x', verdict: 'Not checked', findings: 0, reason: 'no related Confluence page found' },
+    { key: 'PAY-3', summary: 'x', verdict: 'Not checked', findings: 0, reason: 'not reached before the time or request budget ran out; use Check the rest' },
+    { key: 'PAY-4', summary: 'x', verdict: 'Not checked', findings: 0, reason: 'Atlassian rate limited the app; try again in about 30 seconds' },
+    { key: 'not a key', summary: 'x', verdict: 'Clean', findings: 0 },
+    { key: 'PAY-5', summary: 'x', verdict: 'Fine', findings: 0 },
+    { key: 'PAY-6', summary: 'y'.repeat(5000), verdict: 'Blocked', findings: 9999 },
+    null, 'text',
+  ]);
+  assert.deepEqual(kept.map((r) => r.key), ['PAY-1', 'PAY-2', 'PAY-6']);
+  assert.equal(kept[2]?.summary.length, 300);
+  assert.equal(kept[2]?.findings, 99);
+  assert.deepEqual(sanitizeCarried('nope'), []);
 });
 
 test('more than the cap is reported, not hidden', async () => {

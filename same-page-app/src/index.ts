@@ -19,7 +19,7 @@ import type { KV } from './core/ledgerStore';
 import type { LedgerEntry } from './core/ledger';
 import { decideTransition, gateKey, snapshotFromModel, cacheableFromPanel, applyGateMode, toGateMode, GATE_MODE_KEY } from './core/gate';
 import type { CanView } from './core/gate';
-import { runOverview } from './core/overview';
+import { runOverview, sanitizeCarried } from './core/overview';
 import { runSoftGate, runChangeNudge } from './core/softGate';
 import type { SoftGateEvent } from './core/softGate';
 import { runDriftScan, loadDrift } from './core/drift';
@@ -503,7 +503,7 @@ export const pageUpdated = async (event: { page?: { id?: string | number }; cont
 const overviewResolver = new Resolver();
 interface OverviewCtx { extension?: { project?: { key?: string } } }
 
-overviewResolver.define('getOverview', async ({ context }: { context?: OverviewCtx }) => {
+overviewResolver.define('getOverview', async ({ context, payload }: { context?: OverviewCtx; payload?: { carried?: unknown } }) => {
   const deps = { ...makeDeps(), rules: await rulesNow() };
   try {
     const projectKey = context?.extension?.project?.key;
@@ -514,7 +514,7 @@ overviewResolver.define('getOverview', async ({ context }: { context?: OverviewC
         if (!res.ok) { const e = new Error(`HTTP ${res.status}`) as Error & { status?: number }; e.status = res.status; throw e; }
         return (((await res.json()) as { issues?: { key: string; fields?: { summary?: string } }[] }).issues ?? []).map((i) => ({ key: i.key, summary: i.fields?.summary }));
       },
-    });
+    }, {}, sanitizeCarried(payload?.carried));
     return out.status === 'ready' && projectKey ? { ...out, drift: await loadDrift(store, projectKey), impact: { ...(await loadImpact(store as KV)), canEdit: await isJiraAdmin() } } : out;
   } catch (e) {
     if (needsConsent(e)) throw e;

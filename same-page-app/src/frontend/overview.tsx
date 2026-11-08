@@ -85,11 +85,11 @@ const ImpactCard = ({ impact, onSaved }: { impact: Impact & { canEdit: boolean }
 
 const App = () => {
   const [load, setLoad] = useState<Load>({ phase: 'loading' });
-  const run = useCallback(() => {
+  const run = useCallback((carried?: OverviewRow[]) => {
     setLoad({ phase: 'loading' });
-    invoke<Reply>('getOverview').then((reply) => setLoad({ phase: 'done', reply })).catch(() => setLoad({ phase: 'failed' }));
+    invoke<Reply>('getOverview', carried ? { carried } : undefined).then((reply) => setLoad({ phase: 'done', reply })).catch(() => setLoad({ phase: 'failed' }));
   }, []);
-  useEffect(run, [run]);
+  useEffect(() => { run(); }, [run]);
 
   const ready = load.phase === 'done' && load.reply.status === 'ready' ? load.reply : null;
   const count = (v: OverviewRow['verdict']) => (ready ? ready.rows.filter((r) => r.verdict === v).length : 0);
@@ -127,8 +127,8 @@ const App = () => {
   const impactTab = ready ? (
     <Stack space="space.200">
       <Text>{weeklyLine}</Text>
-      {ready.impact?.canEdit ? <ScanNow onDone={run} /> : null}
-      {ready.impact ? <ImpactCard impact={ready.impact} onSaved={run} /> : null}
+      {ready.impact?.canEdit ? <ScanNow onDone={() => run()} /> : null}
+      {ready.impact ? <ImpactCard impact={ready.impact} onSaved={() => run()} /> : null}
     </Stack>
   ) : null;
 
@@ -139,7 +139,9 @@ const App = () => {
         <Text>Open epics and in-progress work items in this project, checked against the Confluence pages about them with your permissions. Read-only.</Text>
         <Inline space="space.100" alignBlock="center">
           {load.phase === 'loading' ? <Spinner size="small" /> : null}
-          <Button onClick={run} isDisabled={load.phase === 'loading'}>{load.phase === 'loading' ? 'Checking, up to 20 seconds…' : 'Check again'}</Button>
+          {ready && ready.remaining > 0 && load.phase !== 'loading'
+            ? <Button appearance="primary" onClick={() => run(ready.rows)}>{`Check the rest (${ready.remaining} left)`}</Button> : null}
+          <Button onClick={() => run()} isDisabled={load.phase === 'loading'}>{load.phase === 'loading' ? 'Checking, up to 20 seconds…' : 'Check again'}</Button>
         </Inline>
       </Inline>
       {load.phase === 'failed' ? <SectionMessage appearance="error" title="Could not load the overview"><Text>Something went wrong. Try Check again.</Text></SectionMessage> : null}

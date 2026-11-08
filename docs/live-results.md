@@ -241,3 +241,7 @@ On PAY-3 I dismissed the R4 finding with a reason. The finding count went from 3
 ## 2026-11-08, production redeploy (7.53.0, parallel checks), overview coverage
 
 Production was redeployed with the change that checks up to three work items at once. On the demo project's Same Page overview (20 open items): 1 blocked, 1 clean, 18 not checked, of which 12 were "not reached before the time or request budget ran out", 4 had related pages the viewer cannot read, and 2 had no related page. This is the same result as before the change. The request budget, not time, is what stops the run, so the change did not increase coverage on this project. I did not run the release-check agent again.
+
+## 2026-11-08, "Check the rest" on the overview page (dev 7.54.0)
+
+Found by reading the code after the production check above: "Check again" re-ran from the first item every time, so on a project whose first run stops early, items after the first 8 could never be reached even though the page said to use Check again. The overview now continues from where it stopped ("Check the rest (N left)"). Observed live on the dev site: the page loads on the new build and shows 2 of 2 items checked with no continue button, as expected. The continue path itself is covered by tests only; it has not been run on the production demo project, which is still on 7.53.0.
