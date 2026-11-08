@@ -1,5 +1,7 @@
 # Same Page
 
+[![CI](https://github.com/Siddhartha20242/same-page/actions/workflows/ci.yml/badge.svg)](https://github.com/Siddhartha20242/same-page/actions/workflows/ci.yml)
+
 Keep your docs and tickets on the same page.
 
 ![Jira refusing a move to Done because the linked docs contradict the ticket](docs/images/gate-refusal.png)
@@ -203,7 +205,7 @@ npm test            # 360 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 
-Requires Node 24. To verify an Apply receipt offline: `node scripts/verify-receipt.mjs`.
+Requires Node 24. These two commands also run on every push in GitHub Actions (`.github/workflows/ci.yml`). How a change reaches Forge, and the deploy failures that were actually hit, are in [docs/deploy.md](docs/deploy.md). To verify an Apply receipt offline: `node scripts/verify-receipt.mjs`.
 
 To deploy your own copy, install the Forge CLI (Node 24.22 or later), then from `same-page-app/` run `forge register`, `forge deploy`, and `forge install` for Jira and for Confluence.
 
