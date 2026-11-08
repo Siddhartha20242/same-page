@@ -146,7 +146,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 - R9 and R10 firing in the rule playground on the deployed app. They have not yet fired on a real work item.
 - The patch preview on a real R1 finding, showing the lines around the change and the one line that changes. In the same test, a `v1` line under a "Legacy" heading was skipped, and an OpenAPI spec written in YAML inside a Confluence code block was read, which made R5 fire on a deprecated operation.
 - The optional AI fix on an ambiguous line, which passed the same verification when we switched the AI path on for a test.
-- The first six agents in Rovo chat (the developer check, team digest and incident review were added later and had not been run in Rovo chat when this was written). The on-call check and the release check were re-run after we fixed their prompts. The release check on a whole project took about 90 seconds to answer.
+- All nine agents are listed in Rovo chat; the first six were run on the production demo site earlier, and the developer check, team digest and incident review were each run once there (one starter each, on MOBL-58). The on-call check and the release check were re-run after we fixed their prompts. The release check on a whole project took about 90 seconds to answer.
 
 ## Security and privacy
 
