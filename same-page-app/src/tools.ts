@@ -26,13 +26,13 @@ export const scanIssues = async (payload?: { issueKeys?: unknown }) => {
   return scan({ issueKeys: payload?.issueKeys }, await deps());
 };
 
-export const projectBrief = async (payload?: { projectKey?: string }) => {
-  console.log(`same-page tool project-brief ${String(payload?.projectKey ?? '').slice(0, 40)}`);
-  return brief({ projectKey: payload?.projectKey }, {
+export const projectBrief = async (payload?: { projectKey?: string; fixVersion?: string }) => {
+  console.log(`same-page tool project-brief ${String(payload?.projectKey ?? '').slice(0, 40)}${payload?.fixVersion ? ` version ${String(payload.fixVersion).slice(0, 60)}` : ''}`);
+  return brief({ projectKey: payload?.projectKey, fixVersion: payload?.fixVersion }, {
     ...(await deps()),
     searchIssues: async (jql, limit) => {
       const res = await api.asUser().requestJira(route`/rest/api/3/search/jql?jql=${jql}&fields=summary&maxResults=${limit}`);
-      if (!res.ok) throw new Error(`search failed (HTTP ${res.status})`);
+      if (!res.ok) { const e = new Error(`search failed (HTTP ${res.status})`) as Error & { status?: number }; e.status = res.status; throw e; }
       return (((await res.json()) as { issues?: { key: string; fields?: { summary?: string } }[] }).issues ?? []).map((i) => ({ key: i.key, summary: i.fields?.summary }));
     },
   }, /^[A-Z][A-Z0-9_]*$/.test(String(payload?.projectKey ?? '')) ? await loadDrift({ get: (k) => kvs.get(k), set: (k, v) => kvs.set(k, v) }, String(payload?.projectKey)) : null);

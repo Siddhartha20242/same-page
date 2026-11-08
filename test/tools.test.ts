@@ -106,6 +106,22 @@ test('project brief carries the weekly scan delta when there is one', async () =
   assert.deepEqual(r.weeklyScan, { scannedOn: '2026-11-08', openEpicsWithContradictions: 2, checked: 5, newSinceTheScanBefore: 1, resolvedSinceTheScanBefore: 3 });
 });
 
+test('project brief for a fix version: scoped, labelled, and without the project-wide weekly scan', async () => {
+  const s = site();
+  const asked: string[] = [];
+  const r = await projectBrief({ projectKey: 'PAY', fixVersion: '2.3' }, { ...s, searchIssues: async (jql: string) => { asked.push(jql); return [{ key: 'PAY-1', summary: 'Migrate Payment API to v2' }]; } } as never,
+    { at: '2026-11-08T00:00:00.000Z', project: { withContradictions: 2, checked: 5, newSincePrevious: 1, resolvedSincePrevious: 3 } }) as { status: string; scope?: string; weeklyScan?: unknown; items?: { issueKey: string }[] };
+  assert.equal(r.status, 'scan complete');
+  assert.equal(r.scope, 'open work items in fix version 2.3');
+  assert.equal(r.weeklyScan, undefined, 'the weekly scan is about the project, so it is not shown next to one release');
+  assert.match(asked[0] as string, /fixVersion = "2\.3"/);
+  const none = await projectBrief({ projectKey: 'PAY' }, { ...s, searchIssues: async () => [] } as never) as { scope?: string };
+  assert.equal(none.scope, undefined, 'no version, no scope line');
+  const unknown = await projectBrief({ projectKey: 'PAY', fixVersion: '9.9' }, { ...s, searchIssues: async () => { throw Object.assign(new Error('x'), { status: 400 }); } } as never) as { status: string; reason?: string };
+  assert.equal(unknown.status, 'error');
+  assert.match(unknown.reason ?? '', /no fix version "9\.9"/i);
+});
+
 test('check_issue_docs returns a receipt line that says only what ran, with the evidence ids', async () => {
   const r = (await checkIssueDocs({ issueKey: 'PAY-1' }, site())) as unknown as { receipt: { line: string; pagesChecked: number; evidenceIds: string[]; checkedAt: string } };
   assert.equal(r.receipt.pagesChecked, 1);

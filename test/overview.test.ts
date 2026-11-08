@@ -48,6 +48,41 @@ test('a request budget stops the run and says checked first N of M', async () =>
   assert.ok(r.rows.slice(r.attempted).every((x) => x.verdict === 'Not checked' && /not reached/.test(x.reason ?? '')));
 });
 
+test('a fix version narrows the search to that release, and only a plain name can be used', () => {
+  assert.equal(overviewJql('PAY', '2.3'), 'project = "PAY" AND fixVersion = "2.3" AND statusCategory != Done ORDER BY updated DESC');
+  assert.equal(overviewJql('PAY', ' Release 2.3-rc1 '), 'project = "PAY" AND fixVersion = "Release 2.3-rc1" AND statusCategory != Done ORDER BY updated DESC');
+  assert.match(overviewJql('PAY', '') as string, /issuetype = Epic/, 'an empty version means the whole project');
+  assert.match(overviewJql('PAY') as string, /issuetype = Epic/);
+  for (const bad of ['2.3" OR project = "X', '2.3\\', 'a"b', '-1', '2.3) OR (1=1', 'x'.repeat(61), '2.3\nOR 1=1', '../x'])
+    assert.equal(overviewJql('PAY', bad), null, `rejected: ${JSON.stringify(bad)}`);
+  assert.equal(overviewJql('PAY" OR 1=1', '2.3'), null);
+});
+
+test('runOverview with a fix version: asks Jira for that release only, labels the result, and explains a version Jira does not know', async () => {
+  const items = [issue('PAY-1', 'Migrate to v2')];
+  const asked: string[] = [];
+  const deps = { searchIssues: async (jql: string) => { asked.push(jql); return items; }, loadIssue: async (k: string) => items.find((i) => i.key === k) as Issue,
+    getTransition: async () => T, getRemoteLinkIds: async () => [], searchPages: async () => [], getPageBody: async () => null };
+  const r = await runOverview('PAY', deps, {}, [], '2.3');
+  if (r.status !== 'ready') return assert.fail('expected ready');
+  assert.equal(r.fixVersion, '2.3');
+  assert.match(asked[0] as string, /fixVersion = "2\.3"/);
+  const none = await runOverview('PAY', { ...deps, searchIssues: async () => [] }, {}, [], '2.3');
+  if (none.status !== 'ready') return assert.fail('expected ready');
+  assert.match(none.summaryLine, /No open work items found in fix version "2\.3"/);
+  const unknown = await runOverview('PAY', { ...deps, searchIssues: async () => { throw Object.assign(new Error('HTTP 400'), { status: 400 }); } }, {}, [], '9.9');
+  assert.equal(unknown.status, 'error');
+  assert.match((unknown as { message: string }).message, /no fix version "9\.9" in project PAY that you can see/i);
+  // other failures are still thrown, and a bad name never reaches Jira
+  await assert.rejects(() => runOverview('PAY', { ...deps, searchIssues: async () => { throw Object.assign(new Error('HTTP 500'), { status: 500 }); } }, {}, [], '2.3'), /500/);
+  const before = asked.length;
+  const bad = await runOverview('PAY', deps, {}, [], '2.3" OR 1=1');
+  assert.equal(bad.status, 'error');
+  assert.equal(asked.length, before, 'an invalid version is rejected before any search');
+  // a 400 with no version named is not turned into a version message
+  await assert.rejects(() => runOverview('PAY', { ...deps, searchIssues: async () => { throw Object.assign(new Error('HTTP 400'), { status: 400 }); } }), /400/);
+});
+
 test('Check the rest continues a stopped run: it finishes the project and never rechecks decided items', async () => {
   const items = Array.from({ length: 6 }, (_, i) => issue(`PAY-${i + 1}`, 'Migrate to v2'));
   const loaded: string[] = [];

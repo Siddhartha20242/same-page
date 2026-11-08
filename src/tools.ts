@@ -81,16 +81,17 @@ export async function scanIssues({ issueKeys }: { issueKeys?: unknown }, deps: P
 
 // project_brief: where a project stands right now, in one call: its open epics and in-progress items, each with a verdict.
 // This is the "release readiness" question an agent is asked most: is anything in this project out of step with its docs?
-export async function projectBrief({ projectKey }: { projectKey?: unknown }, deps: OverviewDeps, weekly?: { at: string; project: { withContradictions: number; checked: number; newSincePrevious: number; resolvedSincePrevious?: number } | null } | null) {
+export async function projectBrief({ projectKey, fixVersion }: { projectKey?: unknown; fixVersion?: unknown }, deps: OverviewDeps, weekly?: { at: string; project: { withContradictions: number; checked: number; newSincePrevious: number; resolvedSincePrevious?: number } | null } | null) {
   // A larger request budget than the overview page, but a time limit that still fits inside the default function timeout (Forge does not allow a
   // longer one on action functions). Whichever limit is reached first stops the run, and the items not reached are reported as not checked.
-  const out = await runOverview(projectKey, deps, { maxMs: 22000, maxRequests: 100 });
+  const version = fixVersion === undefined || fixVersion === null || String(fixVersion).trim() === '' ? undefined : String(fixVersion).trim();
+  const out = await runOverview(projectKey, deps, { maxMs: 22000, maxRequests: 100 }, [], version);
   if (out.status === 'error') return { status: 'error', reason: out.message, notice: NOTICE };
   return {
-    status: 'scan complete', summary: out.summaryLine, coverage: out.coverageLine,
+    status: 'scan complete', ...(version ? { scope: `open work items in fix version ${quote(version)}` } : {}), summary: out.summaryLine, coverage: out.coverageLine,
     counts: { checked: out.checked, withContradictions: out.withContradictions, notChecked: out.unchecked },
     items: out.rows.map((r) => ({ issueKey: r.key, summary: quote(r.summary), verdict: r.verdict, findings: r.findings, ...(r.reason ? { reasonNotChecked: r.reason } : {}) })),
-    ...(weekly ? { weeklyScan: weekly.project ? { scannedOn: weekly.at.slice(0, 10), openEpicsWithContradictions: weekly.project.withContradictions, checked: weekly.project.checked, newSinceTheScanBefore: weekly.project.newSincePrevious, resolvedSinceTheScanBefore: weekly.project.resolvedSincePrevious ?? 0 } : { scannedOn: weekly.at.slice(0, 10), note: 'no open epics in this project were covered by the weekly scan' } } : {}),
+    ...(weekly && !version ? { weeklyScan: weekly.project ? { scannedOn: weekly.at.slice(0, 10), openEpicsWithContradictions: weekly.project.withContradictions, checked: weekly.project.checked, newSinceTheScanBefore: weekly.project.newSincePrevious, resolvedSinceTheScanBefore: weekly.project.resolvedSincePrevious ?? 0 } : { scannedOn: weekly.at.slice(0, 10), note: 'no open epics in this project were covered by the weekly scan' } } : {}),
     note: 'Rules only, no AI in detection. A Not checked item is not a clean item.',
     notice: NOTICE,
   };

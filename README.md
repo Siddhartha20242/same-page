@@ -99,7 +99,7 @@ It reads Jira work items and Confluence pages only. Reading READMEs, Google Docs
 | What was read | The "What was checked" tab lists the pages read and the values taken from the work item (for example "2 hours (access token expiry)"), so a person can see what the pages were compared against. |
 | Weekly scan | Once a week the app checks open epics, and the project overview shows how many have contradictions and how many are new since the last scan. |
 | Overview | A project page called "Same Page overview" lists up to 20 open epics and in-progress work items with a verdict, a finding count and the reason for anything it could not check. It is read-only. |
-| Agents | Nine read-only Rovo agents share eight checks that are also MCP tools: a general one, a release check (is project PAY ready to ship?), an audit trail agent (what happened to the contradictions on PAY-1?), a rule coach (which rules look noisy here?), a docs owner (which pages are out of step, grouped by page) an on-call check (can I trust this runbook right now?), a developer check (which docs contradict this ticket before I build?), a team digest (where does the project stand, and what changed?) and an incident review (which docs contradicted the tickets, and was it ignored?). They answer from the same evidence as the panel and cannot change anything. See [docs/agent.md](docs/agent.md). |
+| Agents | Nine read-only Rovo agents share eight checks that are also MCP tools: a general one, a release check (is project PAY, or release 2.3 of it, ready to ship?), an audit trail agent (what happened to the contradictions on PAY-1?), a rule coach (which rules look noisy here?), a docs owner (which pages are out of step, grouped by page) an on-call check (can I trust this runbook right now?), a developer check (which docs contradict this ticket before I build?), a team digest (where does the project stand, and what changed?) and an incident review (which docs contradicted the tickets, and was it ignored?). They answer from the same evidence as the panel and cannot change anything. See [docs/agent.md](docs/agent.md). |
 | Real or false alarm | Every finding has "Yes" and "False alarm" buttons. The marks are counted per rule and shown on the overview and to the agents, with a warning while the sample is under 10. Marking never hides or changes a finding. |
 | Impact on this site | The overview shows what Same Page has done here: contradictions found, fixed, sent to owners, dismissed, transitions refused. A time-saved figure appears only if a Jira administrator types their own minutes-per-fix estimate. See [docs/impact.md](docs/impact.md). |
 
@@ -190,7 +190,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      360 tests, the 30-pair fixture set and the reworded-case set
+test/  fixtures/      365 tests, the 30-pair fixture set and the reworded-case set
 scripts/              live gate check, receipt verifier, payload capture, public-data probe
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -201,7 +201,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 360 tests, all passing (see docs/tests.md)
+npm test            # 365 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

@@ -8,10 +8,18 @@ import type { ItemResult } from './release';
 export const MAX_ITEMS = 20;
 const PROJECT_KEY = /^[A-Z][A-Z0-9_]*$/;
 
-/** JQL for the items to check, newest activity first. Null when the project key is not a plain key (it goes into a query, so it is validated). */
-export function overviewJql(projectKey: unknown): string | null {
+/** Fix version names that may go into a query. Strict on purpose: the name is placed inside double quotes in JQL, so no quote, backslash or operator can get in. */
+export const VERSION_RE = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,59}$/;
+const cleanVersion = (v: unknown): string | null => (v === undefined || v === null || String(v).trim() === '' ? null : String(v).trim());
+
+/** JQL for the items to check, newest activity first. Null when the project key (or the fix version, when one is given) is not plain: both go into a query, so they are validated.
+ *  With a fix version it is every open work item in that release; without one it is the project's open epics and in-progress items. */
+export function overviewJql(projectKey: unknown, fixVersion?: unknown): string | null {
   const k = String(projectKey ?? '');
-  return PROJECT_KEY.test(k) ? `project = "${k}" AND statusCategory != Done AND (issuetype = Epic OR statusCategory = "In Progress") ORDER BY updated DESC` : null;
+  if (!PROJECT_KEY.test(k)) return null;
+  const v = cleanVersion(fixVersion);
+  if (v !== null) return VERSION_RE.test(v) ? `project = "${k}" AND fixVersion = "${v}" AND statusCategory != Done ORDER BY updated DESC` : null;
+  return `project = "${k}" AND statusCategory != Done AND (issuetype = Epic OR statusCategory = "In Progress") ORDER BY updated DESC`;
 }
 
 export type RowVerdict = 'Blocked' | 'Warning' | 'Clean' | 'Not checked';
@@ -27,6 +35,8 @@ export interface Overview {
   reasons: { reason: string; count: number }[];
   summaryLine: string;
   coverageLine: string | null;
+  /** The fix version this run was limited to, when the caller named one. */
+  fixVersion?: string;
   /** Items the run did not get to; Check the rest continues with them. */
   remaining: number;
 }
@@ -40,7 +50,7 @@ const RATE_LIMITED = 'Atlassian rate limited the app';
 const isUndecided = (r: OverviewRow) => r.verdict === 'Not checked' && (r.reason === NOT_REACHED || (r.reason ?? '').startsWith(RATE_LIMITED));
 
 /** Turns the finished (possibly partial) job into rows and honest summary lines. `issues` are the fetched items, in order. */
-export function buildOverview({ issues, job, moreExist = false, carried = [] }: { issues: { key: string; summary?: string }[]; job: Job; moreExist?: boolean; carried?: OverviewRow[] }): Overview {
+export function buildOverview({ issues, job, moreExist = false, carried = [], fixVersion }: { issues: { key: string; summary?: string }[]; job: Job; moreExist?: boolean; carried?: OverviewRow[]; fixVersion?: string }): Overview {
   const carriedByKey = new Map(carried.map((r) => [r.key, r]));
   const byKey = new Map<string, ItemResult>(job.items.map((i) => [i.key, i]));
   const rows: OverviewRow[] = issues.map((issue) => {
@@ -64,7 +74,7 @@ export function buildOverview({ issues, job, moreExist = false, carried = [] }: 
   const attempted = job.items.length + rows.filter((r) => carriedByKey.has(r.key)).length;
 
   let summaryLine: string;
-  if (!rows.length) summaryLine = 'No open epics or in-progress work items found in this project (or none you can see).';
+  if (!rows.length) summaryLine = fixVersion ? `No open work items found in fix version "${fixVersion}" of this project (or none you can see).` : 'No open epics or in-progress work items found in this project (or none you can see).';
   else {
     summaryLine = `${withContradictions} of ${plural(checked, 'checked item')} ${withContradictions === 1 ? 'has' : 'have'} contradictions`;
     summaryLine += unchecked.length ? `; ${unchecked.length} could not be checked: ${reasons.map((r) => (r.count > 1 ? `${r.reason} (${r.count})` : r.reason)).join('; ')}.` : '.';
@@ -100,16 +110,26 @@ export function sanitizeCarried(input: unknown): OverviewRow[] {
   return out;
 }
 
-/** The whole overview for one project. Throws if the search itself fails; per-item failures become "Not checked" rows.
+/** The whole overview for one project, or for one fix version of it when `fixVersion` is given. Throws if the search itself fails (except a version Jira does not accept,
+ *  which comes back as an error result); per-item failures become "Not checked" rows.
  *  `carried` are rows already decided in an earlier run: they are kept as they are and only the other items are checked, so Check the rest can finish a project one budget at a time. */
-export async function runOverview(projectKey: unknown, deps: OverviewDeps, budget: { maxMs?: number; maxRequests?: number; now?: () => number } = {}, carried: OverviewRow[] = []): Promise<Overview | { status: 'error'; message: string }> {
-  const jql = overviewJql(projectKey);
+export async function runOverview(projectKey: unknown, deps: OverviewDeps, budget: { maxMs?: number; maxRequests?: number; now?: () => number } = {}, carried: OverviewRow[] = [], fixVersion?: string): Promise<Overview | { status: 'error'; message: string }> {
+  const version = cleanVersion(fixVersion);
+  if (version !== null && !VERSION_RE.test(version)) return { status: 'error', message: 'A fix version name may contain only letters, digits, spaces, dots, hyphens and underscores (up to 60 characters).' };
+  const jql = overviewJql(projectKey, version);
   if (!jql) return { status: 'error', message: 'This page must be opened from a Jira project.' };
-  const found = await deps.searchIssues(jql, MAX_ITEMS + 1);      // one extra row tells us the project has more than the cap
+  let found: { key: string; summary?: string }[];
+  try { found = await deps.searchIssues(jql, MAX_ITEMS + 1); }      // one extra row tells us the project has more than the cap
+  catch (e) {
+    // Jira answers 400 when a fix version does not exist in the project (or the caller cannot see it); say that instead of failing the whole call.
+    if (version !== null && (e as { status?: number } | null)?.status === 400) return { status: 'error', message: `Jira has no fix version "${version}" in project ${String(projectKey)} that you can see. Check the exact version name.` };
+    throw e;
+  }
   const issues = found.slice(0, MAX_ITEMS);
   const done = new Set(carried.map((r) => r.key));
   const keep = carried.filter((r) => issues.some((i) => i.key === r.key));
   const todo = issues.filter((i) => !done.has(i.key)).map((i) => i.key);
   const out = await runBatch(createJob(todo), deps, { maxMs: 20000, maxRequests: 60, ...budget });
-  return buildOverview({ issues, job: out.job, moreExist: found.length > MAX_ITEMS, carried: keep });
+  const ov = buildOverview({ issues, job: out.job, moreExist: found.length > MAX_ITEMS, carried: keep, ...(version !== null ? { fixVersion: version } : {}) });
+  return version !== null ? { ...ov, fixVersion: version } : ov;
 }

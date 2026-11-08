@@ -12,6 +12,7 @@ How a change gets from this repository to the Forge environments, and the failur
 
 ## Things that are easy to get wrong
 - **The manifest is not copied.** `copy-to-deploy.sh` leaves the deploy folder's `manifest.yml` alone because that copy carries the app id. A change to modules, agents or prompts must be made in both manifests. They should differ only by the app id and one comment line.
+- **Action descriptions are limited to 255 characters.** `forge lint` rejects longer ones; a test checks it.
 - **Agent starter prompts are limited to 85 characters.** `forge lint` rejects longer ones, and the manifest test checks the same limit.
 - **Do not run the production deploy twice.** A second run while the first is still packaging fails with "Environment is blocked by other deployment". It changes nothing. Check with `forge deploy list -e production`.
 - **Production is a separate install.** Forge storage is per installation, so Jira and Confluence each have their own data in each environment, and dev data does not appear in production.

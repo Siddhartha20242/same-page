@@ -66,6 +66,21 @@ test('the developer, digest and incident agents keep to what the tools can show'
   }
 });
 
+test('the release agent passes a named version through and never guesses one; project-brief accepts an optional fix version', () => {
+  const rel = agents.find((a) => a.key === 'same-page-release-agent')!.prompt;
+  assert.match(rel, /pass its exact name as the fix version/i);
+  assert.match(rel, /never guess one/i);
+  assert.match(rel, /covers that version only/i);
+  const brief = (m.modules.action as unknown as { key: string; inputs: Record<string, { required: boolean; type: string }> }[]).find((a) => a.key === 'project-brief')!;
+  assert.equal(brief.inputs.projectKey!.required, true);
+  assert.equal(brief.inputs.fixVersion!.required, false);
+  assert.equal(brief.inputs.fixVersion!.type, 'string');
+});
+
+test('every action description fits the 255 characters Forge lint allows', () => {
+  for (const a of m.modules.action as unknown as { key: string; description: string }[]) assert.ok(a.description.trim().length <= 255, `${a.key} description is ${a.description.trim().length} characters`);
+});
+
 test('every MCP tool is also an action, so agents and MCP clients see the same checks', () => {
   for (const t of m.modules['rovo:mcp'][0]!.tools) assert.ok(actions.has(t), `${t} is an MCP tool but not an action`);
 });
