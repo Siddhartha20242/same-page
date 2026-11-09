@@ -13,6 +13,10 @@ This is a review of what we built, checked against the live panel's accessibilit
 - **Errors say what happened and what to do**, in plain words, and an error is never shown as a clean result.
 - **Keyboard:** Forge UI Kit renders standard controls, so tab order follows the page and buttons work with Enter and Space. We have not tested every flow by keyboard alone.
 
+## Added 2026-11-09
+- **The overview's filter buttons and the rule stage buttons** (Draft, Warning, Blocker) show the selected one with a check mark in the label as well as the filled colour, so the selection is not conveyed by colour alone. The overview's finding headline is plain text on the same line as the count. The Confluence byline says in words when a page names no work item.
+- Not yet checked with a screen reader: the check mark is read as "check mark", which is acceptable but untested.
+
 ## What we did not check
 - A run with a screen reader (VoiceOver, NVDA).
 - Contrast and focus rings. UI Kit controls these, so they follow Atlassian's themes, including dark mode. We did not override them.

@@ -111,7 +111,7 @@ const App = () => {
           <Text>Show:</Text>
           {(['All', 'Blocked', 'Warning', 'Not checked', 'Clean'] as const).map((f) => {
             const n = f === 'All' ? ready.rows.length : count(f);
-            return n > 0 || f === 'All' ? <Button key={f} appearance={filter === f ? 'primary' : 'default'} onClick={() => setFilter(f)}>{`${f} (${n})`}</Button> : null;
+            return n > 0 || f === 'All' ? <Button key={f} appearance={filter === f ? 'primary' : 'default'} onClick={() => setFilter(f)}>{`${filter === f ? '✓ ' : ''}${f} (${n})`}</Button> : null;
           })}
         </Inline>
       ) : null}
