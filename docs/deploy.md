@@ -15,6 +15,7 @@ How a change gets from this repository to the Forge environments, and the failur
 - **Action descriptions are limited to 255 characters.** `forge lint` rejects longer ones; a test checks it.
 - **Agent starter prompts are limited to 85 characters.** `forge lint` rejects longer ones, and the manifest test checks the same limit.
 - **Do not run the production deploy twice.** A second run while the first is still packaging fails with "Environment is blocked by other deployment". It changes nothing. Check with `forge deploy list -e production`.
+- **Deployments of the same app block each other across environments.** Running `forge deploy -e production` while a development deploy is still going (or the reverse) fails with the same "Environment is blocked by other deployment" error, even though they are different environments. Deploy one at a time and wait for "Deployed" before starting the next. This happened on 2026-11-09 when a dev deploy overlapped a production deploy.
 - **Production is a separate install.** Forge storage is per installation, so Jira and Confluence each have their own data in each environment, and dev data does not appear in production.
 - **Scope changes force a re-consent.** Adding a permission scope needs a new major version and every installation must approve it. Avoid this unless a feature needs it.
 - **Rovo agents can only be tried where Rovo is enabled.** The dev site used for this project has no Rovo, so agents are checked on the production demo site.
