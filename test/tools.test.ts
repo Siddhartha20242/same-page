@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDeps } from '../src/atlassianDeps.ts';
-import { checkIssueDocs, scanIssues, quote, nextStepFor, howToUnblock, itemNextStep, NOTICE, MAX_ISSUES } from '../src/tools.ts';
+import { checkIssueDocs, scanIssues, quote, nextStepFor, howToUnblock, howToSeeEvidence, NOTICE, MAX_ISSUES } from '../src/tools.ts';
 import type { HttpResponse } from '../src/atlassianDeps.ts';
 
 // What the tests read from the tools' result unions: every field optional, since each status carries a different subset.
@@ -123,15 +123,17 @@ test('project brief lists the worst first with a headline and a short fix-first 
   assert.ok(r.items.slice(1).every((i) => i.headline === undefined), 'no headline is invented for an item without a finding');
 });
 
-test('a project brief item carries a code-chosen next step when it has findings, and a reason-specific way to unblock when it could not be checked', async () => {
+test('a project brief says how to see the evidence once, names each item\'s rule, and gives an unchecked item a reason-specific way to unblock', async () => {
   const s = site();
-  const r = (await projectBrief({ projectKey: 'PAY' }, { ...s, searchIssues: async () => [{ key: 'PAY-1', summary: 'Migrate Payment API to v2' }, { key: 'PAY-2', summary: 'Improve search' }] } as never)) as unknown as { items: { issueKey: string; findings: number; nextStep?: string; reasonNotChecked?: string; howToUnblock?: string }[] };
+  const r = (await projectBrief({ projectKey: 'PAY' }, { ...s, searchIssues: async () => [{ key: 'PAY-1', summary: 'Migrate Payment API to v2' }, { key: 'PAY-2', summary: 'Improve search' }] } as never)) as unknown as { howToSeeEvidence: string; items: { issueKey: string; findings: number; rule?: string; nextStep?: string; reasonNotChecked?: string; howToUnblock?: string }[] };
+  assert.equal(r.howToSeeEvidence, howToSeeEvidence);
+  assert.match(r.howToSeeEvidence, /An agent cannot apply it/);
   const withFindings = r.items.find((i) => i.findings > 0)!;
-  assert.equal(withFindings.nextStep, itemNextStep(withFindings.issueKey));
-  assert.match(withFindings.nextStep!, /An agent cannot apply it/);
+  assert.equal(withFindings.rule, 'Stale version', 'the rule is named, so the agent does not put the verdict there');
+  assert.equal(withFindings.nextStep, undefined, 'the same long sentence is not repeated on every item');
   const unchecked = r.items.find((i) => i.reasonNotChecked);
   if (unchecked) assert.ok(unchecked.howToUnblock, 'an unchecked item says what could be done');
-  for (const i of r.items.filter((x) => x.findings === 0 && !x.reasonNotChecked)) assert.equal(i.nextStep, undefined, 'a clean item gets no next step');
+  for (const i of r.items.filter((x) => x.findings === 0)) assert.equal(i.rule, undefined, 'no rule is invented for an item without a finding');
 });
 
 test('howToUnblock gives one fixed, honest hint per reason and never says an unchecked item is fine', () => {

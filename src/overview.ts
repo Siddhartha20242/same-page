@@ -1,5 +1,6 @@
 import { createJob, runBatch } from './job.ts';
 import type { RowVerdict } from './verdictOrder.ts';
+import { ruleInfo } from './ruleCatalog.ts';
 import type { Job, JobDeps } from './job.ts';
 import type { ItemResult } from './release.ts';
 
@@ -25,7 +26,7 @@ export function overviewJql(projectKey: unknown, fixVersion?: unknown): string |
 
 export type { RowVerdict } from './verdictOrder.ts';
 export { bySeverity } from './verdictOrder.ts';
-export interface OverviewRow { key: string; summary: string; verdict: RowVerdict; findings: number; reason?: string; notes?: number; /** The most serious finding in one short line, so the table says what is wrong without opening the item. */ headline?: string }
+export interface OverviewRow { key: string; summary: string; verdict: RowVerdict; findings: number; reason?: string; notes?: number; /** The most serious finding in one short line, so the table says what is wrong without opening the item. */ headline?: string; /** The name of that finding's rule, for example "Stale version". */ ruleName?: string }
 export interface Overview {
   status: 'ready';
   rows: OverviewRow[];
@@ -70,7 +71,8 @@ export function buildOverview({ issues, job, moreExist = false, carried = [], fi
     const verdict: RowVerdict = real.some((f) => f.severity === 'block') ? 'Blocked' : real.length ? 'Warning' : 'Clean';
     const top = real.find((f) => f.severity === 'block') ?? real[0];
     const headline = top ? oneLine(top.summary) : '';
-    return { key: issue.key, summary, verdict, findings: real.length, ...(notes ? { notes } : {}), ...(headline ? { headline } : {}) };
+    const ruleName = top ? oneLine(ruleInfo(top.ruleId)?.name ?? '', 60) : '';
+    return { key: issue.key, summary, verdict, findings: real.length, ...(notes ? { notes } : {}), ...(headline ? { headline } : {}), ...(ruleName ? { ruleName } : {}) };
   });
   const unchecked = rows.filter((r) => r.verdict === 'Not checked');
   const checked = rows.length - unchecked.length;
@@ -113,6 +115,7 @@ export function sanitizeCarried(input: unknown): OverviewRow[] {
     if (r.reason) row.reason = clip(r.reason, 300);
     if (r.notes) row.notes = Math.max(0, Math.min(99, Number(r.notes) || 0));
     if (r.headline) row.headline = oneLine(r.headline);
+    if (r.ruleName) row.ruleName = oneLine(r.ruleName, 60);
     if (!isUndecided(row)) out.push(row);
   }
   return out;

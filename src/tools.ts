@@ -103,7 +103,7 @@ export function howToUnblock(reason?: string): string | undefined {
 }
 
 /** For an item that has findings: where to see the evidence and any verified edit. The scan does not carry the edit itself. */
-export const itemNextStep = (issueKey: string) => `Open ${issueKey} in Jira, then open Same Page from the apps menu. It shows the evidence and, when one exists, a verified edit that a person can apply. An agent cannot apply it.`;
+export const howToSeeEvidence = 'For any item with findings: open it in Jira, then open Same Page from the apps menu. It shows the evidence and, when one exists, a verified edit that a person can apply. An agent cannot apply it.';
 
 export async function projectBrief({ projectKey, fixVersion }: { projectKey?: unknown; fixVersion?: unknown }, deps: OverviewDeps, weekly?: { at: string; project: { withContradictions: number; checked: number; newSincePrevious: number; resolvedSincePrevious?: number } | null } | null) {
   // A larger request budget than the overview page, but a time limit that still fits inside the default function timeout (Forge does not allow a
@@ -114,8 +114,9 @@ export async function projectBrief({ projectKey, fixVersion }: { projectKey?: un
   return {
     status: 'scan complete', ...(version ? { scope: `open work items in fix version ${quote(version)}` } : {}), summary: out.summaryLine, coverage: out.coverageLine,
     counts: { checked: out.checked, withContradictions: out.withContradictions, notChecked: out.unchecked },
+    howToSeeEvidence,
     fixFirst: bySeverity(out.rows).filter((r) => r.verdict === 'Blocked' || r.verdict === 'Warning').slice(0, 3).map((r) => r.key),
-    items: bySeverity(out.rows).map((r) => ({ issueKey: r.key, summary: quote(r.summary), verdict: r.verdict, findings: r.findings, ...(r.headline ? { headline: quote(r.headline) } : {}), ...(r.findings > 0 ? { nextStep: itemNextStep(r.key) } : {}), ...(r.reason ? { reasonNotChecked: r.reason, howToUnblock: howToUnblock(r.reason) } : {}) })),
+    items: bySeverity(out.rows).map((r) => ({ issueKey: r.key, summary: quote(r.summary), verdict: r.verdict, findings: r.findings, ...(r.ruleName ? { rule: quote(r.ruleName) } : {}), ...(r.headline ? { headline: quote(r.headline) } : {}), ...(r.reason ? { reasonNotChecked: r.reason, howToUnblock: howToUnblock(r.reason) } : {}) })),
     ...(weekly && !version ? { weeklyScan: weekly.project ? { scannedOn: weekly.at.slice(0, 10), openEpicsWithContradictions: weekly.project.withContradictions, checked: weekly.project.checked, newSinceTheScanBefore: weekly.project.newSincePrevious, resolvedSinceTheScanBefore: weekly.project.resolvedSincePrevious ?? 0 } : { scannedOn: weekly.at.slice(0, 10), note: 'no open epics in this project were covered by the weekly scan' } } : {}),
     note: 'Rules only, no AI in detection. A Not checked item is not a clean item.',
     notice: NOTICE,

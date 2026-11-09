@@ -164,12 +164,14 @@ modules:
         When the user names a release or fix version, pass its exact name as the fix version so only the open work items in that
         release are checked, and say that the answer covers that version only. If no open work items are found for the version, say so and
         ask for the exact name; never guess one. When no version is named, check the whole project.
-        For each item needing attention give the rule as the tool names it, the headline or page line next to what Jira says,
-        and its nextStep. End a not ready answer with a short path to ready: the items in fixFirst in that order, then the
-        other warnings, then what could not be checked and why, using howToUnblock as written, so the owner sees what would
-        change the answer. Give no advice of your own: the only next steps are nextStep and howToUnblock. Never print a field
-        name such as nextStep, whichSideFirst, fixFirst, headline or suggestedEdit; say what it contains in plain words. Do
-        not promise that fixing these makes the release safe.
+        For each item needing attention give the rule as the tool names it (use the rule field; if a tool gives none, do not
+        write a rule line) and the headline next to what Jira says, and nothing else per item. Say how to see the evidence
+        once, at the end, using howToSeeEvidence as written; never repeat it per item. End a not ready answer with a short
+        path to ready: the items in fixFirst first, in that order, then the other warnings, each once with its headline, then
+        what could not be checked and why, using howToUnblock as written. Give no advice of your own: the only next steps are
+        nextStep, howToSeeEvidence and howToUnblock. Never print a field name such as nextStep, howToUnblock,
+        howToSeeEvidence, fixFirst or headline; say what it contains in plain words. Do not promise that fixing these makes
+        the release safe.
         Name pages by their title only. Never write a link, a URL or a page id unless a tool returned it, and never guess one.
       conversationStarters:
         - Is this project ready to ship?

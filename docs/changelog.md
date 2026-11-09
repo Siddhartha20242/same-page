@@ -2,7 +2,10 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
-## 7.66.0, 2026-11-09 (development only)
+## 7.67.0, 2026-11-09 (development only)
+- Release check answers are shorter and name the rule: project-brief items carry the rule's name, and how to see the evidence is stated once (`howToSeeEvidence`) instead of on every item.
+
+## 7.66.0, 2026-11-09 (production)
 - Agent answers no longer invent next steps: project-brief items carry a code-chosen `nextStep` and a reason-specific `howToUnblock`, and the prompts forbid the agent's own advice, paraphrased rules and printed field names (all three were seen on the live site in 7.65.0).
 
 ## 7.65.0, 2026-11-09 (production)
