@@ -125,12 +125,7 @@ const App = () => {
             { key: 'verdict', content: <Lozenge appearance={TONE[r.verdict]} isBold={r.verdict === 'Blocked'}>{r.verdict}</Lozenge> },
             { key: 'detail', content: r.verdict === 'Not checked'
               ? `Reason: ${r.reason ?? 'unknown'}`
-              : (
-                <Stack space="space.025">
-                  <Text>{`${r.findings} finding${r.findings === 1 ? '' : 's'}${r.notes ? `, ${r.notes} note${r.notes === 1 ? '' : 's'}` : ''}`}</Text>
-                  {r.headline ? <Text>{r.headline}</Text> : null}
-                </Stack>
-              ) },
+              : `${r.findings} finding${r.findings === 1 ? '' : 's'}${r.notes ? `, ${r.notes} note${r.notes === 1 ? '' : 's'}` : ''}${r.headline ? `: ${r.headline}` : ''}` },
           ] }))}
         />
       ) : null}
