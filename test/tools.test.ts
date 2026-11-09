@@ -103,6 +103,12 @@ test('each finding carries the dates and a next step chosen by code, and a verif
   assert.match(f.nextStep, /An agent cannot apply it/);
 });
 
+test('a finding names its rule in words as well as by id, so agents never show R1_VERSION_MISMATCH to a person', async () => {
+  const r = (await checkIssueDocs({ issueKey: 'PAY-1' }, site())) as unknown as { findings: { rule: string; ruleName: string | null }[] };
+  assert.equal(r.findings[0]!.rule, 'R1_VERSION_MISMATCH');
+  assert.equal(r.findings[0]!.ruleName, 'Stale version');
+});
+
 test('nextStepFor: an edit when one exists, an owner conversation when none does, and a note is not called a contradiction', () => {
   assert.match(nextStepFor({ severity: 'block', suggestion: { after: 'x', before: 'y', note: '' } } as never, 'PAY-9'), /open PAY-9.*Apply this edit/);
   const none = nextStepFor({ severity: 'block' } as never, 'PAY-9');

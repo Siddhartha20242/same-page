@@ -107,8 +107,10 @@ test('no agent gives advice of its own or prints a field name, because both were
     assert.match(by(k), /Never print a field name such as nextStep/, `${k} must not print field names`);
   for (const k of ['same-page-agent', 'same-page-docs-owner-agent', 'same-page-dev-agent', 'same-page-incident-agent', 'same-page-release-agent'])
     assert.match(by(k), /Give no advice of your own/, `${k} must not invent next steps`);
-  for (const k of ['same-page-agent', 'same-page-docs-owner-agent', 'same-page-dev-agent', 'same-page-incident-agent'])
+  for (const k of ['same-page-agent', 'same-page-docs-owner-agent', 'same-page-dev-agent', 'same-page-incident-agent']) {
     assert.match(by(k), /do not write your own\s+description of a rule/, `${k} must not paraphrase rules`);
+    assert.match(by(k), /by its ruleName \(never the rule id\)/, `${k} must name the rule in words`);
+  }
   assert.match(by('same-page-release-agent'), /howToUnblock/);
   assert.match(by('same-page-release-agent'), /howToSeeEvidence as written; never\s+repeat it per item/, 'the long sentence is said once, not on every item');
   assert.match(by('same-page-release-agent'), /use the rule field; if a tool gives none, do not write a rule line/);

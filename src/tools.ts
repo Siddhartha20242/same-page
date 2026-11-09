@@ -5,7 +5,7 @@ import type { PanelDeps, PanelFinding } from './panelModel.ts';
 import { createJob, runBatch, finalizeJob } from './job.ts';
 import { runOverview } from './overview.ts';
 import type { OverviewDeps } from './overview.ts';
-import { RULE_CATALOG, loadSeverityOverrides } from './ruleCatalog.ts';
+import { RULE_CATALOG, loadSeverityOverrides, ruleInfo } from './ruleCatalog.ts';
 import { loadCustomDefs } from './customRules.ts';
 import { loadOutcomes, ruleNoiseFromCounts } from './triage.ts';
 import { headOf } from './ledgerStore.ts';
@@ -42,7 +42,7 @@ export function nextStepFor(f: Pick<PanelFinding, 'severity' | 'suggestion'>, is
 }
 
 const brief = (f: PanelFinding, issueKey = '') => ({
-  rule: f.ruleId, severity: f.severity, summary: quote(f.summary), whyItMatters: f.why,
+  rule: f.ruleId, ruleName: ruleInfo(f.ruleId)?.name ?? null, severity: f.severity, summary: quote(f.summary), whyItMatters: f.why,
   docTitle: quote(f.pageTitle), quotedDocLine: quote(f.evidence.docLine), docLastEdited: f.evidence.docModifiedAt ?? null,
   ticket: quote(f.evidence.ticket), ticketLastStatusChange: f.evidence.ticketChangedAt ?? null,
   whichSideFirst: ageHint({ pageEditedAt: f.evidence.docModifiedAt, itemChangedAt: f.evidence.ticketChangedAt }),
