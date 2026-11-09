@@ -2,7 +2,7 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
-## 7.67.0, 2026-11-09 (development only)
+## 7.67.0, 2026-11-09 (production)
 - Release check answers are shorter and name the rule: project-brief items carry the rule's name, and how to see the evidence is stated once (`howToSeeEvidence`) instead of on every item.
 
 ## 7.66.0, 2026-11-09 (production)
