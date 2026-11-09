@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDeps } from '../src/atlassianDeps.ts';
-import { checkIssueDocs, scanIssues, quote, nextStepFor, NOTICE, MAX_ISSUES } from '../src/tools.ts';
+import { checkIssueDocs, scanIssues, quote, nextStepFor, howToUnblock, itemNextStep, NOTICE, MAX_ISSUES } from '../src/tools.ts';
 import type { HttpResponse } from '../src/atlassianDeps.ts';
 
 // What the tests read from the tools' result unions: every field optional, since each status carries a different subset.
@@ -121,6 +121,27 @@ test('project brief lists the worst first with a headline and a short fix-first 
   assert.equal(r.items[0]!.verdict, 'Blocked');
   assert.match(r.items[0]!.headline ?? '', /^Page documents v1 but PAY-1 targets v2/);
   assert.ok(r.items.slice(1).every((i) => i.headline === undefined), 'no headline is invented for an item without a finding');
+});
+
+test('a project brief item carries a code-chosen next step when it has findings, and a reason-specific way to unblock when it could not be checked', async () => {
+  const s = site();
+  const r = (await projectBrief({ projectKey: 'PAY' }, { ...s, searchIssues: async () => [{ key: 'PAY-1', summary: 'Migrate Payment API to v2' }, { key: 'PAY-2', summary: 'Improve search' }] } as never)) as unknown as { items: { issueKey: string; findings: number; nextStep?: string; reasonNotChecked?: string; howToUnblock?: string }[] };
+  const withFindings = r.items.find((i) => i.findings > 0)!;
+  assert.equal(withFindings.nextStep, itemNextStep(withFindings.issueKey));
+  assert.match(withFindings.nextStep!, /An agent cannot apply it/);
+  const unchecked = r.items.find((i) => i.reasonNotChecked);
+  if (unchecked) assert.ok(unchecked.howToUnblock, 'an unchecked item says what could be done');
+  for (const i of r.items.filter((x) => x.findings === 0 && !x.reasonNotChecked)) assert.equal(i.nextStep, undefined, 'a clean item gets no next step');
+});
+
+test('howToUnblock gives one fixed, honest hint per reason and never says an unchecked item is fine', () => {
+  assert.match(howToUnblock('related page(s) found but not readable with your permissions') as string, /Ask for access/);
+  assert.match(howToUnblock('no related Confluence page found') as string, /Link one|write this work item/);
+  assert.match(howToUnblock('not reached before the time or request budget ran out; use Check the rest') as string, /Check the rest/);
+  assert.match(howToUnblock('Atlassian rate limited the app; try again in about 30 seconds') as string, /stopped before this item/);
+  assert.match(howToUnblock('something new') as string, /not a clean result/);
+  assert.equal(howToUnblock(undefined), undefined);
+  for (const r of ['not readable with your permissions', 'no related Confluence page', 'not reached', 'other']) assert.doesNotMatch(howToUnblock(r) as string, /\b(is fine|are fine|is correct|is safe)\b/i);
 });
 
 test('list rules names all ten with a default severity', () => {

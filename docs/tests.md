@@ -1,6 +1,6 @@
 # What the tests cover
 
-`npm test` runs 375 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
+`npm test` runs 378 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|

@@ -100,6 +100,18 @@ test('every agent has a follow-up prompt that stays inside what the tools can an
   assert.match(by('same-page-digest-agent'), /fixFirst/);
 });
 
+test('no agent gives advice of its own or prints a field name, because both were seen on the live site', () => {
+  const by = (k: string) => (agents as unknown as { key: string; prompt: string }[]).find((a) => a.key === k)!.prompt;
+  // Seen live on production: "nextStep:" printed to the user, "Update the issue status" invented, and rules paraphrased by the model.
+  for (const k of ['same-page-agent', 'same-page-docs-owner-agent', 'same-page-dev-agent', 'same-page-incident-agent', 'same-page-release-agent', 'same-page-oncall-agent', 'same-page-digest-agent', 'same-page-audit-agent'])
+    assert.match(by(k), /Never print a field name such as nextStep/, `${k} must not print field names`);
+  for (const k of ['same-page-agent', 'same-page-docs-owner-agent', 'same-page-dev-agent', 'same-page-incident-agent', 'same-page-release-agent'])
+    assert.match(by(k), /Give no advice of your own/, `${k} must not invent next steps`);
+  for (const k of ['same-page-agent', 'same-page-docs-owner-agent', 'same-page-dev-agent', 'same-page-incident-agent'])
+    assert.match(by(k), /do not write your own\s+description of a rule/, `${k} must not paraphrase rules`);
+  assert.match(by('same-page-release-agent'), /howToUnblock/);
+});
+
 test('every MCP tool is also an action, so agents and MCP clients see the same checks', () => {
   for (const t of m.modules['rovo:mcp'][0]!.tools) assert.ok(actions.has(t), `${t} is an MCP tool but not an action`);
 });

@@ -92,6 +92,19 @@ export async function scanIssues({ issueKeys }: { issueKeys?: unknown }, deps: P
 
 // project_brief: where a project stands right now, in one call: its open epics and in-progress items, each with a verdict.
 // This is the "release readiness" question an agent is asked most: is anything in this project out of step with its docs?
+/** For an item the scan could not check: what a person can do about that, decided by code from the reason. Never a guess about the content. */
+export function howToUnblock(reason?: string): string | undefined {
+  const r = String(reason ?? '');
+  if (!r) return undefined;
+  if (/not readable with your permissions/i.test(r)) return 'The linked page or pages cannot be read with this person\'s permissions. Ask for access to them, or ask someone who can read them to check.';
+  if (/no related Confluence page/i.test(r)) return 'No Confluence page is linked to this work item. Link one (paste its address in the Same Page panel) or write this work item\'s key on the page.';
+  if (/not reached|rate limited/i.test(r)) return 'The scan stopped before this item. Ask again with fewer items, or use Check the rest on the project overview page.';
+  return 'It could not be checked for the reason given. It is not a clean result.';
+}
+
+/** For an item that has findings: where to see the evidence and any verified edit. The scan does not carry the edit itself. */
+export const itemNextStep = (issueKey: string) => `Open ${issueKey} in Jira, then open Same Page from the apps menu. It shows the evidence and, when one exists, a verified edit that a person can apply. An agent cannot apply it.`;
+
 export async function projectBrief({ projectKey, fixVersion }: { projectKey?: unknown; fixVersion?: unknown }, deps: OverviewDeps, weekly?: { at: string; project: { withContradictions: number; checked: number; newSincePrevious: number; resolvedSincePrevious?: number } | null } | null) {
   // A larger request budget than the overview page, but a time limit that still fits inside the default function timeout (Forge does not allow a
   // longer one on action functions). Whichever limit is reached first stops the run, and the items not reached are reported as not checked.
@@ -102,7 +115,7 @@ export async function projectBrief({ projectKey, fixVersion }: { projectKey?: un
     status: 'scan complete', ...(version ? { scope: `open work items in fix version ${quote(version)}` } : {}), summary: out.summaryLine, coverage: out.coverageLine,
     counts: { checked: out.checked, withContradictions: out.withContradictions, notChecked: out.unchecked },
     fixFirst: bySeverity(out.rows).filter((r) => r.verdict === 'Blocked' || r.verdict === 'Warning').slice(0, 3).map((r) => r.key),
-    items: bySeverity(out.rows).map((r) => ({ issueKey: r.key, summary: quote(r.summary), verdict: r.verdict, findings: r.findings, ...(r.headline ? { headline: quote(r.headline) } : {}), ...(r.reason ? { reasonNotChecked: r.reason } : {}) })),
+    items: bySeverity(out.rows).map((r) => ({ issueKey: r.key, summary: quote(r.summary), verdict: r.verdict, findings: r.findings, ...(r.headline ? { headline: quote(r.headline) } : {}), ...(r.findings > 0 ? { nextStep: itemNextStep(r.key) } : {}), ...(r.reason ? { reasonNotChecked: r.reason, howToUnblock: howToUnblock(r.reason) } : {}) })),
     ...(weekly && !version ? { weeklyScan: weekly.project ? { scannedOn: weekly.at.slice(0, 10), openEpicsWithContradictions: weekly.project.withContradictions, checked: weekly.project.checked, newSinceTheScanBefore: weekly.project.newSincePrevious, resolvedSinceTheScanBefore: weekly.project.resolvedSincePrevious ?? 0 } : { scannedOn: weekly.at.slice(0, 10), note: 'no open epics in this project were covered by the weekly scan' } } : {}),
     note: 'Rules only, no AI in detection. A Not checked item is not a clean item.',
     notice: NOTICE,

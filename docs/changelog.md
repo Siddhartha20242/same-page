@@ -2,7 +2,10 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
-## 7.65.0, 2026-11-09 (development only)
+## 7.66.0, 2026-11-09 (development only)
+- Agent answers no longer invent next steps: project-brief items carry a code-chosen `nextStep` and a reason-specific `howToUnblock`, and the prompts forbid the agent's own advice, paraphrased rules and printed field names (all three were seen on the live site in 7.65.0).
+
+## 7.65.0, 2026-11-09 (production)
 - Deeper agent answers, not more agents: findings carry `whichSideFirst` and a code-chosen `nextStep`; the project brief is worst first with a headline per item and a `fixFirst` list; the agent prompts ask for one answer shape and the release check ends with a path to ready; every agent has a `followUpPrompt`. No new scopes or modules (a minor version).
 
 ## 7.63.0, 2026-11-09 (development only)
