@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDeps } from '../src/atlassianDeps.ts';
-import { checkIssueDocs, scanIssues, quote, NOTICE, MAX_ISSUES } from '../src/tools.ts';
+import { checkIssueDocs, scanIssues, quote, nextStepFor, NOTICE, MAX_ISSUES } from '../src/tools.ts';
 import type { HttpResponse } from '../src/atlassianDeps.ts';
 
 // What the tests read from the tools' result unions: every field optional, since each status carries a different subset.
@@ -91,6 +91,36 @@ test('project brief: a verdict per open item, what could not be checked, and no 
   assert.equal(r.items?.find((i) => i.issueKey === 'PAY-1')?.verdict, 'Blocked');
   assert.ok(r.notice);
   assert.equal((await projectBrief({ projectKey: 'PAY" OR 1=1' }, { ...s, searchIssues: async () => [] } as never) as { status: string }).status, 'error');
+});
+
+test('each finding carries the dates and a next step chosen by code, and a verified edit is something a person applies, never an agent', async () => {
+  const r = (await checkIssueDocs({ issueKey: 'PAY-1' }, site())) as unknown as { findings: { whichSideFirst: string | null; nextStep: string; suggestedEdit: unknown }[] };
+  const f = r.findings[0]!;
+  assert.match(f.whichSideFirst ?? '', /^The page was last edited/);
+  assert.doesNotMatch(f.whichSideFirst ?? '', /is right|is correct/i, 'it never says which side is right');
+  assert.ok(f.suggestedEdit);
+  assert.match(f.nextStep, /open PAY-1, open Same Page from the apps menu, and click "Apply this edit to the page"/);
+  assert.match(f.nextStep, /An agent cannot apply it/);
+});
+
+test('nextStepFor: an edit when one exists, an owner conversation when none does, and a note is not called a contradiction', () => {
+  assert.match(nextStepFor({ severity: 'block', suggestion: { after: 'x', before: 'y', note: '' } } as never, 'PAY-9'), /open PAY-9.*Apply this edit/);
+  const none = nextStepFor({ severity: 'block' } as never, 'PAY-9');
+  assert.match(none, /cannot tell which side is right/);
+  assert.match(none, /Create review task/);
+  assert.doesNotMatch(none, /Apply this edit/);
+  assert.match(nextStepFor({ severity: 'info' } as never, 'PAY-9'), /note, not a contradiction/);
+  for (const sev of ['block', 'warn', 'info'] as const) assert.doesNotMatch(nextStepFor({ severity: sev } as never, 'PAY-9'), /\b(is correct|are correct|is safe)\b/i);
+});
+
+test('project brief lists the worst first with a headline and a short fix-first list, whatever order Jira returned', async () => {
+  const s = site();
+  const r = (await projectBrief({ projectKey: 'PAY' }, { ...s, searchIssues: async () => [{ key: 'PAY-2', summary: 'Improve search' }, { key: 'PAY-1', summary: 'Migrate Payment API to v2' }] } as never)) as unknown as { fixFirst: string[]; items: { issueKey: string; verdict: string; headline?: string }[] };
+  assert.deepEqual(r.fixFirst, ['PAY-1']);
+  assert.equal(r.items[0]!.issueKey, 'PAY-1');
+  assert.equal(r.items[0]!.verdict, 'Blocked');
+  assert.match(r.items[0]!.headline ?? '', /^Page documents v1 but PAY-1 targets v2/);
+  assert.ok(r.items.slice(1).every((i) => i.headline === undefined), 'no headline is invented for an item without a finding');
 });
 
 test('list rules names all ten with a default severity', () => {

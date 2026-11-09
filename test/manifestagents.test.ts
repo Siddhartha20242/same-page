@@ -81,6 +81,25 @@ test('every action description fits the 255 characters Forge lint allows', () =>
   for (const a of m.modules.action as unknown as { key: string; description: string }[]) assert.ok(a.description.trim().length <= 255, `${a.key} description is ${a.description.trim().length} characters`);
 });
 
+test('every agent has a follow-up prompt that stays inside what the tools can answer, and the answer shape uses the fields the tools return', () => {
+  for (const a of agents as unknown as { key: string; prompt: string; followUpPrompt?: string }[]) {
+    assert.ok(a.followUpPrompt && a.followUpPrompt.length >= 40 && a.followUpPrompt.length <= 300, `${a.key} has a follow-up prompt of a sensible length`);
+    assert.match(a.followUpPrompt!, /Only suggest questions the Same Page tools can answer/, `${a.key} follow-ups stay within the tools`);
+  }
+  const by = (k: string) => (agents as unknown as { key: string; prompt: string }[]).find((a) => a.key === k)!.prompt;
+  for (const k of ['same-page-agent', 'same-page-docs-owner-agent', 'same-page-dev-agent', 'same-page-incident-agent']) {
+    assert.match(by(k), /whichSideFirst/, `${k} uses the date statement`);
+    assert.match(by(k), /nextStep/, `${k} uses the next step`);
+    assert.match(by(k), /a person applies it from the Same Page panel, because\s+you cannot/i, `${k} never offers to apply the edit`);
+    assert.match(by(k), /never say which side is right/i, `${k} never picks a side`);
+  }
+  assert.match(by('same-page-release-agent'), /path to ready/i);
+  assert.match(by('same-page-release-agent'), /fixFirst/);
+  assert.match(by('same-page-release-agent'), /Do not promise\s+that fixing these makes the release safe/);
+  assert.match(by('same-page-oncall-agent'), /nextStep/);
+  assert.match(by('same-page-digest-agent'), /fixFirst/);
+});
+
 test('every MCP tool is also an action, so agents and MCP clients see the same checks', () => {
   for (const t of m.modules['rovo:mcp'][0]!.tools) assert.ok(actions.has(t), `${t} is an MCP tool but not an action`);
 });

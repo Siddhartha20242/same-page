@@ -38,7 +38,7 @@ Checked with `npm audit` on 2026-11-08:
 - The Forge app folder: 17 findings (8 high, 9 moderate, none critical). Every one is in Atlassian's own `@forge/react` and `@forge/bridge` packages or their dependencies (for example the editor and link-detection libraries used by the UI Kit). The suggested fix is a major upgrade of `@forge/react` to version 12, which is a UI Kit migration that has not been done or tested here. Until it is, these remain.
 
 ## Tests and CI
-371 offline tests run on every push in GitHub Actions. They cover the rules, the gate, the audit chain, the agent prompts, and the input checks above.
+375 offline tests run on every push in GitHub Actions. They cover the rules, the gate, the audit chain, the agent prompts, and the input checks above.
 
 ## What we do not have
 No security certification, no third-party penetration test, no bug bounty. The app has not been listed on the Atlassian Marketplace, so it has not been through Atlassian's Marketplace security review.

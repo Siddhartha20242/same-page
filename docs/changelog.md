@@ -2,6 +2,9 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
+## 7.65.0, 2026-11-09 (development only)
+- Deeper agent answers, not more agents: findings carry `whichSideFirst` and a code-chosen `nextStep`; the project brief is worst first with a headline per item and a `fixFirst` list; the agent prompts ask for one answer shape and the release check ends with a path to ready; every agent has a `followUpPrompt`. No new scopes or modules (a minor version).
+
 ## 7.63.0, 2026-11-09 (development only)
 - Rules and settings: the stage buttons now say Draft, Warning and Blocker, matching the stage chips beside them (they said Warn and Block).
 

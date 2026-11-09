@@ -1,3 +1,5 @@
+import { ageHint } from './ageHint.ts';
+import { bySeverity } from './verdictOrder.ts';
 import { buildPanelModel } from './panelModel.ts';
 import type { PanelDeps, PanelFinding } from './panelModel.ts';
 import { createJob, runBatch, finalizeJob } from './job.ts';
@@ -32,11 +34,20 @@ export function quote(text: unknown): string {
   return flat.length > MAX_QUOTE ? `${flat.slice(0, MAX_QUOTE - 1)}…` : flat;
 }
 
-const brief = (f: PanelFinding) => ({
+/** What a person can do next, decided by code from what the rules found, so every agent says the same true thing and none invents a step. Nothing here edits anything. */
+export function nextStepFor(f: Pick<PanelFinding, 'severity' | 'suggestion'>, issueKey: string): string {
+  if (f.suggestion?.after) return `A verified one-line edit is available. In Jira, open ${issueKey}, open Same Page from the apps menu, and click "Apply this edit to the page"; it becomes a normal Confluence page version that can be reverted. An agent cannot apply it.`;
+  if (f.severity === 'info') return 'This is a note, not a contradiction. Check that the wording is meant to describe the past.';
+  return 'No automatic edit is offered, because Same Page cannot tell which side is right. Ask the owners of the page and of the work item, or use "Create review task" in the Same Page panel.';
+}
+
+const brief = (f: PanelFinding, issueKey = '') => ({
   rule: f.ruleId, severity: f.severity, summary: quote(f.summary), whyItMatters: f.why,
   docTitle: quote(f.pageTitle), quotedDocLine: quote(f.evidence.docLine), docLastEdited: f.evidence.docModifiedAt ?? null,
   ticket: quote(f.evidence.ticket), ticketLastStatusChange: f.evidence.ticketChangedAt ?? null,
+  whichSideFirst: ageHint({ pageEditedAt: f.evidence.docModifiedAt, itemChangedAt: f.evidence.ticketChangedAt }),
   suggestedEdit: f.suggestion?.after ? { quotedBefore: quote(f.suggestion.before), quotedAfter: quote(f.suggestion.after), note: f.suggestion.note } : null,
+  nextStep: nextStepFor(f, issueKey),
 });
 
 // check_issue_docs: one issue against its related Confluence docs.
@@ -48,7 +59,7 @@ export async function checkIssueDocs({ issueKey }: { issueKey?: string }, deps: 
   if (m.status === 'clean') return { issueKey, status: 'clean', pagesChecked: m.pagesChecked, receipt: receipt(issueKey as string, m.pagesChecked, []), notice: NOTICE };
   return {
     issueKey, status: m.status, verdict: m.verdict, pagesChecked: m.pagesChecked,
-    findings: m.findings.map(brief), notes: m.notes.map(brief), receipt: receipt(issueKey as string, m.pagesChecked, m.findings.map((f) => f.id)), notice: NOTICE,
+    findings: m.findings.map((f) => brief(f, issueKey as string)), notes: m.notes.map((f) => brief(f, issueKey as string)), receipt: receipt(issueKey as string, m.pagesChecked, m.findings.map((f) => f.id)), notice: NOTICE,
   };
 }
 
@@ -90,7 +101,8 @@ export async function projectBrief({ projectKey, fixVersion }: { projectKey?: un
   return {
     status: 'scan complete', ...(version ? { scope: `open work items in fix version ${quote(version)}` } : {}), summary: out.summaryLine, coverage: out.coverageLine,
     counts: { checked: out.checked, withContradictions: out.withContradictions, notChecked: out.unchecked },
-    items: out.rows.map((r) => ({ issueKey: r.key, summary: quote(r.summary), verdict: r.verdict, findings: r.findings, ...(r.reason ? { reasonNotChecked: r.reason } : {}) })),
+    fixFirst: bySeverity(out.rows).filter((r) => r.verdict === 'Blocked' || r.verdict === 'Warning').slice(0, 3).map((r) => r.key),
+    items: bySeverity(out.rows).map((r) => ({ issueKey: r.key, summary: quote(r.summary), verdict: r.verdict, findings: r.findings, ...(r.headline ? { headline: quote(r.headline) } : {}), ...(r.reason ? { reasonNotChecked: r.reason } : {}) })),
     ...(weekly && !version ? { weeklyScan: weekly.project ? { scannedOn: weekly.at.slice(0, 10), openEpicsWithContradictions: weekly.project.withContradictions, checked: weekly.project.checked, newSinceTheScanBefore: weekly.project.newSincePrevious, resolvedSinceTheScanBefore: weekly.project.resolvedSincePrevious ?? 0 } : { scannedOn: weekly.at.slice(0, 10), note: 'no open epics in this project were covered by the weekly scan' } } : {}),
     note: 'Rules only, no AI in detection. A Not checked item is not a clean item.',
     notice: NOTICE,
