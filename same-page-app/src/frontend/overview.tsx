@@ -4,6 +4,7 @@ import { invoke as bridgeInvoke } from '@forge/bridge';
 import type { Overview, OverviewRow } from '../core/overview';
 import type { ProjectDrift } from '../core/drift';
 import type { Impact } from '../core/impact';
+import { bySeverity } from '../core/verdictOrder';
 
 const invoke = <T,>(name: string, payload?: Record<string, unknown>): Promise<T> => bridgeInvoke(name, payload) as unknown as Promise<T>;
 
@@ -85,6 +86,7 @@ const ImpactCard = ({ impact, onSaved }: { impact: Impact & { canEdit: boolean }
 
 const App = () => {
   const [load, setLoad] = useState<Load>({ phase: 'loading' });
+  const [filter, setFilter] = useState<'All' | OverviewRow['verdict']>('All');
   const run = useCallback((carried?: OverviewRow[]) => {
     setLoad({ phase: 'loading' });
     invoke<Reply>('getOverview', carried ? { carried } : undefined).then((reply) => setLoad({ phase: 'done', reply })).catch(() => setLoad({ phase: 'failed' }));
@@ -102,21 +104,37 @@ const App = () => {
         <Tile label="Not checked" value={count('Not checked')} tone="neutral" />
       </Inline>
       <SectionMessage appearance={ready.withContradictions ? 'warning' : ready.unchecked ? 'information' : 'success'} title={ready.summaryLine.replace(/\.$/, '')}>
-        {ready.coverageLine ? <Text>{ready.coverageLine}</Text> : ready.rows.length ? <Text>Open a work item to see the evidence for each finding.</Text> : null}
+        {ready.coverageLine ? <Text>{ready.coverageLine}</Text> : ready.rows.length ? <Text>Open a work item, then choose Same Page from its apps menu (the puzzle icon under the title) to see the evidence for each finding.</Text> : null}
       </SectionMessage>
+      {ready.rows.length > 1 ? (
+        <Inline space="space.100" alignBlock="center" shouldWrap>
+          <Text>Show:</Text>
+          {(['All', 'Blocked', 'Warning', 'Not checked', 'Clean'] as const).map((f) => {
+            const n = f === 'All' ? ready.rows.length : count(f);
+            return n > 0 || f === 'All' ? <Button key={f} appearance={filter === f ? 'primary' : 'default'} onClick={() => setFilter(f)}>{`${f} (${n})`}</Button> : null;
+          })}
+        </Inline>
+      ) : null}
       {ready.rows.length ? (
         <DynamicTable
           caption="Open epics and in-progress work items"
           head={{ cells: [{ key: 'key', content: 'Work item' }, { key: 'summary', content: 'Summary' }, { key: 'verdict', content: 'Verdict' }, { key: 'detail', content: 'Detail' }] }}
-          rows={ready.rows.map((r) => ({ key: r.key, cells: [
+          rows={bySeverity(ready.rows).filter((r) => filter === 'All' || r.verdict === filter).map((r) => ({ key: r.key, cells: [
             { key: 'key', content: <Link href={`/browse/${r.key}`}>{r.key}</Link> },
             { key: 'summary', content: r.summary },
             { key: 'verdict', content: <Lozenge appearance={TONE[r.verdict]} isBold={r.verdict === 'Blocked'}>{r.verdict}</Lozenge> },
-            { key: 'detail', content: r.verdict === 'Not checked' ? `Reason: ${r.reason ?? 'unknown'}` : `${r.findings} finding${r.findings === 1 ? '' : 's'}${r.notes ? `, ${r.notes} note${r.notes === 1 ? '' : 's'}` : ''}` },
+            { key: 'detail', content: r.verdict === 'Not checked'
+              ? `Reason: ${r.reason ?? 'unknown'}`
+              : (
+                <Stack space="space.025">
+                  <Text>{`${r.findings} finding${r.findings === 1 ? '' : 's'}${r.notes ? `, ${r.notes} note${r.notes === 1 ? '' : 's'}` : ''}`}</Text>
+                  {r.headline ? <Text>{r.headline}</Text> : null}
+                </Stack>
+              ) },
           ] }))}
         />
       ) : null}
-      <Text>Rules only, no AI in detection. A Not checked item is not a clean item.</Text>
+      <Text>Worst first. Rules only, no AI in detection. A Not checked item is not a clean item.</Text>
     </Stack>
   ) : null;
   const weeklyLine = ready ? (ready.drift

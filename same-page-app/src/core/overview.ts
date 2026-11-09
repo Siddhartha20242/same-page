@@ -1,4 +1,5 @@
 import { createJob, runBatch } from './job';
+import type { RowVerdict } from './verdictOrder';
 import type { Job, JobDeps } from './job';
 import type { ItemResult } from './release';
 
@@ -22,8 +23,9 @@ export function overviewJql(projectKey: unknown, fixVersion?: unknown): string |
   return `project = "${k}" AND statusCategory != Done AND (issuetype = Epic OR statusCategory = "In Progress") ORDER BY updated DESC`;
 }
 
-export type RowVerdict = 'Blocked' | 'Warning' | 'Clean' | 'Not checked';
-export interface OverviewRow { key: string; summary: string; verdict: RowVerdict; findings: number; reason?: string; notes?: number }
+export type { RowVerdict } from './verdictOrder';
+export { bySeverity } from './verdictOrder';
+export interface OverviewRow { key: string; summary: string; verdict: RowVerdict; findings: number; reason?: string; notes?: number; /** The most serious finding in one short line, so the table says what is wrong without opening the item. */ headline?: string }
 export interface Overview {
   status: 'ready';
   rows: OverviewRow[];
@@ -42,6 +44,9 @@ export interface Overview {
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** One short plain line: no control characters, no backticks, no line breaks, capped. */
+export const oneLine = (v: unknown, max = 160): string => String(v ?? '').replace(/[\u0000-\u001f\u007f`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
 /** The reason shown when the run stopped before reaching an item. */
 const NOT_REACHED = 'not reached before the time or request budget ran out; use Check the rest';
@@ -63,7 +68,9 @@ export function buildOverview({ issues, job, moreExist = false, carried = [], fi
     const real = (r.findings ?? []).filter((f) => f.severity !== 'info');
     const notes = (r.findings ?? []).length - real.length;
     const verdict: RowVerdict = real.some((f) => f.severity === 'block') ? 'Blocked' : real.length ? 'Warning' : 'Clean';
-    return { key: issue.key, summary, verdict, findings: real.length, ...(notes ? { notes } : {}) };
+    const top = real.find((f) => f.severity === 'block') ?? real[0];
+    const headline = top ? oneLine(top.summary) : '';
+    return { key: issue.key, summary, verdict, findings: real.length, ...(notes ? { notes } : {}), ...(headline ? { headline } : {}) };
   });
   const unchecked = rows.filter((r) => r.verdict === 'Not checked');
   const checked = rows.length - unchecked.length;
@@ -105,6 +112,7 @@ export function sanitizeCarried(input: unknown): OverviewRow[] {
     const row: OverviewRow = { key: r.key, summary: clip(r.summary, 300), verdict: r.verdict as RowVerdict, findings: Math.max(0, Math.min(99, Number(r.findings) || 0)) };
     if (r.reason) row.reason = clip(r.reason, 300);
     if (r.notes) row.notes = Math.max(0, Math.min(99, Number(r.notes) || 0));
+    if (r.headline) row.headline = oneLine(r.headline);
     if (!isUndecided(row)) out.push(row);
   }
   return out;
@@ -133,3 +141,4 @@ export async function runOverview(projectKey: unknown, deps: OverviewDeps, budge
   const ov = buildOverview({ issues, job: out.job, moreExist: found.length > MAX_ITEMS, carried: keep, ...(version !== null ? { fixVersion: version } : {}) });
   return version !== null ? { ...ov, fixVersion: version } : ov;
 }
+

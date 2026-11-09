@@ -662,8 +662,8 @@ const BreakGlass = ({ override, hasBlocker, onChanged }: { override?: { until: s
 const EmptyStateBlock = ({ onRefresh }: { onRefresh: () => void }) => (
   <Stack space="space.150" alignInline="center">
     <Icon glyph="check-circle" label="Clean" size="large" />
-    <Heading size="medium">All clear</Heading>
-    <Text>Nothing on the linked pages disagrees with this work item. If you change the work item or a page, check again.</Text>
+    <Heading size="medium">Nothing to fix</Heading>
+    <Text>The fixed rules found nothing on the linked pages that disagrees with this work item. That does not prove the pages are correct. Open "What was checked" to see what was read, and check again after a change.</Text>
     <Button onClick={onRefresh}>Check again</Button>
   </Stack>
 );

@@ -38,7 +38,7 @@ import { runPlayground } from './core/playground';
 import { buildAuditExport } from './core/ledgerExport';
 import { addCanon, checkCanon, deleteCanon, loadCanon } from './core/canon';
 import { canonDeps } from './canonDeps';
-import { checkPage, bylineTitle } from './core/pageCheck';
+import { checkPage, bylineTitle, bylineTooltip } from './core/pageCheck';
 import type { PageCheck } from './core/pageCheck';
 
 // Everything runs AS THE VIEWING USER (asUser), so Jira and Confluence permissions decide what is visible and what can be created.
@@ -572,7 +572,8 @@ export const bylineProps = async (arg: unknown, ctx?: unknown) => {
   const base = { title: 'Same Page', tooltip: 'Checked against the Jira work items this page names' };
   try {
     const pageId = pageIdOf(arg) || pageIdOf((arg as { payload?: unknown } | undefined)?.payload) || pageIdOf(ctx);
-    return { ...base, title: bylineTitle(await runPageCheck(pageId)) };
+    const result = await runPageCheck(pageId);
+    return { ...base, title: bylineTitle(result), tooltip: bylineTooltip(result) };
   } catch { return base; }
 };
 

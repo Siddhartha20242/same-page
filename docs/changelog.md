@@ -2,6 +2,11 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
+## 7.59.0 to 7.61.0, 2026-11-09 (development only)
+- **Project overview:** rows are shown worst first (blocked, warning, not checked, clean), each row with a finding shows its most serious finding as a one-line headline, and filter buttons (All, Blocked, Warning, Not checked, Clean) appear when there is more than one row. The hint under the summary now says where the evidence is: the work item's apps menu, then Same Page.
+- **Work item panel, clean state:** the empty tab no longer repeats the banner or says "All clear". It says "Nothing to fix", that the fixed rules found nothing, that this does not prove the pages are correct, and where to see what was read.
+- **Confluence byline:** a page that names no Jira work item now says "Same Page: names no work item", with a tooltip that says to write a key such as PAY-123 on the page. Other unchecked reasons still say "not checked", and no label ever calls an unchecked page clean.
+
 ## 7.58.0, 2026-11-08 (development only)
 - Updated the `yaml` library to 2.9.1, which fixes a stack-overflow advisory for deeply nested YAML. Added a test that feeds such YAML to the spec reader.
 

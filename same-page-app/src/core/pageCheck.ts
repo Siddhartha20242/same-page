@@ -9,6 +9,7 @@ import { ruleInfo } from './ruleCatalog';
 
 const KEY = /(?<![A-Za-z0-9-])[A-Z][A-Z0-9_]+-\d+(?![0-9])/g;
 export const MAX_KEYS = 5;
+const NAMES_NONE = /does not name any Jira work item/;
 
 export const ruleName = (id: string) => ruleInfo(id)?.name ?? 'Rule';
 
@@ -66,6 +67,16 @@ export async function checkPage(pageId: string, d: PageCheckDeps): Promise<PageC
 export function bylineTitle(r: PageCheck | { status: 'error' }): string {
   if (r.status === 'issues') return `Same Page: ${r.issues.length} issue${r.issues.length === 1 ? '' : 's'}`;
   if (r.status === 'clean') return 'Same Page: no issues';
-  if (r.status === 'unchecked') return 'Same Page: not checked';
+  if (r.status === 'unchecked') return NAMES_NONE.test(r.reason) ? 'Same Page: names no work item' : 'Same Page: not checked';
   return 'Same Page: could not check';
+}
+
+/** What the tooltip says, so a visitor learns what the label means and what to do about it. Short on purpose. */
+export function bylineTooltip(r: PageCheck | { status: 'error' }): string {
+  if (r.status === 'issues') return 'This page disagrees with a Jira work item it names. Click for the details.';
+  if (r.status === 'clean') return 'Checked against the Jira work items this page names. The fixed rules found no contradiction.';
+  if (r.status === 'unchecked') return NAMES_NONE.test(r.reason)
+    ? 'Write a Jira work item key such as PAY-123 on this page and Same Page will check the page against that work item.'
+    : 'Not checked. Click to see why. This is not a clean result.';
+  return 'Checked against the Jira work items this page names';
 }
