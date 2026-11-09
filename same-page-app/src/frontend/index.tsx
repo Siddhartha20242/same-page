@@ -336,7 +336,7 @@ const RulesList = ({ autoOpen }: { autoOpen?: boolean }) => {
       ) },
       ...(data.canEdit ? [{ key: 'set', content: (
         <Inline space="space.025">
-          {(['draft', 'warn', 'block'] as const).map((v) => <Button key={v} appearance={r.severity === v ? 'primary' : 'subtle'} onClick={() => change(r, v)}>{v === 'draft' ? 'Draft' : v === 'warn' ? 'Warn' : 'Block'}</Button>)}
+          {(['draft', 'warn', 'block'] as const).map((v) => <Button key={v} appearance={r.severity === v ? 'primary' : 'subtle'} onClick={() => change(r, v)}>{v === 'draft' ? 'Draft' : v === 'warn' ? 'Warning' : 'Blocker'}</Button>)}
         </Inline>
       ) }] : []),
     ],

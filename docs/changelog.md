@@ -2,6 +2,9 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
+## 7.63.0, 2026-11-09 (development only)
+- Rules and settings: the stage buttons now say Draft, Warning and Blocker, matching the stage chips beside them (they said Warn and Block).
+
 ## 7.62.0, 2026-11-09 (development only)
 - Overview: the finding count and its headline share one line ("3 findings: Page documents ..."), which keeps rows compact.
 
