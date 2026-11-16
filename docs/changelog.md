@@ -2,7 +2,10 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
-## 7.69.0, 2026-11-16 (development only)
+## 7.70.0, 2026-11-16 (development only)
+- The docs owner and team digest agents ask which project when none is given. Seen live: the docs owner agent assumed a project called PAY and told the user it was empty.
+
+## 7.69.0, 2026-11-16 (production)
 - The project brief lists the pages to fix: `pagesToFix` names each page once with the work items that disagree with it, blocked pages first. The docs owner agent uses it as its page order. Overview rows now keep up to five page titles.
 
 ## 7.68.0, 2026-11-16 (production)

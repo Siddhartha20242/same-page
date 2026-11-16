@@ -124,3 +124,9 @@ test('the docs owner agent orders pages by pagesToFix when the brief has it', ()
   const by = (k: string) => (agents as unknown as { key: string; prompt: string }[]).find((a) => a.key === k)!.prompt;
   assert.match(by('same-page-docs-owner-agent'), /pagesToFix list, use it as the page order/);
 });
+
+test('project-level agents ask for the project instead of guessing one: seen live, the docs owner agent assumed PAY and called the project empty', () => {
+  const by = (k: string) => (agents as unknown as { key: string; prompt: string }[]).find((a) => a.key === k)!.prompt;
+  for (const k of ['same-page-docs-owner-agent', 'same-page-digest-agent'])
+    assert.match(by(k), /never guess a project and never call it empty/, `${k} must ask which project`);
+});

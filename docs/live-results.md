@@ -324,3 +324,8 @@ Run on SPD-2 and the Release 1.0 demo release, as the developer.
 
 ### Light mode, 2026-11-16 (production 7.68.0)
 The Jira panel on MOBL-58 was viewed with Jira in its light theme (`docs/images/panel-light.jpg`). The finding card, the red "Page says" and green "Jira says" boxes, the Blocker and rule chips, the "Proposed change" block and both buttons were all legible, with no clipped or invisible text. The code uses Atlassian design tokens only (no hard-coded colours), which is why both themes work. The What was checked, Rules and settings and Audit trail tabs were also viewed in light mode and read cleanly. Not viewed in light mode: the project overview page and the Confluence byline. I did not change any account setting to see this.
+
+### Fifth run on production (page-grouped brief), 2026-11-16: it worked, one flaw found
+- **Docs owner**, from its own starter, with project SPD named after a first answer: five pages, each once, blocking pages first (the deprecated-decision page, then the Search API runbook), then three warning pages; each with the rule in words (no rule id), both sides quoted, the dates sentence, and the code-chosen next step; SPD-6 reported as checked and clean. This is the `pagesToFix` list in use.
+- **Flaw:** asked with no project named, the agent assumed a project "PAY" and said it had no open work. It should have asked.
+- **Fix, built and tested (dev 7.70.0), not yet seen on production:** the docs owner and team digest prompts say to ask which project and never guess or call it empty.
