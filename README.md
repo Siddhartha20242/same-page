@@ -31,7 +31,7 @@ No model decides what counts as a contradiction. Fixed rules do, so a finding ca
 - It reads OpenAPI specs written in YAML as well as JSON, and it skips sections headed Legacy, Deprecated, Archive or Previous versions.
 - No real team has used it yet, so its accuracy on real documents is unmeasured. Every finding has "real" and "false alarm" buttons so that a pilot can measure it.
 - This is our entry for Codegeist 2026 in Apps for Software Teams, and we are going for the Atlassian MCP and Best Agents bonuses. Nine Rovo agents and an MCP module are included. The MCP endpoint is live, but we have not recorded a signed-in call from a third-party client yet ([docs/mcp.md](docs/mcp.md)).
-- To try it, see [Try it](#try-it).
+- To try it, see [Try it](#try-it). To find your way around the documentation, start at [docs/README.md](docs/README.md).
 
 ## The problem
 
