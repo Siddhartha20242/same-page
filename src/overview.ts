@@ -26,7 +26,7 @@ export function overviewJql(projectKey: unknown, fixVersion?: unknown): string |
 
 export type { RowVerdict } from './verdictOrder.ts';
 export { bySeverity } from './verdictOrder.ts';
-export interface OverviewRow { key: string; summary: string; verdict: RowVerdict; findings: number; reason?: string; notes?: number; /** The most serious finding in one short line, so the table says what is wrong without opening the item. */ headline?: string; /** The name of that finding's rule, for example "Stale version". */ ruleName?: string }
+export interface OverviewRow { key: string; summary: string; verdict: RowVerdict; findings: number; reason?: string; notes?: number; /** The most serious finding in one short line, so the table says what is wrong without opening the item. */ headline?: string; /** The name of that finding's rule, for example "Stale version". */ ruleName?: string; /** Titles of the pages behind this item's findings (at most 5), so a brief can group by page. */ pages?: string[] }
 export interface Overview {
   status: 'ready';
   rows: OverviewRow[];
@@ -72,7 +72,8 @@ export function buildOverview({ issues, job, moreExist = false, carried = [], fi
     const top = real.find((f) => f.severity === 'block') ?? real[0];
     const headline = top ? oneLine(top.summary) : '';
     const ruleName = top ? oneLine(ruleInfo(top.ruleId)?.name ?? '', 60) : '';
-    return { key: issue.key, summary, verdict, findings: real.length, ...(notes ? { notes } : {}), ...(headline ? { headline } : {}), ...(ruleName ? { ruleName } : {}) };
+    const pages = [...new Set(real.map((f) => oneLine(f.pageTitle ?? '', 120)).filter(Boolean))].slice(0, 5);
+    return { key: issue.key, summary, verdict, findings: real.length, ...(notes ? { notes } : {}), ...(headline ? { headline } : {}), ...(ruleName ? { ruleName } : {}), ...(pages.length ? { pages } : {}) };
   });
   const unchecked = rows.filter((r) => r.verdict === 'Not checked');
   const checked = rows.length - unchecked.length;
@@ -116,6 +117,7 @@ export function sanitizeCarried(input: unknown): OverviewRow[] {
     if (r.notes) row.notes = Math.max(0, Math.min(99, Number(r.notes) || 0));
     if (r.headline) row.headline = oneLine(r.headline);
     if (r.ruleName) row.ruleName = oneLine(r.ruleName, 60);
+    if (Array.isArray(r.pages)) { const pages = r.pages.filter((x): x is string => typeof x === 'string').map((x) => oneLine(x, 120)).filter(Boolean).slice(0, 5); if (pages.length) row.pages = pages; }
     if (!isUndecided(row)) out.push(row);
   }
   return out;

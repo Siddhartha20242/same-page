@@ -2,7 +2,10 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
-## 7.68.0, 2026-11-09 (development only)
+## 7.69.0, 2026-11-16 (development only)
+- The project brief lists the pages to fix: `pagesToFix` names each page once with the work items that disagree with it, blocked pages first. The docs owner agent uses it as its page order. Overview rows now keep up to five page titles.
+
+## 7.68.0, 2026-11-16 (production)
 - Agents name a rule in words: single-item results carry `ruleName` (for example "Stale version"), and the four general agents are told to use it and never the rule id.
 
 ## 7.67.0, 2026-11-09 (production)

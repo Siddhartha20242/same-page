@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDeps } from '../src/atlassianDeps.ts';
-import { checkIssueDocs, scanIssues, quote, nextStepFor, howToUnblock, howToSeeEvidence, NOTICE, MAX_ISSUES } from '../src/tools.ts';
+import { checkIssueDocs, scanIssues, quote, nextStepFor, howToUnblock, howToSeeEvidence, NOTICE, MAX_ISSUES, pagesToFix } from '../src/tools.ts';
+import { sanitizeCarried } from '../src/overview.ts';
 import type { HttpResponse } from '../src/atlassianDeps.ts';
 
 // What the tests read from the tools' result unions: every field optional, since each status carries a different subset.
@@ -195,4 +196,20 @@ test('a clean receipt says the rules found nothing and that this does not prove 
   assert.equal(r.status, 'clean');
   assert.deepEqual(r.receipt.evidenceIds, []);
   assert.match(r.receipt.line, /no contradiction found by the rules \(this does not prove the pages are correct\)/);
+});
+
+test('pagesToFix lists each page once with the work items that disagree with it, blocked pages first', () => {
+  const out = pagesToFix([
+    { key: 'A-1', verdict: 'Warning', pages: ['Runbook', 'ADR 12'] },
+    { key: 'A-2', verdict: 'Blocked', pages: ['ADR 12'] },
+    { key: 'A-3', verdict: 'Warning', pages: ['Runbook'] },
+    { key: 'A-4', verdict: 'Clean', pages: ['Ignored'] },
+    { key: 'A-5', verdict: 'Not checked' },
+  ]);
+  assert.deepEqual(out.map((p) => [p.page, p.worst, p.workItems]), [['ADR 12', 'Blocked', ['A-1', 'A-2']], ['Runbook', 'Warning', ['A-1', 'A-3']]]);
+});
+
+test('page titles survive the carried overview state and non-strings are dropped', () => {
+  const rows = sanitizeCarried([{ key: 'A-1', summary: 's', verdict: 'Blocked', findings: 1, pages: ['Runbook', 5, null, 'ADR\n12'] }]);
+  assert.deepEqual(rows[0].pages, ['Runbook', 'ADR 12']);
 });

@@ -105,6 +105,22 @@ export function howToUnblock(reason?: string): string | undefined {
 /** For an item that has findings: where to see the evidence and any verified edit. The scan does not carry the edit itself. */
 export const howToSeeEvidence = 'For any item with findings: open it in Jira, then open Same Page from the apps menu. It shows the evidence and, when one exists, a verified edit that a person can apply. An agent cannot apply it.';
 
+/** The same findings seen from the page's side: each page once, with the work items that disagree with it. Blocked pages first, then the page with most items. */
+export function pagesToFix(rows: { key: string; verdict: string; pages?: string[] }[], max = 5) {
+  const by = new Map<string, { page: string; workItems: string[]; blocked: boolean }>();
+  for (const r of rows) {
+    if (r.verdict !== 'Blocked' && r.verdict !== 'Warning') continue;
+    for (const page of r.pages ?? []) {
+      const e = by.get(page) ?? { page, workItems: [], blocked: false };
+      if (!e.workItems.includes(r.key)) e.workItems.push(r.key);
+      if (r.verdict === 'Blocked') e.blocked = true;
+      by.set(page, e);
+    }
+  }
+  return [...by.values()].sort((a, b) => Number(b.blocked) - Number(a.blocked) || b.workItems.length - a.workItems.length || a.page.localeCompare(b.page))
+    .slice(0, max).map((e) => ({ page: quote(e.page), workItems: e.workItems.slice(0, 6), worst: e.blocked ? 'Blocked' : 'Warning' }));
+}
+
 export async function projectBrief({ projectKey, fixVersion }: { projectKey?: unknown; fixVersion?: unknown }, deps: OverviewDeps, weekly?: { at: string; project: { withContradictions: number; checked: number; newSincePrevious: number; resolvedSincePrevious?: number } | null } | null) {
   // A larger request budget than the overview page, but a time limit that still fits inside the default function timeout (Forge does not allow a
   // longer one on action functions). Whichever limit is reached first stops the run, and the items not reached are reported as not checked.
@@ -115,6 +131,7 @@ export async function projectBrief({ projectKey, fixVersion }: { projectKey?: un
     status: 'scan complete', ...(version ? { scope: `open work items in fix version ${quote(version)}` } : {}), summary: out.summaryLine, coverage: out.coverageLine,
     counts: { checked: out.checked, withContradictions: out.withContradictions, notChecked: out.unchecked },
     howToSeeEvidence,
+    pagesToFix: pagesToFix(out.rows),
     fixFirst: bySeverity(out.rows).filter((r) => r.verdict === 'Blocked' || r.verdict === 'Warning').slice(0, 3).map((r) => r.key),
     items: bySeverity(out.rows).map((r) => ({ issueKey: r.key, summary: quote(r.summary), verdict: r.verdict, findings: r.findings, ...(r.ruleName ? { rule: quote(r.ruleName) } : {}), ...(r.headline ? { headline: quote(r.headline) } : {}), ...(r.reason ? { reasonNotChecked: r.reason, howToUnblock: howToUnblock(r.reason) } : {}) })),
     ...(weekly && !version ? { weeklyScan: weekly.project ? { scannedOn: weekly.at.slice(0, 10), openEpicsWithContradictions: weekly.project.withContradictions, checked: weekly.project.checked, newSinceTheScanBefore: weekly.project.newSincePrevious, resolvedSinceTheScanBefore: weekly.project.resolvedSincePrevious ?? 0 } : { scannedOn: weekly.at.slice(0, 10), note: 'no open epics in this project were covered by the weekly scan' } } : {}),

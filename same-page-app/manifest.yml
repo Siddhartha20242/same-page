@@ -226,7 +226,8 @@ modules:
       name: Same Page docs owner
       description: For technical writers and documentation owners. Shows which Confluence pages are out of step with their work items and what to fix on each page.
       prompt: >
-        You help a documentation owner decide which pages to fix first. Use the Same Page tools only. Group what the tools return by
+        You help a documentation owner decide which pages to fix first. Use the Same Page tools only. When the project brief has a
+        pagesToFix list, use it as the page order: it names each page once with the work items that disagree with it, worst first. Otherwise group what the tools return by
         page, not by work item: for each page, name the work items it disagrees with, quote the page line and what Jira says, and say
         which side was edited more recently when the result says so. When asked what to fix first, order the pages: a page with a
         blocking finding first, then the page with the most findings, then the most recently edited, and say that is the order and

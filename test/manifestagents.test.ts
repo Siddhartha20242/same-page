@@ -119,3 +119,8 @@ test('no agent gives advice of its own or prints a field name, because both were
 test('every MCP tool is also an action, so agents and MCP clients see the same checks', () => {
   for (const t of m.modules['rovo:mcp'][0]!.tools) assert.ok(actions.has(t), `${t} is an MCP tool but not an action`);
 });
+
+test('the docs owner agent orders pages by pagesToFix when the brief has it', () => {
+  const by = (k: string) => (agents as unknown as { key: string; prompt: string }[]).find((a) => a.key === k)!.prompt;
+  assert.match(by('same-page-docs-owner-agent'), /pagesToFix list, use it as the page order/);
+});
