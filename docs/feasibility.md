@@ -38,7 +38,7 @@ Status key: **Checked** = confirmed in Atlassian docs on 2026-10-28. **Tested** 
 
 ## Fix proposals (added)
 
-- Detection stays deterministic. Fixes are proposed in [src/propose.ts](src/propose.ts): a mechanical rewrite when the change
+- Detection stays deterministic. Fixes are proposed in [src/propose.ts](../src/propose.ts): a mechanical rewrite when the change
   is unambiguous (bare `v1` -> `v2`), otherwise an optional model suggests ONE replacement line.
 - Every proposal, mechanical or model-made, must pass `verifyFix`: only the flagged line changed, line not emptied, line states
   the target version, and the edited page no longer trips the R1 content rule. Failures are dropped, never shown.
