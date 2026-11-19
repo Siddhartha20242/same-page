@@ -1,6 +1,6 @@
 # What the tests cover
 
-`npm test` runs 384 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
+`npm test` runs 388 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|
@@ -38,3 +38,5 @@ Added after the second code review on 2026-11-07: `reviewfixes2.test.ts` (findin
 
 Added after the third code review on 2026-11-07: `reviewfixes3.test.ts` (a fully dismissed result keeps what was read and which rules were skipped; the noisy-rule judgement from counters matches the one from a list; two and three simultaneous ledger appends keep a valid chain without overwriting each other, and a page of entries is verified in parallel; a drift scan survives a malformed previous snapshot; a finding whose first-seen event failed is retried; two people dismissing different findings at the same moment both stick). `breakglass.test.ts` was also changed: it revoked with the real clock but checked with a fake one, so it passed or failed depending on the hour of the day.
 
+
+Added 2026-11-19: `fuzz.test.ts` builds 3000 pairs from a seeded generator (hostile strings, odd dates, empty and non-string fields) and checks that no input makes the engine throw, that the same input always gives the same result, that a check never changes its input, and that every finding names a known rule. It found a real crash, now fixed and pinned by a regression test: a line with the word "constructor" or "toString" next to a number threw in the number rules.

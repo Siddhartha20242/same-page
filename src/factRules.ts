@@ -25,7 +25,7 @@ export const envOf = (line: string): string => [...new Set(wordsOf(line).filter(
 
 // Plain suffix stripping so "cache / cached / caches", "limit / limited" and "batch / batches" meet. Not a language model: it only trims endings.
 const stem = (w: string): string => {
-  let s = SYN[w] ?? w;
+  let s = Object.hasOwn(SYN, w) ? SYN[w]! : w;
   if (/(?:ies|ied)$/.test(s) && s.length > 4) s = `${s.slice(0, -3)}i`;
   else if (s.endsWith('y') && s.length > 3) s = `${s.slice(0, -1)}i`;
   else if (/(?:ch|sh|ss|x|z)es$/.test(s)) s = s.slice(0, -2);
@@ -46,7 +46,7 @@ function subjectBefore(line: string, index: number, floor: number): { subject: S
   const clause = seg.split(/[.;()]|,\s/).pop() ?? '';
   const ws = wordsOf(clause).slice(-8);
   const subject = new Set<string>();
-  const surface: Record<string, string> = {};     // stem -> the word as written, so a finding can quote the page's own words
+  const surface: Record<string, string> = Object.create(null);     // stem -> the word as written, so a finding can quote the page's own words
   const quals: string[] = [];
   for (const w of ws) {
     if (ENV.has(w)) { quals.push(w); continue; }

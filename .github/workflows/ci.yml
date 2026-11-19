@@ -21,5 +21,7 @@ jobs:
       - run: npm ci
       - name: Type check
         run: npm run typecheck
+      - name: Type check the Forge app
+        run: cd same-page-app && npm ci && npx tsc --noEmit
       - name: Tests (offline, no Atlassian access needed)
         run: npm test

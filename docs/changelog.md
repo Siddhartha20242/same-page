@@ -3,6 +3,8 @@
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
 ## Next (written and tested, not yet deployed)
+- Fixed a crash in the number and date rules: a line containing a word that is also a JavaScript property name ("constructor", "toString", "valueOf") next to a number made the rule throw, so that page was not checked (the work item showed as not checked, and the gate allowed the move). Found by a new seeded fuzz test (3000 generated cases; same input gives the same result; no input throws; a check never changes its input). Present in production 7.68.0, fixed in the code, not yet deployed.
+- CI now also type-checks the Forge app (panel, resolvers), which it did not before.
 - The project overview shows the kinds of drift in the project: items with contradictions counted by the rule of their most serious finding (for example "Stale version 3, Date differs 1"). The project brief carries the same list as `byRule`. Read-only, no new data kept.
 
 ## 7.70.0, 2026-11-16 (development only)
