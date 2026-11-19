@@ -213,3 +213,13 @@ test('page titles survive the carried overview state and non-strings are dropped
   const rows = sanitizeCarried([{ key: 'A-1', summary: 's', verdict: 'Blocked', findings: 1, pages: ['Runbook', 5, null, 'ADR\n12'] }]);
   assert.deepEqual(rows[0].pages, ['Runbook', 'ADR 12']);
 });
+
+import { byRule } from '../src/overview.ts';
+test('byRule counts items with contradictions once, by their most serious rule, biggest group first', () => {
+  const rows = [
+    { verdict: 'Blocked', ruleName: 'Stale version' }, { verdict: 'Warning', ruleName: 'Stale version' },
+    { verdict: 'Warning', ruleName: 'Date differs' }, { verdict: 'Clean' }, { verdict: 'Not checked', ruleName: 'Stale version' }, { verdict: 'Warning' },
+  ];
+  assert.deepEqual(byRule(rows), [{ rule: 'Stale version', items: 2 }, { rule: 'Date differs', items: 1 }]);
+  assert.deepEqual(byRule([{ verdict: 'Clean' }]), []);
+});

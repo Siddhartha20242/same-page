@@ -3,7 +3,7 @@ import { bySeverity } from './verdictOrder';
 import { buildPanelModel } from './panelModel';
 import type { PanelDeps, PanelFinding } from './panelModel';
 import { createJob, runBatch, finalizeJob } from './job';
-import { runOverview } from './overview';
+import { byRule, runOverview } from './overview';
 import type { OverviewDeps } from './overview';
 import { RULE_CATALOG, loadSeverityOverrides, ruleInfo } from './ruleCatalog';
 import { loadCustomDefs } from './customRules';
@@ -131,6 +131,7 @@ export async function projectBrief({ projectKey, fixVersion }: { projectKey?: un
     status: 'scan complete', ...(version ? { scope: `open work items in fix version ${quote(version)}` } : {}), summary: out.summaryLine, coverage: out.coverageLine,
     counts: { checked: out.checked, withContradictions: out.withContradictions, notChecked: out.unchecked },
     howToSeeEvidence,
+    byRule: byRule(out.rows),
     pagesToFix: pagesToFix(out.rows),
     fixFirst: bySeverity(out.rows).filter((r) => r.verdict === 'Blocked' || r.verdict === 'Warning').slice(0, 3).map((r) => r.key),
     items: bySeverity(out.rows).map((r) => ({ issueKey: r.key, summary: quote(r.summary), verdict: r.verdict, findings: r.findings, ...(r.ruleName ? { rule: quote(r.ruleName) } : {}), ...(r.headline ? { headline: quote(r.headline) } : {}), ...(r.reason ? { reasonNotChecked: r.reason, howToUnblock: howToUnblock(r.reason) } : {}) })),

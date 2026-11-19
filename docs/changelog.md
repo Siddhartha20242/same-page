@@ -2,6 +2,9 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
+## Next (written and tested, not yet deployed)
+- The project overview shows the kinds of drift in the project: items with contradictions counted by the rule of their most serious finding (for example "Stale version 3, Date differs 1"). The project brief carries the same list as `byRule`. Read-only, no new data kept.
+
 ## 7.70.0, 2026-11-16 (development only)
 - The docs owner and team digest agents ask which project when none is given. Seen live: the docs owner agent assumed a project called PAY and told the user it was empty.
 

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import ForgeReconciler, { Box, Button, DynamicTable, Heading, Icon, Inline, Link, Lozenge, SectionMessage, Spinner, Stack, Tab, TabList, TabPanel, Tabs, Text, Textfield, xcss } from '@forge/react';
 import { invoke as bridgeInvoke } from '@forge/bridge';
+import { byRule } from '../core/overview';
 import type { Overview, OverviewRow } from '../core/overview';
 import type { ProjectDrift } from '../core/drift';
 import type { Impact } from '../core/impact';
@@ -106,6 +107,7 @@ const App = () => {
       <SectionMessage appearance={ready.withContradictions ? 'warning' : ready.unchecked ? 'information' : 'success'} title={ready.summaryLine.replace(/\.$/, '')}>
         {ready.coverageLine ? <Text>{ready.coverageLine}</Text> : ready.rows.length ? <Text>Open a work item, then choose Same Page from its apps menu (the puzzle icon under the title) to see the evidence for each finding.</Text> : null}
       </SectionMessage>
+      {byRule(ready.rows).length ? <Text>Kinds of drift (each item counted once, by its most serious finding): {byRule(ready.rows).map((g) => `${g.rule} ${g.items}`).join(', ')}.</Text> : null}
       {ready.rows.length > 1 ? (
         <Inline space="space.100" alignBlock="center" shouldWrap>
           <Text>Show:</Text>
