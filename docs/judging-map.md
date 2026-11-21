@@ -12,7 +12,7 @@ One page for a judge with ten minutes. Each row says what we claim, where to see
 | A suggested edit is applied only if it changes nothing but the version references on that line and lands where proposed | `src/propose.ts`, `src/apply.ts` | |
 | Nine Rovo agents and one MCP module (8 tools) | `same-page-app/manifest.yml`, [docs/agent.md](agent.md), [docs/mcp.md](mcp.md) | A signed-in call from a third-party MCP client |
 | Runs on Atlassian: the manifest declares no external egress | `same-page-app/manifest.yml` | |
-| 391 tests, type check, and a guard that fails if the panel bundle imports Node-only code | [docs/tests.md](tests.md), CI badge | |
+| 393 tests, type check, and a guard that fails if the panel bundle imports Node-only code | [docs/tests.md](tests.md), CI badge | |
 
 ## Design
 | Claim | Where to see it | Not shown |

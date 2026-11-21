@@ -157,6 +157,12 @@ function factsInLine(line: string): Fact[] {
     const idx = m.index ?? 0;
     push({ kind: 'limit', unit: 'port', value: Number(m[1]), text: m[0], index: idx }, floorOf(), idx + m[0].length);
   }
+  // Percentages (a canary share, an availability target, an error threshold). Kept under the limit rule so no new rule id is needed.
+  for (const m of line.matchAll(new RegExp(`${NUM}\\s?(?:%|percent|per cent)${END}`, 'gi'))) {
+    const idx = m.index ?? 0; const end = idx + m[0].length;
+    if (RANGE_AFTER.test(line.slice(end)) || /\d\s*(?:[-–—]|to)\s*$/i.test(line.slice(Math.max(0, idx - 8), idx))) continue;
+    push({ kind: 'limit', unit: 'percent', value: norm(toNum(m[1]!)), text: m[0], index: idx }, floorOf(), end);
+  }
   const countRe = new RegExp(`${NUM}\\s*(k)?\\s*(${Object.keys(COUNT_UNITS).join('|')})\\b(?:\\s*(?:/|per|a|every|each)\\s*(seconds?|secs?|s|minutes?|mins?|hours?|hrs?|days?))?`, 'gi');
   for (const m of line.matchAll(countRe)) {
     const idx = m.index ?? 0; const end = idx + m[0].length;

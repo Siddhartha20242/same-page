@@ -115,7 +115,7 @@ It reads Jira work items and Confluence pages only. Reading READMEs, Google Docs
 | R6 closed ticket | Warning | A page treats another ticket as still open ("blocked by PAY-9") but Jira says it is Done or Closed. It only warns. |
 | R7 pages disagree | Warning | Two linked pages document the same endpoint or API at different versions (`POST /api/v1/charge` against `/api/v2/charge`, or "Payments API v1" against "v2") and the ticket cannot settle it because it has no target version or targets neither. It shows both lines. It stays silent if the target matches one page (R1 handles that) or the wording is historical. |
 | R8 duration differs | Warning | The work item and a page give different times for the same thing, such as "Access token expiry should be 1 hour" against "Access tokens expire after 30 minutes". It reads number words and common phrasings too ("thirty minutes", "half an hour", "1h30m", "two hrs", "120 mins") but not vague amounts like "a couple of hours". |
-| R9 limit or port differs | Warning | Different limits, sizes, counts or ports for the same thing ("100 requests per minute" against "200 requests per minute", `port 8080` against `port 9090`). |
+| R9 limit or port differs | Warning | Different limits, sizes, counts, ports or percentages for the same thing ("100 requests per minute" against "200 requests per minute", `port 8080` against `port 9090`, "canary share 10%" against "25%"). |
 | R10 date differs | Warning | Different dates for the same milestone: release, deadline, code freeze or cutover. |
 
 R8 to R10 read the work item's summary and description, so they need no target version and no status change. They stay quiet unless both sides name the same subject and use the same qualifier ("up to", production against staging), the work item gives one value and the page a different one, and the page line is not history. Same Page cannot tell which side is right, so it offers no Apply for these and describes both ways to resolve it.
@@ -192,7 +192,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      391 tests, the 30-pair fixture set and the reworded-case set
+test/  fixtures/      393 tests, the 30-pair fixture set and the reworded-case set
 scripts/              live gate check, receipt verifier, payload capture, public-data probe
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -203,7 +203,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 391 tests, all passing (see docs/tests.md)
+npm test            # 393 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

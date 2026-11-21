@@ -2,6 +2,9 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
+## 7.72.0, 2026-11-21 (development only)
+- The limit rule (R9) now also compares percentages, such as a canary share, an availability target or an error threshold ("10%", "99.9 percent"). It keeps the same guards as the other number rules: two shared subject words, same environment, ranges, history and examples skipped. No new rule id. Tested offline only so far; it has not fired on a real work item.
+
 ## 7.71.0, 2026-11-21 (development only)
 - Fixed a crash in the number and date rules: a line containing a word that is also a JavaScript property name ("constructor", "toString", "valueOf") next to a number made the rule throw, so that page was not checked (the work item showed as not checked, and the gate allowed the move). Found by a new seeded fuzz test (3000 generated cases; same input gives the same result; no input throws; a check never changes its input). Present in production 7.68.0; fixed in development 7.71.0, not yet in production.
 - CI now also type-checks the Forge app (panel, resolvers), which it did not before.

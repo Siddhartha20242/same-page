@@ -145,3 +145,19 @@ test('an audience or environment word anywhere in either line makes them about d
   assert.deepEqual(ids('Access token expiry is 1 hour for admin users', 'Access tokens expire after 30 minutes for admin users.'), ['R8_DURATION_DIFFERS']);
   assert.deepEqual(ids('Access token expiry is 1 hour', 'Access tokens expire after 30 minutes.'), ['R8_DURATION_DIFFERS']);
 });
+
+test('R9: percentages. A rollout share or availability target that differs is a finding', () => {
+  const f = check(pair('Canary rollout share is 10%', 'Set the canary rollout share to 25%.')).findings.filter((x) => x.ruleId === 'R9_LIMIT_DIFFERS');
+  assert.equal(f.length, 1);
+  assert.match(f[0]!.summary, /25%.*10%/);
+  const g = check(pair('Monthly availability SLO is 99.9 percent', 'Our monthly availability SLO is 99.95%.')).findings.filter((x) => x.ruleId === 'R9_LIMIT_DIFFERS');
+  assert.equal(g.length, 1);
+});
+
+test('R9: percentages stay silent when equal, ranged, for another subject, another environment, or history', () => {
+  assert.deepEqual(ids('Canary rollout share is 10%', 'The canary rollout share is 10 percent.'), []);
+  assert.deepEqual(ids('Canary rollout share is 10%', 'Canary rollout share is 10-20%.'), []);
+  assert.deepEqual(ids('Canary rollout share is 10%', 'Error budget burn alert is 5%.'), []);
+  assert.deepEqual(ids('Production canary rollout share is 10%', 'Staging canary rollout share is 50%.'), []);
+  assert.deepEqual(ids('Canary rollout share is 10%', 'The canary rollout share was previously 50%.'), []);
+});
