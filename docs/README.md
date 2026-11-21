@@ -19,6 +19,7 @@ Pick the path that matches why you are here. Each path is short.
 | What does it do when something fails or is too big? | [limits.md](limits.md) |
 | How accurate is it? | [public-data-probe.md](public-data-probe.md) (hand-labelled, with its false positives) and [impact.md](impact.md) (what is not yet measured) |
 | What do the tests cover? | [tests.md](tests.md) |
+| Where do I look for each judging criterion? | [judging-map.md](judging-map.md) |
 
 ## "I run Jira or Confluence for a team"
 
