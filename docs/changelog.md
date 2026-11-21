@@ -2,6 +2,9 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
+## 7.73.0, 2026-11-21 (development only)
+- **What-if preview of a version change.** A new read-only tool, `what-if-version`, answers "if this work item targeted v3, which linked pages would start contradicting it, and which would stop?" before anyone changes it. It runs the same fixed rules twice over the same pages (as they are, then with only the target version replaced) and reports the difference. It is an action, an MCP tool and a developer-agent question, and it needs no new permissions. Offline demo: `node scripts/demo-whatif.mjs`. Tested offline (7 new tests); not yet seen on a live site. Limits: only the target version is swapped, the status and its date are kept, and the closed-ticket rule is not part of the comparison.
+
 ## 7.72.0, 2026-11-21 (development only)
 - The limit rule (R9) now also compares percentages, such as a canary share, an availability target or an error threshold ("10%", "99.9 percent"). It keeps the same guards as the other number rules: two shared subject words, same environment, ranges, history and examples skipped. No new rule id. Tested offline only so far; it has not fired on a real work item.
 

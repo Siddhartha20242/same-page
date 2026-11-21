@@ -10,7 +10,7 @@ One page for a judge with ten minutes. Each row says what we claim, where to see
 | The gate fails open: if Same Page errors, the move is allowed | `src/gate.ts`, [docs/gate-setup.md](gate-setup.md) | |
 | The audit log is hash-chained, and anyone can check an export without the app | Run `node scripts/demo-tamper.mjs` (offline, generated data). Change one field and the check fails at that entry | It is hash-linked, not signed, so it does not prove who wrote an entry |
 | A suggested edit is applied only if it changes nothing but the version references on that line and lands where proposed | `src/propose.ts`, `src/apply.ts` | |
-| Nine Rovo agents and one MCP module (8 tools) | `same-page-app/manifest.yml`, [docs/agent.md](agent.md), [docs/mcp.md](mcp.md) | A signed-in call from a third-party MCP client |
+| Nine Rovo agents and one MCP module (9 tools) | `same-page-app/manifest.yml`, [docs/agent.md](agent.md), [docs/mcp.md](mcp.md) | A signed-in call from a third-party MCP client |
 | Runs on Atlassian: the manifest declares no external egress | `same-page-app/manifest.yml` | |
 | 393 tests, type check, and a guard that fails if the panel bundle imports Node-only code | [docs/tests.md](tests.md), CI badge | |
 
@@ -34,6 +34,7 @@ One page for a judge with ten minutes. Each row says what we claim, where to see
 |---|---|---|
 | CI for documentation truth: a ticket states facts, pages repeat them, the check fails when they disagree, and it can stop a transition | [README: What it is](../README.md#what-it-is) | We claim no "first"; see [docs/prior-art.md](prior-art.md) |
 | Agents can ask before they act, and receive a receipt that says what ran and never says the docs are correct | [docs/agent.md](agent.md), `src/tools.ts` | |
+| What-if: ask what a version change would break before making it. The same rules run on the change that has not happened yet | `node scripts/demo-whatif.mjs` (offline, generated data); `src/whatIf.ts`; the `what-if-version` tool | Not yet seen on a live site |
 | The tool only proves and a person approves; new rules start hidden (Draft), then Warning, then Blocker | [README: What it is](../README.md#what-it-is) | |
 
 ## Presentation

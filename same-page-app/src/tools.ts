@@ -5,7 +5,7 @@ import { loadCustomRules } from './core/customRules';
 import { loadDrift } from './core/drift';
 import { canonDeps } from './canonDeps';
 import { createDeps } from './core/atlassianDeps';
-import { checkIssueDocs as check, scanIssues as scan, projectBrief as brief, listRules as rules, canonCheckTool as canonCheck, findingHistory as history, ruleHealth as health, impactSummary as impact } from './core/tools';
+import { checkIssueDocs as check, scanIssues as scan, projectBrief as brief, listRules as rules, canonCheckTool as canonCheck, findingHistory as history, ruleHealth as health, impactSummary as impact, whatIfVersionTool as whatIf } from './core/tools';
 
 // Action functions behind the Rovo agent and rovo:mcp (see ../../manifest.mcp.draft.yml). NOT referenced by manifest.yml yet.
 // UNVERIFIED: the exact handler signature Forge passes to action functions, and that asUser resolves to the invoking user here.
@@ -36,6 +36,10 @@ export const projectBrief = async (payload?: { projectKey?: string; fixVersion?:
       return (((await res.json()) as { issues?: { key: string; fields?: { summary?: string } }[] }).issues ?? []).map((i) => ({ key: i.key, summary: i.fields?.summary }));
     },
   }, /^[A-Z][A-Z0-9_]*$/.test(String(payload?.projectKey ?? '')) ? await loadDrift({ get: (k) => kvs.get(k), set: (k, v) => kvs.set(k, v) }, String(payload?.projectKey)) : null);
+};
+export const whatIfVersionAction = async (payload?: { issueKey?: string; proposedVersion?: string }) => {
+  console.log(`same-page tool what-if-version ${String(payload?.issueKey ?? '').slice(0, 40)} ${String(payload?.proposedVersion ?? '').slice(0, 12)}`);
+  return whatIf({ issueKey: payload?.issueKey, proposedVersion: payload?.proposedVersion }, await deps());
 };
 export const listRules = async () => rules();
 

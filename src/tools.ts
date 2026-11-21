@@ -15,6 +15,8 @@ import { loadImpact } from './impact.ts';
 import { loadReviewCounts } from './review.ts';
 import { tuningHint } from './tuning.ts';
 import { checkCanon, loadCanon } from './canon.ts';
+import { checkIssue, cached } from './release.ts';
+import { whatIfVersion, normalizeVersion } from './whatIf.ts';
 import type { CanonDeps } from './canon.ts';
 
 // Tools for AI agents (Rovo agents and, via rovo:mcp, third-party clients such as Cursor or Claude Code). READ-ONLY by design:
@@ -212,6 +214,25 @@ export async function canonCheckTool(kv: KV, deps: CanonDeps) {
       pagesThatDisagree: r.pages.map((p) => ({ pageTitle: quote(p.title), lines: p.found.map((d) => ({ quotedLine: quote(d.snippet), saysValue: quote(d.pageValue) })) })),
     })),
     note: 'Pages are found by search and only the first 8 per fact are read, so a clean result means those pages agree, not that every page on the site does. Rules only, no AI.',
+    notice: NOTICE,
+  };
+}
+
+// what_if_version: before anyone changes a work item's target version, which linked pages would start (or stop) contradicting it. Read-only.
+export async function whatIfVersionTool({ issueKey, proposedVersion }: { issueKey?: string; proposedVersion?: unknown }, deps: PanelDeps) {
+  if (!KEY_RE.test(String(issueKey ?? ''))) return { error: 'issueKey must look like PAY-123', notice: NOTICE };
+  const proposed = normalizeVersion(proposedVersion);
+  if (!proposed) return { error: 'proposedVersion must look like v3 or 3', notice: NOTICE };
+  const run = { ...deps, getPageBody: deps.getPageBody && cached(deps.getPageBody) };
+  const issue = await deps.loadIssue(issueKey as string);
+  const item = await checkIssue(issue, run as never);
+  if (item.status === 'unchecked' || !item.workItem || !item.pages) return { issueKey, status: 'unchecked', reason: item.reason ?? 'no pages to compare', notice: NOTICE };
+  const r = whatIfVersion({ workItem: item.workItem, pages: item.pages }, proposed, deps.rules);
+  const row = (x: (typeof r.wouldStartContradicting)[number]) => ({ rule: ruleInfo(x.ruleId)?.name ?? x.ruleId, docTitle: quote(x.pageTitle), line: x.line ?? null, summary: quote(x.summary), quotedDocLine: quote(x.snippet) });
+  return {
+    issueKey, status: 'previewed', changed: false, currentVersion: r.currentVersion, proposedVersion: r.proposedVersion, pagesChecked: r.pagesChecked,
+    wouldStartContradicting: r.wouldStartContradicting.map(row), wouldStopContradicting: r.wouldStopContradicting.map(row), stillContradicting: r.stillContradicting,
+    note: 'Nothing was changed. This runs the same fixed rules with only the target version replaced; the status and its date are kept, and the closed-ticket rule is not part of the comparison. Fix the pages first or at the same time, then change the work item.',
     notice: NOTICE,
   };
 }

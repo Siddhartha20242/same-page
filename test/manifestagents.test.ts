@@ -137,3 +137,12 @@ test('the digest agent reports the kinds of drift from byRule and never prints t
   assert.match(d.prompt, /counted once, by its most serious finding/);
   assert.match(d.prompt, /Never\s+print a field name such as [^.]*\bbyRule\b/);
 });
+
+test('the developer agent can preview a version change, says nothing was changed, and the tool is read-only', () => {
+  const dev = (agents as unknown as { key: string; prompt: string; actions: string[] }[]).find((a) => a.key === 'same-page-dev-agent')!;
+  assert.ok(dev.actions.includes('what-if-version'));
+  assert.match(dev.prompt, /use the what-if tool/);
+  assert.match(dev.prompt, /nothing was changed/);
+  const act = (m.modules.action as { key: string; actionVerb: string }[]).find((a) => a.key === 'what-if-version')!;
+  assert.equal(act.actionVerb, 'GET', 'agents run by automation must not invoke CREATE, UPDATE, DELETE or TRIGGER verbs');
+});

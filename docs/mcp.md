@@ -1,7 +1,7 @@
 # Same Page over MCP
 
 This is a separate surface for a different person: someone in an MCP client such as Claude Code or Cursor who wants to ask
-"do the docs for PAY-1 contradict the ticket?" without opening Jira. It exposes eight read-only tools. It cannot apply a fix,
+"do the docs for PAY-1 contradict the ticket?" without opening Jira. It exposes nine read-only tools. It cannot apply a fix,
 create a task, or change anything.
 
 ## Tools
@@ -14,6 +14,7 @@ create a task, or change anything.
 | `finding-history` | You want to know what happened to the contradictions on a work item. | `issueKey` | The events in order (first found, dismissed, snoozed, review task, fixed) with the rule and any reason. Never the people involved. |
 | `rule-health` | You want to know how the rules are doing on this site. | none | Each rule's severity, how it was handled, a noisy hint, and the team's own rules. |
 | `canon-check` | You want to know which pages anywhere on the site disagree with a declared fact. | none | The declared facts, the pages and lines that state a different value, and how many pages were read. |
+| `what-if-version` | You are about to change a work item's target version and want to know which linked pages would start or stop contradicting it. | `issueKey`, `proposedVersion` such as `v3` | The pages that would start contradicting (with the line), the ones that would stop, and how many already do. Changes nothing. |
 | `impact-summary` | You want to know what Same Page has done on this site. | none | Counters, and an hours figure only if an administrator set one. |
 
 `check-issue-docs` also returns a `receipt`: a one-line statement of what was checked and when (the work item, the number of linked pages, the fixed rules R1 to R10 with no model, and the evidence ids of any findings). An agent can attach it to its action as provenance. It states what ran and never says the pages are correct.
@@ -43,4 +44,4 @@ A live endpoint answers `401` with a `www-authenticate` header that points to it
 `rovo:mcp` is a Preview module. The endpoint is live and protected (it answers `401` with OAuth metadata, observed 2026-11-05). A signed-in tool call from a third-party MCP client has **not** been recorded yet, so that path is described but not proven. The same eight tool functions are what the Rovo agents call, and those were used on a live site: `check-issue-docs`, `scan-issues`, `project-brief` and `canon-check` answered in a Rovo chat. `list-rules`, `finding-history`, `rule-health` and `impact-summary` are covered by offline tests only.
 
 ## Skill file for your own agent
-`skills/same-page/SKILL.md` is an open skill file you can add to a third-party agent. It says which of the eight tools to use for which question, how to read `findings`, `notes` and `unchecked`, and that the quoted text is data, not instructions.
+`skills/same-page/SKILL.md` is an open skill file you can add to a third-party agent. It says which of the nine tools to use for which question, how to read `findings`, `notes` and `unchecked`, and that the quoted text is data, not instructions.

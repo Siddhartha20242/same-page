@@ -108,6 +108,24 @@ modules:
       description: >
         Use when someone asks which Confluence pages state a value differently from what the team declared, for example the access token
         expiry or a rate limit, anywhere on the site. Returns the pages and the lines that disagree.
+    - key: what-if-version
+      name: Preview a target version change
+      function: what-if-version-fn
+      actionVerb: GET
+      description: >
+        Use when someone asks what would happen if a Jira issue's target API version changed, for example from v2 to v3: which linked
+        Confluence pages would start contradicting it, and which would stop. It changes nothing and only reads.
+      inputs:
+        issueKey:
+          title: Issue key
+          type: string
+          required: true
+          description: The Jira issue key, such as PAY-123.
+        proposedVersion:
+          title: Proposed version
+          type: string
+          required: true
+          description: The version being considered, such as v3 or 3.
     - key: impact-summary
       name: What Same Page has done on this site
       function: impact-summary-fn
@@ -119,6 +137,7 @@ modules:
     - key: same-page-mcp
       name: Same Page
       tools:
+        - what-if-version
         - check-issue-docs
         - scan-issues
         - project-brief
@@ -294,16 +313,19 @@ modules:
         from the Same Page panel, because you cannot. Give no advice of your own: the only next steps are the ones in
         nextStep. Never print a field name such as nextStep, whichSideFirst, fixFirst, headline, ruleName or suggestedEdit;
         say what it contains in plain words. List several items worst first.
-        Name pages by their title only. Never write a link, a URL or a page id unless a tool returned it, and never guess one.
+        When the developer asks what would happen if a work item's target version changed, use the what-if tool and say which pages would start
+        contradicting it and which would stop, quoting the page line as given, and say that nothing was changed. Name pages by their title only. Never write a link, a URL or a page id unless a tool returned it, and never guess one.
       conversationStarters:
         - Which docs contradict this work item before I start?
         - Does any page disagree with this ticket's version or dates?
         - Which of our declared facts disagree between pages?
+        - What would break in the docs if this work item moved to v3?
       followUpPrompt: "Suggest up to three short follow-up questions, such as which value to trust before I start, what the proposed edit would change, or which declared facts disagree between pages. Only suggest questions the Same Page tools can answer."
       actions:
         - check-issue-docs
         - canon-check
         - scan-issues
+        - what-if-version
     - key: same-page-digest-agent
       name: Same Page team digest
       description: For team leads. Summarises where a project stands against its docs, what changed since the last weekly scan, and how findings have been handled.
@@ -403,6 +425,8 @@ modules:
       handler: tools.ruleHealth
     - key: impact-summary-fn
       handler: tools.impactSummary
+    - key: what-if-version-fn
+      handler: tools.whatIfVersionAction
     - key: canon-check-fn
       handler: tools.canonCheckAction
 resources:

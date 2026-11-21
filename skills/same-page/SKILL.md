@@ -18,6 +18,7 @@ Same Page finds contradictions between a Jira work item and the Confluence pages
 | How are the rules doing on this site (noisy, ignored)? | `rule-health` | none |
 | Which pages on the whole site disagree with a declared fact? | `canon-check` | none |
 | What has Same Page done on this site? | `impact-summary` | none |
+| What would happen to the docs if this work item's target version changed? | `what-if-version` | `issueKey`, `proposedVersion` such as `v3` |
 
 ## When to use it
 - You are about to follow or edit a runbook or API doc linked to a Jira work item: run `check-issue-docs` first.

@@ -1,6 +1,6 @@
 # The Rovo agent
 
-The agents answer questions about whether a work item and its docs agree. They call the same eight actions as the MCP tools, so its
+The agents answer questions about whether a work item and its docs agree. They call the same nine actions as the MCP tools, so its
 answers carry the same evidence and are never generated from memory.
 
 ## Nine agents, nine uses
@@ -18,7 +18,7 @@ answers carry the same evidence and are never generated from memory.
 
 The last five are different views of the same deterministic checks, not new detection: the docs owner groups results by page instead of by work item, and the on-call check answers in three fixed forms (contradiction found, no contradiction found by the rules, could not be checked) and always says that "no contradiction found" is not proof the runbook is right.
 
-All eight actions are read-only. They return events, rules and counts, never the people involved, and every quoted line is flattened and marked as data.
+All nine actions are read-only. They return events, rules and counts, never the people involved, and every quoted line is flattened and marked as data.
 
 ## How an agent decides to call an action
 Rovo chooses an action from its description and the user's wording. The descriptions in `same-page-app/manifest.yml` say when to use each, for example:
