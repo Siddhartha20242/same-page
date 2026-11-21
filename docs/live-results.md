@@ -329,3 +329,6 @@ The Jira panel on MOBL-58 was viewed with Jira in its light theme (`docs/images/
 - **Docs owner**, from its own starter, with project SPD named after a first answer: five pages, each once, blocking pages first (the deprecated-decision page, then the Search API runbook), then three warning pages; each with the rule in words (no rule id), both sides quoted, the dates sentence, and the code-chosen next step; SPD-6 reported as checked and clean. This is the `pagesToFix` list in use.
 - **Flaw:** asked with no project named, the agent assumed a project "PAY" and said it had no open work. It should have asked.
 - **Fix, built and tested (dev 7.70.0), not yet seen on production:** the docs owner and team digest prompts say to ask which project and never guess or call it empty.
+
+## 2026-11-21: development 7.71.0, kinds of drift (development site, read-only)
+Seen on the development site, project PAY, "Same Page overview": two items checked, one Blocked and one Clean, with the line "Kinds of drift (each item counted once, by its most serious finding): API spec mismatch 1." under the summary. The tiles and table were unchanged. Not seen: the digest agent using the same list (the development site has no Rovo), and the production site (still 7.68.0).

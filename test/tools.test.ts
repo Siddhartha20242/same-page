@@ -214,7 +214,7 @@ test('page titles survive the carried overview state and non-strings are dropped
   assert.deepEqual(rows[0].pages, ['Runbook', 'ADR 12']);
 });
 
-import { byRule } from '../src/overview.ts';
+import { byRule } from '../src/byRule.ts';
 test('byRule counts items with contradictions once, by their most serious rule, biggest group first', () => {
   const rows = [
     { verdict: 'Blocked', ruleName: 'Stale version' }, { verdict: 'Warning', ruleName: 'Stale version' },

@@ -130,3 +130,10 @@ test('project-level agents ask for the project instead of guessing one: seen liv
   for (const k of ['same-page-docs-owner-agent', 'same-page-digest-agent'])
     assert.match(by(k), /never guess a project and never call it empty/, `${k} must ask which project`);
 });
+
+test('the digest agent reports the kinds of drift from byRule and never prints the field name', () => {
+  const d = agents.find((a) => a.key === 'same-page-digest-agent')!;
+  assert.match(d.prompt, /byRule list, add one line on the kinds of drift/);
+  assert.match(d.prompt, /counted once, by its most serious finding/);
+  assert.match(d.prompt, /Never\s+print a field name such as [^.]*\bbyRule\b/);
+});

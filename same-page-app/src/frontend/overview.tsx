@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import ForgeReconciler, { Box, Button, DynamicTable, Heading, Icon, Inline, Link, Lozenge, SectionMessage, Spinner, Stack, Tab, TabList, TabPanel, Tabs, Text, Textfield, xcss } from '@forge/react';
 import { invoke as bridgeInvoke } from '@forge/bridge';
-import { byRule } from '../core/overview';
+import { byRule } from '../core/byRule';
 import type { Overview, OverviewRow } from '../core/overview';
 import type { ProjectDrift } from '../core/drift';
 import type { Impact } from '../core/impact';
