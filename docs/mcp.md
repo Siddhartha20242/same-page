@@ -38,10 +38,10 @@ curl -i -X POST https://mcp.atlassian.com/forge/bfaa94fa-5d7a-44a3-b41f-1cd0aa6c
   -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"probe","version":"0"}}}'
 ```
-A live endpoint answers `401` with a `www-authenticate` header that points to its OAuth metadata. Observed on 2026-11-05.
+A live endpoint answers `401` with a `www-authenticate` header that points to its OAuth metadata. Observed on 2026-11-05 and again on 2026-11-21.
 
 ## Status
-`rovo:mcp` is a Preview module. The endpoint is live and protected (it answers `401` with OAuth metadata, observed 2026-11-05). A signed-in tool call from a third-party MCP client has **not** been recorded yet, so that path is described but not proven. The same eight tool functions are what the Rovo agents call, and those were used on a live site: `check-issue-docs`, `scan-issues`, `project-brief` and `canon-check` answered in a Rovo chat. `list-rules`, `finding-history`, `rule-health` and `impact-summary` are covered by offline tests only.
+`rovo:mcp` is a Preview module. The endpoint is live and protected (it answers `401` with OAuth metadata, observed 2026-11-05 and 2026-11-21). A signed-in tool call from a third-party MCP client has **not** been recorded yet, so that path is described but not proven. The same tool functions are what the Rovo agents call, and those were used on a live site: `check-issue-docs`, `scan-issues`, `project-brief` and `canon-check` answered in a Rovo chat. `list-rules`, `finding-history`, `rule-health` and `impact-summary` are covered by offline tests only.
 
 ## Skill file for your own agent
 `skills/same-page/SKILL.md` is an open skill file you can add to a third-party agent. It says which of the nine tools to use for which question, how to read `findings`, `notes` and `unchecked`, and that the quoted text is data, not instructions.
