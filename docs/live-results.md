@@ -335,3 +335,6 @@ Seen on the development site, project PAY, "Same Page overview": two items check
 
 ## 2026-11-21: Runs on Atlassian (development 7.71.0)
 After `forge deploy -e development` the CLI printed that version 7.71.0 "is eligible for the Runs on Atlassian program". This matches the manifest, which declares no external egress. Not checked: the production build, and what the program gives an app beyond the label.
+
+## 2026-11-21: the two "Same Page" entries in Rovo (production 7.68.0, read-only)
+The Agents page on the production demo site lists two cards named "Same Page" with different icons. Each was opened and asked "Can I trust the runbook for MOBL-58 right now?". Both answered "No", with the same two blocking contradictions (Stale version, Deprecated decision), the same quoted page lines, the same one-line suggested edit and the same next step; only the wording of the labels differed. Not checked: the other eight agents, a one-product install, or why the two cards have different icons.

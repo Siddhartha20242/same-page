@@ -130,7 +130,7 @@ A Jira administrator can move any rule between Draft, Warning and Blocker from t
 4. Open the epic it names. You will see three contradictions with evidence: a stale runbook version, a deprecated decision, and a token expiry that the epic and the runbook state differently. Click "Apply" on the runbook version finding, then check the Confluence page history. Version 2 changes only the flagged line.
 5. Optional, and it needs a company-managed Jira project and a Jira admin: attach the gate to the Done transition by following [docs/gate-setup.md](docs/gate-setup.md), then try to move the epic to Done before fixing the page.
 6. Optional: in Rovo chat, pick "Same Page on-call check" and ask "Can I trust the runbook for `<KEY>` right now?"
-   Rovo may list each Same Page agent twice. The app is installed once for Jira and once for Confluence (step 1), which is the likely cause (the install list shows both). Every live check in this project used the first entry. Not checked: whether the second entry answers identically, and whether a one-product install shows each agent once.
+   Rovo may list each Same Page agent twice. The app is installed once for Jira and once for Confluence (step 1), which is the likely cause (the install list shows both). On 2026-11-21 both entries, asked the same question about MOBL-58, found the same two blocking contradictions and the same suggested edit, so either works. Not checked: whether a one-product install shows each agent once.
 
 Nothing changes unless a person clicks a button. The demo data is created as the person who clicks, in a project and space they can write to.
 
