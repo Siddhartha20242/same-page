@@ -1,6 +1,6 @@
 # What the tests cover
 
-`npm test` runs 390 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
+`npm test` runs 391 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|
@@ -40,3 +40,5 @@ Added after the third code review on 2026-11-07: `reviewfixes3.test.ts` (a fully
 
 
 Added 2026-11-19: `fuzz.test.ts` builds 3000 pairs from a seeded generator (hostile strings, odd dates, empty and non-string fields) and checks that no input makes the engine throw, that the same input always gives the same result, that a check never changes its input, and that every finding names a known rule. It found a real crash, now fixed and pinned by a regression test: a line with the word "constructor" or "toString" next to a number threw in the number rules.
+
+Added 2026-11-21: `demotamper.test.ts` runs `scripts/demo-tamper.mjs` and checks it verifies the untouched chain, fails at the edited entry, and says its data is generated.

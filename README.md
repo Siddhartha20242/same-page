@@ -131,6 +131,7 @@ A Jira administrator can move any rule between Draft, Warning and Blocker from t
 5. Optional, and it needs a company-managed Jira project and a Jira admin: attach the gate to the Done transition by following [docs/gate-setup.md](docs/gate-setup.md), then try to move the epic to Done before fixing the page.
 6. Optional: in Rovo chat, pick "Same Page on-call check" and ask "Can I trust the runbook for `<KEY>` right now?"
    Rovo may list each Same Page agent twice. The app is installed once for Jira and once for Confluence (step 1), which is the likely cause (the install list shows both). On 2026-11-21 both entries, asked the same question about MOBL-58, found the same two blocking contradictions and the same suggested edit, so either works. Not checked: whether a one-product install shows each agent once.
+7. Optional, no install and no account: `node scripts/demo-tamper.mjs` builds a small audit chain with the app's own code (generated data, not from a real site), verifies it, changes one field of one entry and verifies again, which fails at that entry.
 
 Nothing changes unless a person clicks a button. The demo data is created as the person who clicks, in a project and space they can write to.
 
@@ -191,7 +192,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      390 tests, the 30-pair fixture set and the reworded-case set
+test/  fixtures/      391 tests, the 30-pair fixture set and the reworded-case set
 scripts/              live gate check, receipt verifier, payload capture, public-data probe
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -202,7 +203,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 390 tests, all passing (see docs/tests.md)
+npm test            # 391 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 
