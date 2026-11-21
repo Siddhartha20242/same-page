@@ -3,7 +3,7 @@
 A short summary for a reviewer. The full list of what is stored is in the [privacy policy](privacy-policy.md); how the gate behaves is in [gate-setup.md](gate-setup.md). Nothing here is a certification: there is none (see the end).
 
 ## Where data goes
-- The app runs on Atlassian's Forge platform and its manifest declares no external network access. It does not call any server outside Atlassian, and the developer runs no server.
+- The app runs on Atlassian's Forge platform and its manifest declares no external network access. On 2026-11-21 the Forge CLI reported the development build 7.71.0 as eligible for the Runs on Atlassian program (not checked for production). It does not call any server outside Atlassian, and the developer runs no server.
 - Detection uses fixed rules. No model is called to find a contradiction. An optional model path for rewording one line exists but is off in the installed version.
 
 ## Who the app acts as

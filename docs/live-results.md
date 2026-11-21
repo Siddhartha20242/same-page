@@ -332,3 +332,6 @@ The Jira panel on MOBL-58 was viewed with Jira in its light theme (`docs/images/
 
 ## 2026-11-21: development 7.71.0, kinds of drift (development site, read-only)
 Seen on the development site, project PAY, "Same Page overview": two items checked, one Blocked and one Clean, with the line "Kinds of drift (each item counted once, by its most serious finding): API spec mismatch 1." under the summary. The tiles and table were unchanged. Not seen: the digest agent using the same list (the development site has no Rovo), and the production site (still 7.68.0).
+
+## 2026-11-21: Runs on Atlassian (development 7.71.0)
+After `forge deploy -e development` the CLI printed that version 7.71.0 "is eligible for the Runs on Atlassian program". This matches the manifest, which declares no external egress. Not checked: the production build, and what the program gives an app beyond the label.
