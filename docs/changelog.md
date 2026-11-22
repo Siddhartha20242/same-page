@@ -2,19 +2,19 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
-## 7.73.0, 2026-11-21 (development only)
-- **What-if preview of a version change.** A new read-only tool, `what-if-version`, answers "if this work item targeted v3, which linked pages would start contradicting it, and which would stop?" before anyone changes it. It runs the same fixed rules twice over the same pages (as they are, then with only the target version replaced) and reports the difference. It is an action, an MCP tool and a developer-agent question, and it needs no new permissions. Offline demo: `node scripts/demo-whatif.mjs`. Tested offline (7 new tests); not yet seen on a live site. Limits: only the target version is swapped, the status and its date are kept, and the closed-ticket rule is not part of the comparison.
+## 7.73.0, 2026-11-21 (development; on production since 2026-11-22)
+- **What-if preview of a version change.** A new read-only tool, `what-if-version`, answers "if this work item targeted v3, which linked pages would start contradicting it, and which would stop?" before anyone changes it. It runs the same fixed rules twice over the same pages (as they are, then with only the target version replaced) and reports the difference. It is an action, an MCP tool and a developer-agent question, and it needs no new permissions. Offline demo: `node scripts/demo-whatif.mjs`. Tested offline (7 new tests). Seen live on production on 2026-11-22, once (see live-results.md). Limits: only the target version is swapped, the status and its date are kept, and the closed-ticket rule is not part of the comparison.
 
-## 7.72.0, 2026-11-21 (development only)
+## 7.72.0, 2026-11-21 (development; on production since 2026-11-22)
 - The limit rule (R9) now also compares percentages, such as a canary share, an availability target or an error threshold ("10%", "99.9 percent"). It keeps the same guards as the other number rules: two shared subject words, same environment, ranges, history and examples skipped. No new rule id. Tested offline only so far; it has not fired on a real work item.
 
-## 7.71.0, 2026-11-21 (development only)
-- Fixed a crash in the number and date rules: a line containing a word that is also a JavaScript property name ("constructor", "toString", "valueOf") next to a number made the rule throw, so that page was not checked (the work item showed as not checked, and the gate allowed the move). Found by a new seeded fuzz test (3000 generated cases; same input gives the same result; no input throws; a check never changes its input). Present in production 7.68.0; fixed in development 7.71.0, not yet in production.
+## 7.71.0, 2026-11-21 (development; on production since 2026-11-22)
+- Fixed a crash in the number and date rules: a line containing a word that is also a JavaScript property name ("constructor", "toString", "valueOf") next to a number made the rule throw, so that page was not checked (the work item showed as not checked, and the gate allowed the move). Found by a new seeded fuzz test (3000 generated cases; same input gives the same result; no input throws; a check never changes its input). Present in production 7.68.0; fixed in 7.71.0, deployed to production on 2026-11-22.
 - CI now also type-checks the Forge app (panel, resolvers), which it did not before.
 - The team digest agent adds one line on the kinds of drift when the brief has `byRule`. A new test walks the panel's value imports and fails if any needs a Node-only module (a first deploy of this version failed on exactly that, and was fixed before it shipped).
 - The project overview shows the kinds of drift in the project: items with contradictions counted by the rule of their most serious finding (for example "Stale version 3, Date differs 1"). The project brief carries the same list as `byRule`. Read-only, no new data kept.
 
-## 7.70.0, 2026-11-16 (development only)
+## 7.70.0, 2026-11-16 (development; on production since 2026-11-22)
 - The docs owner and team digest agents ask which project when none is given. Seen live: the docs owner agent assumed a project called PAY and told the user it was empty.
 
 ## 7.69.0, 2026-11-16 (production)

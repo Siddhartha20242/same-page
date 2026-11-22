@@ -338,3 +338,11 @@ After `forge deploy -e development` the CLI printed that version 7.71.0 "is elig
 
 ## 2026-11-21: the two "Same Page" entries in Rovo (production 7.68.0, read-only)
 The Agents page on the production demo site lists two cards named "Same Page" with different icons. Each was opened and asked "Can I trust the runbook for MOBL-58 right now?". Both answered "No", with the same two blocking contradictions (Stale version, Deprecated decision), the same quoted page lines, the same one-line suggested edit and the same next step; only the wording of the labels differed. Not checked: the other eight agents, a one-product install, or why the two cards have different icons.
+
+## 2026-11-22: production deploy, and the what-if tool seen live (read-only)
+Deployed to production once (all of 7.70.0 to 7.73.0). Both production installs on the demo site (Jira and Confluence) report Up-to-date. Forge's own production version counter reads 3 and does not match our version numbers.
+
+Asked the "Same Page developer check" agent (first of the two entries), from MOBL-58 with the work item as context: "What would break in the docs if MOBL-58 moved to v3?" It called the what-if tool and answered that nothing was changed, that no page would start contradicting the work item at v3, that none would stop, and that two pages would still contradict it, with the standard "no contradiction found by the rules does not mean the documentation is correct" caveat. That matches the data: both demo pages already disagree with MOBL-58's current target of v2, so a move to v3 changes nothing.
+
+Not seen: a case where a page *starts* contradicting (this needs a page that agrees with the current version), the ask-for-project prompt on a bare chat, the kinds-of-drift line, the percent rule on a real item, or the MCP tool from a third-party client. One run, one agent. The answer also repeats the tool's note almost word for word before giving the result, which reads long; the prompt could be tightened.
+
