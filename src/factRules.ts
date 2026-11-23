@@ -10,13 +10,15 @@
 // When any of that is unclear the rule stays silent. A missed contradiction is better than a false alarm.
 
 import type { Finding, Pair, Rule } from './types.ts';
-import { DATED_BEFORE, HISTORICAL_RE } from './lineGuards.ts';
+import { DATED_BEFORE, HISTORICAL_RE, HISTORICAL_DATE_RE, PAST_STATE, PAST_EVENT, pastYear } from './lineGuards.ts';
 
 type Kind = 'duration' | 'limit' | 'date' | 'name';
 interface Fact { kind: Kind; unit: string; value: number; text: string; index: number; subject: Set<string>; qual: string; surface?: Record<string, string> }
 
-const STOP = new Set('a an the and or of to in on at by for with from is are was were be been being it its this that these those as per each every than then also not no only when while after before within over under into out up down about around approximately max maximum min minimum least most set sets default defaults value values currently now new old will would should must can may might has have had do does did if else so such there here which who whom their they them we our you your begin begins began start starts starting scheduled'.split(' '));
-const SYN: Record<string, string> = { expires: 'expire', expiry: 'expire', expiration: 'expire', expired: 'expire', ttl: 'expire', timeout: 'expire', timeouts: 'expire', lifetime: 'expire', valid: 'expire', validity: 'expire', lasts: 'expire', last: 'expire', timed: 'expire', live: 'expire', lives: 'expire', lived: 'expire' };
+const STOP = new Set('a an the and or of to in on at by for with from is are was were be been being it its this that these those as per each every than then also not no only when while after before within over under into out up down about around approximately max maximum min minimum least most set sets default defaults value values currently now new old will would should must can may might has have had do does did if else so such there here which who whom their they them we our you your begin begins began start starts starting scheduled user users'.split(' '));
+const SYN: Record<string, string> = { expires: 'expire', expiry: 'expire', expiration: 'expire', expired: 'expire', ttl: 'expire', timeout: 'expire', timeouts: 'expire', lifetime: 'expire', valid: 'expire', validity: 'expire', lasts: 'expire', last: 'expire', timed: 'expire', live: 'expire', lives: 'expire', lived: 'expire', ends: 'expire', ended: 'expire', times: 'expire', kept: 'keep', retention: 'retain', retained: 'retain', retains: 'retain' };
+// A word that, on one side only, names a different artefact: a refresh token is not the token, an invite link is not the link.
+const DISTINCT = new Set(['refresh', 'invite', 'invitation', 'reset', 'verification', 'magic', 'temporary', 'temp', 'offline']);
 const GENERIC = new Set(['date', 'planned', 'target', 'expected', 'scheduled', 'final', 'current']);
 const ENV = new Set('production prod staging stage dev development test testing sandbox qa admin free pro enterprise premium basic standard trial internal external mobile desktop'.split(' '));
 
@@ -61,7 +63,7 @@ function subjectBefore(line: string, index: number, floor: number): { subject: S
   return { subject, qual: quals.sort().join(','), surface };
 }
 
-const DURATION_UNITS: Record<string, number> = { ms: 0.001, msec: 0.001, millisecond: 0.001, milliseconds: 0.001, s: 1, sec: 1, secs: 1, second: 1, seconds: 1, min: 60, mins: 60, minute: 60, minutes: 60, h: 3600, hr: 3600, hrs: 3600, hour: 3600, hours: 3600, d: 86400, day: 86400, days: 86400, w: 604800, wk: 604800, week: 604800, weeks: 604800 };
+const DURATION_UNITS: Record<string, number> = { y: 31536000, yr: 31536000, yrs: 31536000, year: 31536000, years: 31536000, ms: 0.001, msec: 0.001, millisecond: 0.001, milliseconds: 0.001, s: 1, sec: 1, secs: 1, second: 1, seconds: 1, min: 60, mins: 60, minute: 60, minutes: 60, h: 3600, hr: 3600, hrs: 3600, hour: 3600, hours: 3600, d: 86400, day: 86400, days: 86400, w: 604800, wk: 604800, week: 604800, weeks: 604800 };
 const COUNT_UNITS: Record<string, string> = { request: 'request', requests: 'request', req: 'request', reqs: 'request', call: 'request', calls: 'request', retry: 'retry', retries: 'retry', attempt: 'retry', attempts: 'retry', connection: 'connection', connections: 'connection', item: 'item', items: 'item', record: 'item', records: 'item', row: 'item', rows: 'item', entry: 'item', entries: 'item', user: 'user', users: 'user', message: 'message', messages: 'message', event: 'event', events: 'event', job: 'job', jobs: 'job', worker: 'worker', workers: 'worker', thread: 'thread', threads: 'thread', node: 'node', nodes: 'node', replica: 'replica', replicas: 'replica', partition: 'partition', partitions: 'partition' };
 const SIZE = { b: 1, kb: 1024, kib: 1024, mb: 1024 ** 2, mib: 1024 ** 2, gb: 1024 ** 3, gib: 1024 ** 3, tb: 1024 ** 4, tib: 1024 ** 4 } as Record<string, number>;
 const PER: Record<string, number> = { second: 1, sec: 1, s: 1, minute: 60, min: 60, hour: 3600, hr: 3600, day: 86400 };
@@ -128,21 +130,22 @@ function factsInLine(line: string): Fact[] {
     const iso = toIso(m[0]);
     if (!iso) continue;
     const before = line.slice(Math.max(0, (m.index ?? 0) - 45), m.index ?? 0).toLowerCase();
-    const cue = /(deadline|due|go[- ]?live|cut[- ]?over|code freeze|freeze|launch|release|ship(?:ping)?|eta|rollout|roll out)\b[^.;]{0,25}$/.exec(before)?.[1];
+    const cue = [...before.matchAll(/(deadline|due|deprecation|sunset|retirement|end[- ]of[- ]life|go[- ]?live|cut[- ]?over|code freeze|freeze|launch|release|ship(?:ping)?|eta|rollout|roll out)\b(?=[^.;]{0,25}$)/g)].pop()?.[1];
     if (!cue) continue;
-    const kind = /deadline|due/.test(cue) ? 'due' : /freeze/.test(cue) ? 'freeze' : /go|cut/.test(cue) ? 'cutover' : 'release';
+    const kind = /deprecation|sunset|retirement|end/.test(cue) ? 'sunset' : /deadline|due/.test(cue) ? 'due' : /freeze/.test(cue) ? 'freeze' : /go|cut/.test(cue) ? 'cutover' : 'release';
     const idx = m.index ?? 0;
     const f = { kind: 'date' as Kind, unit: kind, value: Date.parse(`${iso}T00:00:00Z`), text: m[0], index: idx };
     if (!free(idx, idx + m[0].length)) continue;
     taken.push([idx, idx + m[0].length]);
     const { subject, qual, surface } = subjectBefore(line, idx, 0);
-    for (const w of cue.split(/[\s-]+/)) subject.delete(stem(w));
+    for (const w of [...cue.split(/[\s-]+/), 'release', 'code']) subject.delete(stem(w));
     out.push({ ...f, subject, qual, surface });
   }
 
-  for (const m of line.matchAll(new RegExp(`${NUM}\\s*(ms|msec|milliseconds?|secs?|seconds?|mins?|minutes?|hrs?|hours?|days?|weeks?|wk)${END}`, 'gi'))) {
+  for (const m of line.matchAll(new RegExp(`${NUM}\\s*(ms|msec|milliseconds?|secs?|seconds?|mins?|minutes?|hrs?|hours?|days?|weeks?|wk|years?|yrs?)${END}`, 'gi'))) {
     const idx = m.index ?? 0; const end = idx + m[0].length;
     if (RANGE_AFTER.test(line.slice(end)) || /\d\s*[a-z]{0,12}\s*(?:[-–—]|to)\s*$/i.test(line.slice(Math.max(0, idx - 24), idx))) continue;
+    if (/\bbetween\s+\d[\d.,]*\s*[a-z]{0,12}\s+and\s*$/i.test(line.slice(Math.max(0, idx - 40), idx))) continue;
     push({ kind: 'duration', unit: 'time', value: norm(toNum(m[1]!) * (DURATION_UNITS[m[2]!.toLowerCase()] ?? NaN)), text: m[0], index: idx }, floorOf(), end);
   }
   for (const m of line.matchAll(new RegExp(`${NUM}(ms|s|h|d|w)${END}`, 'g'))) {   // "30s", "2h": a letter unit only when it touches the number
@@ -171,6 +174,12 @@ function factsInLine(line: string): Fact[] {
     const count = toNum(m[1]!) * (m[2] ? 1000 : 1);
     push({ kind: 'limit', unit: `${COUNT_UNITS[m[3]!.toLowerCase()]}${per ? '/time' : ''}`, value: norm(per ? count / per : count), text: m[0], index: idx }, floorOf(), end);
   }
+  // A count stated after the setting's name: "Max retries is 3", "Connection pool size: 20", "Max connections per host: 200".
+  const setRe = /\b(retries|retry limit|attempts|pool size|batch size|queue size|page size|concurrency|connections|replicas|workers|threads|partitions)\b[^.;:=\d]{0,30}?(?:\s(?:is|are|should be|must be|of|to)\s+|\s*[:=]\s*)(\d{1,6})(?![\w%/:-])(?!\.\d)(?!\s*(?:ms|s|seconds?|minutes?|mins?|hours?|days?|%|percent|[kmgt]b)\b)/gi;
+  for (const m of line.matchAll(setRe)) {
+    const idx = (m.index ?? 0) + m[0].length - m[2]!.length;
+    push({ kind: 'limit', unit: `set:${m[1]!.toLowerCase()}`, value: Number(m[2]), text: m[2]!, index: idx }, 0, idx + m[2]!.length);
+  }
   return out.filter((f) => Number.isFinite(f.value));
 }
 
@@ -192,8 +201,17 @@ function valid(y: number, mo: number, d: number): string | null {
 
 const shared = (a: Set<string>, b: Set<string>) => [...a].filter((w) => b.has(w));
 // Two dates about the same milestone kind ("release", "freeze") with nothing else named on either side are about the same thing.
-const same = (a: Fact, b: Fact) => a.kind === b.kind && a.unit === b.unit && a.qual === b.qual
-  && (a.kind === 'date' ? shared(a.subject, b.subject).length >= 1 || (a.subject.size === 0 && b.subject.size === 0) : shared(a.subject, b.subject).length >= 2);
+// Numbers that sit after a setting name ("Max retries is 3") carry the name as their unit, so the subjects must be identical.
+// For the rest, a word that only one side has is fine ("Access token expiry" and "Tokens expire"), but a different word on EACH side
+// ("audit log retention" and "application log retention", "password reset link" and "invite link") means two different things.
+const same = (a: Fact, b: Fact) => {
+  if (a.kind !== b.kind || a.unit !== b.unit || a.qual !== b.qual) return false;
+  const common = shared(a.subject, b.subject);
+  if (a.kind === 'date') return common.length >= 1 || (a.subject.size === 0 && b.subject.size === 0);
+  if (a.unit.startsWith('set:')) return a.subject.size === b.subject.size && common.length === a.subject.size && a.subject.size > 0;
+  if ([...a.subject, ...b.subject].some((w) => DISTINCT.has(w) && !(a.subject.has(w) && b.subject.has(w)))) return false;
+  return common.length >= 2 && !(common.length < a.subject.size && common.length < b.subject.size);
+};
 
 const show = (f: Fact) => f.text.trim();
 
@@ -273,7 +291,7 @@ export function disagreements(canon: CanonFact, text: string): { disagree: Disag
   return { disagree: disagree.slice(0, 5), agree };
 }
 
-const MILESTONE: Record<string, string> = { release: 'the release date', freeze: 'the code freeze', due: 'the due date', cutover: 'the cutover date' };
+const MILESTONE: Record<string, string> = { release: 'the release date', freeze: 'the code freeze', due: 'the due date', cutover: 'the cutover date', sunset: 'the sunset date' };
 
 /** The numbers and dates the rules read from a work item's text, each with what it is about, for showing a person what was understood. */
 export function ticketFactsOf(text: string): string[] {
@@ -302,7 +320,9 @@ function makeRule(id: string, kind: Kind, label: string, why: string): Rule {
       const seen = new Set<string>();
       for (const p of pageFacts) {
         const line = p.line;
-        if (HISTORICAL_RE.test(line) || /\bdefault|\be\.g\.|\bfor example|\bexample\b/i.test(line)) continue;
+        const live = kind === 'date' ? line.replace(/\b(?:deprecation|sunset|retirement|end[- ]of[- ]life)\s+(?:date|deadline|day)\b/gi, '') : line;
+        if ((kind === 'date' ? HISTORICAL_DATE_RE : HISTORICAL_RE).test(live) || /\bdefault|\be\.g\.|\bfor example|\bexample\b/i.test(line)) continue;
+        if (PAST_STATE.test(line) || (kind === 'date' ? PAST_EVENT.test(line) : pastYear(line, page.modifiedAt))) continue;
         if (kind !== 'date' && DATED_BEFORE.test(p.norm.slice(0, p.f.index))) continue;
         const matches = ticket.filter((t) => same(t.f, p.f) && envOf(t.line) === envOf(line));
         if (!matches.length) continue;

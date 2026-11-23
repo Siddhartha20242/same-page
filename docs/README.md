@@ -26,6 +26,7 @@ Pick the path that matches why you are here. Each path is short.
 | Question | Read |
 |---|---|
 | How would my team adopt it? | [business-case.md](business-case.md), [pilot-kit.md](pilot-kit.md) |
+| How accurate is it, honestly? | [accuracy.md](accuracy.md) |
 | How do I attach the gate to a transition? | [gate-setup.md](gate-setup.md) |
 | We must explain decisions to auditors | [regulated-teams.md](regulated-teams.md) |
 | Is it usable with a keyboard and a screen reader? | [accessibility.md](accessibility.md) |
