@@ -10,7 +10,7 @@ Keep your docs and tickets on the same page.
 
 ## What it is
 
-Same Page is a Forge app for Jira and Confluence. It reads the Confluence pages linked to a work item and looks for contradictions it can prove: a runbook that still says `v1` when the epic targets `v2`, a timeout that differs from the ticket, a ticket cited as open that closed last week. Each finding shows the page's own line next to what Jira says.
+Same Page is a pre-flight check for runbooks and API docs. It is a Forge app for Jira and Confluence, and it covers hard facts only: versions, times, limits, ports, percentages, dates, declared owners and names, ticket status. It does not check steps or process descriptions. It reads the Confluence pages linked to a work item and looks for contradictions it can prove: a runbook that still says `v1` when the epic targets `v2`, a timeout that differs from the ticket, a ticket cited as open that closed last week. Each finding shows the page's own line next to what Jira says.
 
 ![A finding in the Jira panel: the page's line on the left, the OpenAPI spec's line on the right](docs/images/finding-card.png)
 
