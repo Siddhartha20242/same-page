@@ -96,3 +96,43 @@ test('search words leave out words the matcher treats as one idea, so "lasts" pa
   assert.deepEqual(searchWords('expiry'), ['expiry']);                       // nothing else to search by: keep it
   assert.deepEqual(searchWords('api rate limit'), ['rate', 'limit']);
 });
+
+// ---- declared names and identifiers ----
+test('a declared name or identifier is accepted, free prose and one-word subjects are not', () => {
+  assert.ok(canonFromSentence('payments service owner', 'Team Atlas'));
+  assert.ok(canonFromSentence('primary database region', 'eu-west-1'));
+  assert.ok(canonFromSentence('incident escalation team', 'SRE'));
+  assert.equal(canonFromSentence('payments service owner', 'the team that is on call'), null);   // prose
+  assert.equal(canonFromSentence('owner', 'Team Atlas'), null);                                    // subject too short to be clear
+  assert.equal(canonFromSentence('payments service owner', 'One Two Three Four Five'), null);      // too long to be a name
+  assert.equal(validateCanon({ subject: 'payments service owner', value: 'Team Atlas' }).ok, true);
+});
+
+test('a page that names a different owner or region is flagged, and a matching one counts as agreeing', () => {
+  const owner = canonFromSentence('payments service owner', 'Team Atlas')!;
+  const bad = disagreements(owner, 'Payments service owner: Team Orion\nPayments service owner is Team Atlas.');
+  assert.deepEqual(bad.disagree.map((d) => [d.line, d.pageValue]), [[1, 'Team Orion']]);
+  assert.equal(bad.agree, 1);
+  const region = canonFromSentence('primary database region', 'eu-west-1')!;
+  assert.deepEqual(disagreements(region, 'The primary database region is us-east-2, with a replica elsewhere.').disagree.map((d) => d.pageValue), ['us-east-2']);
+  assert.equal(disagreements(region, 'Primary database region = EU-WEST-1').agree, 1);          // case does not matter
+});
+
+test('names stay silent for prose, a different shape, history, examples, another environment, or a partly named subject', () => {
+  const owner = canonFromSentence('payments service owner', 'Team Atlas')!;
+  const quiet = (t: string) => assert.deepEqual(disagreements(owner, t).disagree, [], t);
+  quiet('The payments service owner is responsible for approving changes.');            // prose, lowercase
+  quiet('Payments service owner: eu-west-1');                                          // an identifier, not a name
+  quiet('Payments service owner was previously Team Orion.');                           // history
+  quiet('Payments service owner (for example Team Orion) approves changes.');           // example
+  quiet('Owner: Team Orion');                                                           // subject only partly named
+  quiet('Staging payments service owner is Team Orion.');                               // another environment
+  quiet('Payments service owner is Team Atlas and Team Orion.');                        // value ends at "and"
+  assert.equal(disagreements(owner, 'Payments service owner is Team Atlas, backup Team Orion.').disagree.length, 0);
+});
+
+test('names never change the number and date behaviour, and the fuzz inputs do not crash it', () => {
+  assert.ok(canonFromSentence('access token expiry', '1 hour')!.kind === 'duration');
+  const owner = canonFromSentence('payments service owner', 'Team Atlas')!;
+  for (const w of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) assert.doesNotThrow(() => disagreements(owner, `payments service owner ${w}: ${w}`));
+});

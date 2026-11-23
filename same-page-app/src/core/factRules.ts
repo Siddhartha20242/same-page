@@ -12,7 +12,7 @@
 import type { Finding, Pair, Rule } from './types';
 import { DATED_BEFORE, HISTORICAL_RE } from './lineGuards';
 
-type Kind = 'duration' | 'limit' | 'date';
+type Kind = 'duration' | 'limit' | 'date' | 'name';
 interface Fact { kind: Kind; unit: string; value: number; text: string; index: number; subject: Set<string>; qual: string; surface?: Record<string, string> }
 
 const STOP = new Set('a an the and or of to in on at by for with from is are was were be been being it its this that these those as per each every than then also not no only when while after before within over under into out up down about around approximately max maximum min minimum least most set sets default defaults value values currently now new old will would should must can may might has have had do does did if else so such there here which who whom their they them we our you your begin begins began start starts starting scheduled'.split(' '));
@@ -198,19 +198,64 @@ const same = (a: Fact, b: Fact) => a.kind === b.kind && a.unit === b.unit && a.q
 const show = (f: Fact) => f.text.trim();
 
 // ---- canonical facts: one declared value, checked against any text ----
-export interface CanonFact { kind: Kind; unit: string; value: number; text: string; subject: string[]; qual: string; env: string }
+export interface CanonFact { kind: Kind; unit: string; value: number; text: string; subject: string[]; qual: string; env: string; /** For kind 'name': the declared name or identifier, as written. */ word?: string }
 export interface Disagreement { line: number; snippet: string; pageValue: string }
 
 /** A declared fact such as ("access token expiry", "1 hour"). Null unless the sentence holds exactly one time, limit or dated milestone. */
 export function canonFromSentence(subject: string, value: string): CanonFact | null {
   const facts = factsInLine(normalizeWording(`${subject} ${value}`));
+  if (facts.length === 0) return canonName(subject, value);
   if (facts.length !== 1) return null;
   const f = facts[0]!;
   return f.subject.size >= (f.kind === 'date' ? 1 : 2) ? { kind: f.kind, unit: f.unit, value: f.value, text: f.text.trim(), subject: [...f.subject], qual: f.qual, env: envOf(`${subject} ${value}`) } : null;
 }
 
+// ---- declared names and identifiers: "payments service owner" is "Team Atlas", "primary region" is "eu-west-1" ----
+// Only two shapes are read, because they can be compared without guessing what a sentence means: a name of up to four capitalised words
+// ("Team Atlas", "SRE"), or one identifier with a separator ("eu-west-1", "payments-api"). Free prose is refused when it is declared.
+type Shape = 'name' | 'id';
+const shapeOf = (v: string): Shape | null => {
+  const words = v.trim().split(/\s+/).filter(Boolean);
+  if (!words.length || words.length > 4) return null;
+  if (words.length === 1 && /^[a-z0-9]+(?:[-_.][a-z0-9]+)+$/i.test(words[0]!)) return 'id';
+  return words.every((w) => /^[A-Z][A-Za-z0-9'\u2019-]*$/.test(w) || /^[A-Z0-9]{2,}$/.test(w)) ? 'name' : null;
+};
+const stemsOf = (text: string): Set<string> => new Set(wordsOf(text).filter((w) => !STOP.has(w) && !GENERIC.has(w)).map(stem));
+
+function canonName(subject: string, value: string): CanonFact | null {
+  const word = value.trim();
+  const shape = shapeOf(word);
+  const stems = [...stemsOf(subject)];
+  if (!shape || stems.length < 2) return null;
+  return { kind: 'name', unit: shape, value: 0, text: word, word, subject: stems, qual: '', env: envOf(`${subject} ${word}`) };
+}
+
+// Where the value of "<subject> is/are/:/=/- <value>" starts, and where it ends (a comma, a bracket, "and", "but"...).
+const SEP = /\s(?:is|are)\s+|\s*[:=]\s*|\s+[-\u2013\u2014]\s+/;
+const VALUE_END = /[.;,()\[\]]|\s(?:and|but|or|because|who|which|for|until)\s/i;
+function nameDisagreements(canon: CanonFact, text: string): { disagree: Disagreement[]; agree: number } {
+  const want = canon.word ?? canon.text;
+  const disagree: Disagreement[] = [];
+  let agree = 0;
+  text.split('\n').forEach((raw, i) => {
+    if (HISTORICAL_RE.test(raw) || /\bdefault|\be\.g\.|\bfor example|\bexample\b/i.test(raw) || envOf(raw) !== (canon.env ?? '')) return;
+    const line = raw.replace(/[*_`#>]/g, ' ');
+    const m = SEP.exec(line);
+    if (!m) return;
+    const before = stemsOf(line.slice(0, m.index));
+    if (!canon.subject.every((w) => before.has(w))) return;                      // the line must name the whole subject before the value
+    const rest = line.slice(m.index + m[0].length).trim();
+    const value = rest.split(VALUE_END)[0]!.replace(/["'\u201c\u201d]+/g, '').trim();
+    if (!value || shapeOf(value) !== canon.unit) return;                       // prose or another shape is not comparable, so it stays silent
+    if (value.toLowerCase() === want.toLowerCase()) agree++;
+    else disagree.push({ line: i + 1, snippet: raw.trim().slice(0, 240), pageValue: value });
+  });
+  return { disagree: disagree.slice(0, 5), agree };
+}
+
 /** Lines of `text` that state the same thing as the canon (same kind, unit, qualifier and at least two shared subject words) with a different value. */
 export function disagreements(canon: CanonFact, text: string): { disagree: Disagreement[]; agree: number } {
+  if (canon.kind === 'name') return nameDisagreements(canon, text);
   const c: Fact = { ...canon, index: 0, subject: new Set(canon.subject) };
   const canonEnv = canon.env ?? '';
   const disagree: Disagreement[] = [];

@@ -90,7 +90,7 @@ const CanonFacts = ({ facts, onChanged }: { facts: CanonDef[]; onChanged: () => 
   return (
     <Stack space="space.100">
       <Heading size="xsmall">Facts everyone should agree on</Heading>
-      <Text>Declare a value once, for example "access token expiry" is "1 hour". Same Page then searches every Confluence page you can read for pages that state it differently, with no Jira link needed. It reports; it never edits.</Text>
+      <Text>Declare a value once, for example "access token expiry" is "1 hour", or "payments service owner" is "Team Atlas". Same Page then searches every Confluence page you can read for pages that state it differently, with no Jira link needed. It reports; it never edits.</Text>
       {facts.length ? facts.map((f) => (
         <Inline key={f.id} space="space.100" alignBlock="center" shouldWrap>
           <Text>{`${f.subject} = ${f.value}`}</Text>
@@ -100,7 +100,7 @@ const CanonFacts = ({ facts, onChanged }: { facts: CanonDef[]; onChanged: () => 
       <Text>What the fact is about (at least two words)</Text>
       <Textfield key={`s${formKey}`} placeholder="For example: access token expiry" onChange={(e) => setSubject(e.target.value)} />
       <Text>The value everyone should state</Text>
-      <Textfield key={`v${formKey}`} placeholder="For example: 1 hour, or 100 requests per minute, or port 8080" onChange={(e) => setValue(e.target.value)} />
+      <Textfield key={`v${formKey}`} placeholder="For example: 1 hour, 100 requests per minute, port 8080, Team Atlas or eu-west-1" onChange={(e) => setValue(e.target.value)} />
       <Inline space="space.100" shouldWrap>
         <Button appearance="primary" isDisabled={busy} onClick={add}>Add this fact</Button>
         {facts.length ? <Button isDisabled={busy} onClick={check}>{busy ? 'Checking the site…' : 'Check the whole site now'}</Button> : null}

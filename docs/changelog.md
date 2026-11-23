@@ -2,6 +2,9 @@
 
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
+## 7.74.0, 2026-11-23 (development only)
+- **Declared names and identifiers.** A declared fact can now be a name or an identifier, not only a time, limit or date: "payments service owner" is "Team Atlas", "primary database region" is "eu-west-1". "Check the whole site now" flags pages that state that subject with a different name. This is how Same Page reaches owners and named settings without a model. Deliberately narrow: only a name of up to four capitalised words or one identifier with a separator is read; free prose is refused when declared, and a page line is compared only when it names the whole subject and its value has the same shape, so "the owner is responsible for approvals" is never flagged. Tested offline (4 new tests, 404 in all); not yet seen on a live site. It does not check steps, process descriptions or who a person is.
+
 ## 7.73.0, 2026-11-21 (development; on production since 2026-11-22)
 - **What-if preview of a version change.** A new read-only tool, `what-if-version`, answers "if this work item targeted v3, which linked pages would start contradicting it, and which would stop?" before anyone changes it. It runs the same fixed rules twice over the same pages (as they are, then with only the target version replaced) and reports the difference. It is an action, an MCP tool and a developer-agent question, and it needs no new permissions. Offline demo: `node scripts/demo-whatif.mjs`. Tested offline (7 new tests). Seen live on production on 2026-11-22, once (see live-results.md). Limits: only the target version is swapped, the status and its date are kept, and the closed-ticket rule is not part of the comparison.
 

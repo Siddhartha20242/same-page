@@ -89,7 +89,7 @@ It reads Jira work items and Confluence pages only. Reading READMEs, Google Docs
 | Guard | After a fix, the page is pinned. If someone edits the old version back in, Same Page comments on the work item. |
 | Gate (optional) | A Jira workflow validator refuses the transition and names the rule, the page, the next step and a short evidence id that matches the one the panel shows. It lets the transition through on any error. The panel and review tasks work without it. |
 | Team rules | A Jira administrator can add up to 10 rules from three fixed templates: a phrase on the page while the status is (or is not) a value, a phrase while the work item has a label or component, and a label that needs a phrase. They are plain-text matches, previewed against the current work item before saving. They run in the panel, the gate, the soft gate, the weekly scan and the agents. Rules can be copied as text to another site, and every imported rule is checked like a typed one. |
-| Facts everyone should agree on | An administrator declares a fact once ("access token expiry" is "1 hour") and "Check the whole site now" searches Confluence for pages that state it differently. It needs no Jira link, so it reaches pages nobody connected to a work item. It reports and never edits. Matching follows rules R8 to R10: same kind of value, same unit, two shared subject words, with history, dated log lines, examples, defaults and different audiences ("for admin users", "in staging") skipped. |
+| Facts everyone should agree on | An administrator declares a fact once ("access token expiry" is "1 hour", or "payments service owner" is "Team Atlas") and "Check the whole site now" searches Confluence for pages that state it differently. It needs no Jira link, so it reaches pages nobody connected to a work item. It reports and never edits. Matching follows rules R8 to R10: same kind of value, same unit, two shared subject words, with history, dated log lines, examples, defaults and different audiences ("for admin users", "in staging") skipped. |
 | Rule stages | Every rule has three stages. Draft runs and is counted but shows nothing and cannot block. Warning shows findings and sends notices. Blocker can also stop a transition. The Rules list shows how many findings a draft rule would have raised, so a new rule can be tried on real data first. |
 | Break glass | When a blocker is a false alarm in an emergency, a project administrator or Jira administrator can let one work item through the gate for 24 hours. A written reason is required, the grant and every use are recorded in the audit chain, findings are still shown, and it can be revoked. |
 | Rule playground | An administrator pastes sample work item and page text and sees which rules, team rules and declared facts would fire, and on which line. Nothing is read from the site or saved. |
@@ -193,7 +193,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      393 tests, the 30-pair fixture set and the reworded-case set
+test/  fixtures/      404 tests, the 30-pair fixture set and the reworded-case set
 scripts/              live gate check, receipt verifier, payload capture, public-data probe
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -204,7 +204,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 393 tests, all passing (see docs/tests.md)
+npm test            # 404 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

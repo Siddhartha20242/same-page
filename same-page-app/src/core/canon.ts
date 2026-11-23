@@ -17,8 +17,8 @@ export function validateCanon(input: { subject?: unknown; value?: unknown }): { 
   const subject = clean(input.subject, 80);
   const value = clean(input.value, 40);
   if (subject.length < 5) return { ok: false, reason: 'Describe what the fact is about in a few words, for example "access token expiry".' };
-  if (!value) return { ok: false, reason: 'Enter the value, for example "1 hour", "100 requests per minute", "port 8080" or "release 2026-03-15".' };
-  if (!canonFromSentence(subject, value)) return { ok: false, reason: 'Same Page could not read that as one time, limit or date about a clear subject. Use at least two words for the subject and one value such as "1 hour".' };
+  if (!value) return { ok: false, reason: 'Enter the value, for example "1 hour", "100 requests per minute", "port 8080" "release 2026-03-15", a name such as "Team Atlas" or an identifier such as "eu-west-1".' };
+  if (!canonFromSentence(subject, value)) return { ok: false, reason: 'Same Page could not read that as one time, limit, date, name or identifier about a clear subject. Use at least two words for the subject and one value such as "1 hour", "Team Atlas" or "eu-west-1".' };
   return { ok: true, subject, value };
 }
 

@@ -1,6 +1,6 @@
 # What the tests cover
 
-`npm test` runs 393 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
+`npm test` runs 404 tests: all pass, none skipped. Everything runs offline, against fakes of the Atlassian APIs and four recorded real responses.
 
 | Area | Files | What it checks |
 |---|---|---|
@@ -42,4 +42,4 @@ Added after the third code review on 2026-11-07: `reviewfixes3.test.ts` (a fully
 Added 2026-11-19: `fuzz.test.ts` builds 3000 pairs from a seeded generator (hostile strings, odd dates, empty and non-string fields) and checks that no input makes the engine throw, that the same input always gives the same result, that a check never changes its input, and that every finding names a known rule. It found a real crash, now fixed and pinned by a regression test: a line with the word "constructor" or "toString" next to a number threw in the number rules.
 
 Added 2026-11-21: `demotamper.test.ts` runs `scripts/demo-tamper.mjs` and checks it verifies the untouched chain, fails at the edited entry, and says its data is generated.
-Added 2026-11-21: `whatif.test.ts` and `demowhatif.test.ts` cover the what-if check: version normalisation, a page that would start contradicting, one that would stop, an unchanged proposal leaving the input untouched, the tool refusing bad input without calling Atlassian, and the demo script.
+Added 2026-11-21: `whatif.test.ts` and `demowhatif.test.ts` cover the what-if check: version normalisation, a page that would start contradicting, one that would stop, an unchanged proposal leaving the input untouched, the tool refusing bad input without calling Atlassian, and the demo script.Added 2026-11-23: `canon.test.ts` also covers declared names and identifiers: what is accepted and refused, a different owner or region flagged, a matching one counted as agreeing, and the cases that must stay silent (prose, another shape, history, examples, another environment, a partly named subject).
