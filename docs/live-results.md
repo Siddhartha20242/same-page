@@ -346,3 +346,7 @@ Asked the "Same Page developer check" agent (first of the two entries), from MOB
 
 Not seen: a case where a page *starts* contradicting (this needs a page that agrees with the current version), the ask-for-project prompt on a bare chat, the kinds-of-drift line, the percent rule on a real item, or the MCP tool from a third-party client. One run, one agent. The answer also repeats the tool's note almost word for word before giving the result, which reads long; the prompt could be tightened.
 
+
+## 2026-11-24: production deploy of the accuracy pass
+
+Deployed the 7.75.0 sources to production (Forge reports 3.29.0 for that environment); both the Jira and the Confluence install on the demo site report "at the latest". CI on the push was green. Not seen: the new rules firing on a real item, or any Rovo answer after this deploy. The browser pane was signed out of the demo site, so no live check was made.
