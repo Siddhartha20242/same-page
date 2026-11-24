@@ -35,7 +35,19 @@ No model decides what counts as a contradiction. Fixed rules do, so a finding ca
 
 ## The problem
 
-A runbook says `/api/v1/charge`. The Jira epic says the target is `v2`. An on-call engineer follows the runbook and calls a retired endpoint. Anyone could have caught the contradiction weeks earlier, but docs and tickets live in different tools and nobody looked.
+At 2:00 AM an on-call engineer follows a runbook that says the timeout is 30 seconds. The epic changed it to 10 seconds three sprints ago. Or a runbook says `/api/v1/charge`, the epic targets `v2`, and the engineer calls a retired endpoint. Anyone could have caught the contradiction weeks earlier, but docs and tickets live in different tools and nobody looked.
+
+### Isn't this solved by keeping one source of truth?
+
+Good advice, and teams that follow it have fewer contradictions: keep each fact in one place, embed live Jira macros instead of typing dates and versions, and put a "last verified" date on critical runbooks. It depends on every person doing it every time. A macro helps with a status or a fix version, but it does nothing for "the timeout is 30 seconds" typed into a paragraph two years ago, and nothing tells you when someone copied a value anyway. Same Page is the safety net for the pages that did not follow the advice. It is the automated drift check that advice recommends, so no team has to write and maintain its own script.
+
+### How a fixed rule finds a fact in a paragraph
+
+It does not read meaning. It looks for a number with a unit (`30 seconds`, `1h30m`, `25 MB`, `port 8443`, `5%`, an ISO date after a milestone word), then takes the few words before it as the subject. A ticket value and a page value are compared only when the subjects share at least two words, the units match, and neither line is history ("was 60s before the rewrite"), an example, a default, a range or a different environment. When in doubt it stays silent, because a false alarm costs more than a miss. On 70 pairs we wrote, the first run on unseen wording had 1 false alarm and found 40% of the contradictions, and after fixes it has no false alarms and finds 83%. That is our own wording, not real data ([docs/accuracy.md](docs/accuracy.md)).
+
+### A person stays in charge
+
+Same Page never rewrites a page by itself. It blocks the move to Done, shows the page's line beside Jira's, and offers a one-line fix only after checking that the edit changes nothing but the version. A person applies it, and the audit log records who did.
 
 ## Why detection has no model
 
