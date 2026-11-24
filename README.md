@@ -57,7 +57,9 @@ We kept AI out of the decision on purpose, for three reasons a team can check.
 - No model reads page text during detection, so wiki content cannot steer a finding. The agent and MCP tools do hand page text back to a model. Those outputs are flattened, capped and marked as data, which lowers the risk without removing it. That is why the tools are read-only.
 - A finding does not change because a model changed.
 
-This is what makes a transition gate defensible. When Same Page stops a transition, the evidence is the page's own line next to Jira's own field. We know of no other app that does this inside a Jira workflow, but we have not surveyed the whole Marketplace.
+A model has a place here, but not where a mistake blocks someone. Detection and the gate use fixed rules. A model may explain or summarise afterwards, as the Rovo agents do, and its words never decide a finding. Teams that want a model to find contradictions can run one beside this; we make the blocking part checkable.
+
+This is what makes a transition gate defensible. When Same Page stops a transition, the evidence is the page's own line next to Jira's own field. As far as we can tell no other app stops a Jira transition on this evidence. Linked Docs Review is a close neighbour that starts from a field change and asks people to review. We compared listings only, not installs ([docs/alternatives.md](docs/alternatives.md)).
 
 ## Who it is for
 

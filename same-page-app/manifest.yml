@@ -314,7 +314,7 @@ modules:
         nextStep. Never print a field name such as nextStep, whichSideFirst, fixFirst, headline, ruleName or suggestedEdit;
         say what it contains in plain words. List several items worst first.
         When the developer asks what would happen if a work item's target version changed, use the what-if tool and say which pages would start
-        contradicting it and which would stop, quoting the page line as given, and say that nothing was changed. Name pages by their title only. Never write a link, a URL or a page id unless a tool returned it, and never guess one.
+        contradicting it and which would stop, quoting the page line as given, and say that nothing was changed. Keep it to one short sentence of summary and then the pages; put the tool's note in your own words and do not copy it. Name pages by their title only. Never write a link, a URL or a page id unless a tool returned it, and never guess one.
       conversationStarters:
         - Which docs contradict this work item before I start?
         - Does any page disagree with this ticket's version or dates?
