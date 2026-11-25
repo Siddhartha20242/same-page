@@ -6,6 +6,7 @@ This page reports what we measured and what it does not show. Every case was wri
 
 - `fixtures/realistic.ts`: 40 pairs (20 true contradictions, 20 consistent or not a contradiction) written to read like runbooks and tickets rather than to match the rules' own phrasing.
 - `fixtures/heldout.ts`: 30 more pairs, written after the engine had been tuned on the first set and run once before any change.
+- `fixtures/heldout2.ts`: 30 more, written after the second set had been fixed and run once before any change.
 - `node scripts/realistic-report.mjs` prints the score. `test/realistic.test.ts` fails on any false alarm.
 
 ## Results
@@ -14,7 +15,8 @@ This page reports what we measured and what it does not show. Every case was wri
 |---|---|---|---|---|
 | First set, first run, before any fix | 40 | 0.67 | 0.60 | The engine had 6 false alarms and 8 misses on wording it had not been shaped for |
 | Held-out set, first run, before any fix | 30 | 0.86 | 0.40 | The honest number: 1 false alarm and 9 misses on unseen wording |
-| Both sets, after fixing what they showed | 70 | 1.00 | 0.83 | A regression guard. The engine was tuned on these cases, so this is not a measurement |
+| Second held-out set, first run, before any fix | 30 | 1.00 | 0.67 | 0 false alarms and 5 misses on unseen wording. Recall on unseen wording rose from 0.40 to 0.67 between rounds, but the sets are small and the second round benefited from the first round's fixes |
+| All three sets, after fixing what they showed | 100 | 1.00 | 0.84 | A regression guard. The engine was tuned on these cases, so this is not a measurement |
 
 ## What changed because of it
 
@@ -23,10 +25,11 @@ This page reports what we measured and what it does not show. Every case was wri
 - Past states ("was 60s before the rewrite", "in 2024 we kept backups for 7 days") and past-tense milestones ("started on") are skipped.
 - "Between 1 and 10 minutes" is a range. Years count as a unit. "Deprecation date" and "migration deadline" lines are read as plans, not history.
 - A "release freeze" date and a "code freeze" date now meet.
+- Round two: "retained" and "kept" meet, a port is compared only when the lines name the same subject, and "Page size: 500" meets "100 items".
 
-## What it still misses (6 of 70)
+## What it still misses (8 of 100)
 
-All six need real meaning, so a fixed rule cannot reach them without guessing: "logged out" versus "signed out" with no shared noun, "60 requests per minute" versus "make 600 requests", a job named on one line and its limit on the next, two services on different ports, "canary" versus "rollout", and "Lambda" versus "function". We leave them as misses because guessing would add false alarms, and a false alarm costs more here than a miss.
+All six need real meaning, so a fixed rule cannot reach them without guessing: "logged out" versus "signed out" with no shared noun, "60 requests per minute" versus "make 600 requests", a job named on one line and its limit on the next, two services on different ports, "canary" versus "rollout", "Lambda" versus "function", and "upload limit" versus "each file may be up to". We leave them as misses because guessing would add false alarms, and a false alarm costs more here than a miss.
 
 ## What this does not show
 

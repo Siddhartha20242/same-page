@@ -13,7 +13,7 @@ One page for a judge with ten minutes. Each row says what we claim, where to see
 | Nine Rovo agents and one MCP module (9 tools) | `same-page-app/manifest.yml`, [docs/agent.md](agent.md), [docs/mcp.md](mcp.md) | A signed-in call from a third-party MCP client |
 | Runs on Atlassian: the manifest declares no external egress | `same-page-app/manifest.yml` | |
 | 405 tests, type check, and a guard that fails if the panel bundle imports Node-only code | [docs/tests.md](tests.md), CI badge | |
-| Accuracy on 70 authored pairs: first run on unseen wording 0.86 precision and 0.40 recall, then fixed | [docs/accuracy.md](accuracy.md), `test/realistic.test.ts` | Any real site. The cases are ours |
+| Accuracy on 100 authored pairs: first runs on unseen wording 0.86 / 0.40 and 1.00 / 0.67, then fixed | [docs/accuracy.md](accuracy.md), `test/realistic.test.ts` | Any real site. The cases are ours |
 
 ## Design
 | Claim | Where to see it | Not shown |

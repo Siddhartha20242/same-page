@@ -16,7 +16,7 @@ type Kind = 'duration' | 'limit' | 'date' | 'name';
 interface Fact { kind: Kind; unit: string; value: number; text: string; index: number; subject: Set<string>; qual: string; surface?: Record<string, string> }
 
 const STOP = new Set('a an the and or of to in on at by for with from is are was were be been being it its this that these those as per each every than then also not no only when while after before within over under into out up down about around approximately max maximum min minimum least most set sets default defaults value values currently now new old will would should must can may might has have had do does did if else so such there here which who whom their they them we our you your begin begins began start starts starting scheduled user users'.split(' '));
-const SYN: Record<string, string> = { expires: 'expire', expiry: 'expire', expiration: 'expire', expired: 'expire', ttl: 'expire', timeout: 'expire', timeouts: 'expire', lifetime: 'expire', valid: 'expire', validity: 'expire', lasts: 'expire', last: 'expire', timed: 'expire', live: 'expire', lives: 'expire', lived: 'expire', ends: 'expire', ended: 'expire', times: 'expire', kept: 'keep', retention: 'retain', retained: 'retain', retains: 'retain' };
+const SYN: Record<string, string> = { expires: 'expire', expiry: 'expire', expiration: 'expire', expired: 'expire', ttl: 'expire', timeout: 'expire', timeouts: 'expire', lifetime: 'expire', valid: 'expire', validity: 'expire', lasts: 'expire', last: 'expire', timed: 'expire', live: 'expire', lives: 'expire', lived: 'expire', ends: 'expire', ended: 'expire', times: 'expire', kept: 'keep', retention: 'keep', retained: 'keep', retain: 'keep', retains: 'keep' };
 // A word that, on one side only, names a different artefact: a refresh token is not the token, an invite link is not the link.
 const DISTINCT = new Set(['refresh', 'invite', 'invitation', 'reset', 'verification', 'magic', 'temporary', 'temp', 'offline']);
 const GENERIC = new Set(['date', 'planned', 'target', 'expected', 'scheduled', 'final', 'current']);
@@ -204,11 +204,16 @@ const shared = (a: Set<string>, b: Set<string>) => [...a].filter((w) => b.has(w)
 // Numbers that sit after a setting name ("Max retries is 3") carry the name as their unit, so the subjects must be identical.
 // For the rest, a word that only one side has is fine ("Access token expiry" and "Tokens expire"), but a different word on EACH side
 // ("audit log retention" and "application log retention", "password reset link" and "invite link") means two different things.
+// A setting named before its number ("Page size: 500") counts the same things as a number with a unit ("100 items").
+const SET_UNIT: Record<string, string> = { retries: 'retry', attempts: 'retry', 'retry limit': 'retry', connections: 'connection', replicas: 'replica', workers: 'worker', threads: 'thread', partitions: 'partition', 'page size': 'item', 'batch size': 'item' };
+const unitKey = (u: string): string => (u.startsWith('set:') ? SET_UNIT[u.slice(4)] ?? u : u);
+const identical = (a: Fact, b: Fact) => a.subject.size > 0 && a.subject.size === b.subject.size && shared(a.subject, b.subject).length === a.subject.size;
 const same = (a: Fact, b: Fact) => {
-  if (a.kind !== b.kind || a.unit !== b.unit || a.qual !== b.qual) return false;
+  const named = a.unit.startsWith('set:') || b.unit.startsWith('set:');
+  if (a.kind !== b.kind || unitKey(a.unit) !== unitKey(b.unit) || (!named && a.qual !== b.qual)) return false;
   const common = shared(a.subject, b.subject);
   if (a.kind === 'date') return common.length >= 1 || (a.subject.size === 0 && b.subject.size === 0);
-  if (a.unit.startsWith('set:')) return a.subject.size === b.subject.size && common.length === a.subject.size && a.subject.size > 0;
+  if (named || a.unit === 'port') return identical(a, b);
   if ([...a.subject, ...b.subject].some((w) => DISTINCT.has(w) && !(a.subject.has(w) && b.subject.has(w)))) return false;
   return common.length >= 2 && !(common.length < a.subject.size && common.length < b.subject.size);
 };

@@ -2,7 +2,8 @@
 import { check } from '../src/engine.ts';
 import { realistic as tuned } from '../fixtures/realistic.ts';
 import { heldout } from '../fixtures/heldout.ts';
-const realistic = process.argv.includes('--heldout') ? heldout : process.argv.includes('--tuned') ? tuned : [...tuned, ...heldout];
+import { heldout2 } from '../fixtures/heldout2.ts';
+const realistic = process.argv.includes('--heldout') ? heldout : process.argv.includes('--heldout2') ? heldout2 : process.argv.includes('--tuned') ? tuned : [...tuned, ...heldout, ...heldout2];
 
 const RULE = { R8: 'R8_DURATION_DIFFERS', R9: 'R9_LIMIT_DIFFERS', R10: 'R10_DATE_DIFFERS' };
 
