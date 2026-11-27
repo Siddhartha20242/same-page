@@ -38,7 +38,7 @@ Pick the path that matches why you are here. Each path is short.
 
 | Question | Read |
 |---|---|
-| What can the nine Rovo agents do, and what was verified? | [agent.md](agent.md) |
+| What can the five Rovo agents do, and what was verified? | [agent.md](agent.md) |
 | How do I call the checks over MCP? | [mcp.md](mcp.md) |
 | How would I add my own rules or sources? | [extending.md](extending.md) |
 

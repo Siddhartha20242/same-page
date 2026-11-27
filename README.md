@@ -30,7 +30,7 @@ No model decides what counts as a contradiction. Fixed rules do, so a finding ca
 - It catches a stale API version, a deprecated decision, a closed ticket still cited as open, and times, limits and dates that differ. Admins can add their own rules and declare facts that every page on the site should agree on.
 - It reads OpenAPI specs written in YAML as well as JSON, and it skips sections headed Legacy, Deprecated, Archive or Previous versions.
 - No real team has used it yet, so its accuracy on real documents is unmeasured. Every finding has "real" and "false alarm" buttons so that a pilot can measure it.
-- This is our entry for Codegeist 2026 in Apps for Software Teams, and we are going for the Atlassian MCP and Best Agents bonuses. Nine Rovo agents and an MCP module are included. The MCP endpoint is live, but we have not recorded a signed-in call from a third-party client yet ([docs/mcp.md](docs/mcp.md)).
+- This is our entry for Codegeist 2026 in Apps for Software Teams, and we are going for the Atlassian MCP and Best Agents bonuses. Five Rovo agents and an MCP module are included. The MCP endpoint is live, but we have not recorded a signed-in call from a third-party client yet ([docs/mcp.md](docs/mcp.md)).
 - To try it, see [Try it](#try-it). Short on time? [docs/judging-map.md](docs/judging-map.md) lists, per judging criterion, what to look at and what we have not shown. To find your way around the documentation, start at [docs/README.md](docs/README.md).
 
 ## The problem
@@ -116,7 +116,7 @@ It reads Jira work items and Confluence pages only. Reading READMEs, Google Docs
 | What was read | The "What was checked" tab lists the pages read and the values taken from the work item (for example "2 hours (access token expiry)"), so a person can see what the pages were compared against. |
 | Weekly scan | Once a week the app checks open epics, and the project overview shows how many have contradictions and how many are new since the last scan. |
 | Overview | A project page called "Same Page overview" lists up to 20 open epics and in-progress work items with a verdict, a finding count and the reason for anything it could not check. It is read-only. |
-| Agents | Nine read-only Rovo agents share nine checks that are also MCP tools: a general one, a release check (is project PAY, or release 2.3 of it, ready to ship?), an audit trail agent (what happened to the contradictions on PAY-1?), a rule coach (which rules look noisy here?), a docs owner (which pages are out of step, grouped by page) an on-call check (can I trust this runbook right now?), a developer check (which docs contradict this ticket before I build?), a team digest (where does the project stand, and what changed?) and an incident review (which docs contradicted the tickets, and was it ignored?). They answer from the same evidence as the panel and cannot change anything. See [docs/agent.md](docs/agent.md). |
+| Agents | Five read-only Rovo agents share nine checks that are also MCP tools: a release check (is project PAY, or release 2.3 of it, ready to ship?), an on-call check (can I trust this runbook right now?), a developer check (which docs contradict this ticket before I build, and what would break if it moved to v3?), a docs owner (which pages are out of step, grouped by page) and an audit trail agent (what happened to the contradictions on PAY-1?). They answer from the same evidence as the panel and cannot change anything. We cut the set from nine to five on 2026-11-28 so each one is distinct. See [docs/agent.md](docs/agent.md). |
 | Real or false alarm | Every finding has "Yes" and "False alarm" buttons. The marks are counted per rule and shown on the overview and to the agents, with a warning while the sample is under 10. Marking never hides or changes a finding. |
 | Impact on this site | The overview shows what Same Page has done here: contradictions found, fixed, sent to owners, dismissed, transitions refused. A time-saved figure appears only if a Jira administrator types their own minutes-per-fix estimate. See [docs/impact.md](docs/impact.md). |
 
@@ -172,7 +172,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 - R9 and R10 firing in the rule playground on the deployed app. They have not yet fired on a real work item.
 - The patch preview on a real R1 finding, showing the lines around the change and the one line that changes. In the same test, a `v1` line under a "Legacy" heading was skipped, and an OpenAPI spec written in YAML inside a Confluence code block was read, which made R5 fire on a deprecated operation.
 - The optional AI fix on an ambiguous line, which passed the same verification when we switched the AI path on for a test.
-- All nine agents are listed in Rovo chat; the first six were run on the production demo site earlier, and the developer check, team digest and incident review were each run once there (one starter each, on MOBL-58). The on-call check and the release check were re-run after we fixed their prompts. The release check on a whole project took about 90 seconds to answer.
+- All five agents are listed in Rovo chat, each twice (one entry per installation is the likely cause). Each was run on the production demo site at some point. On 2026-11-28, on production 3.30.0 to 3.32.0, the on-call check and the developer check (the what-if question) were re-run on MOBL-58 and answered correctly. One on-call answer attached the verified edit to the wrong finding; we added a sentence to the prompts to keep each edit with its own finding, and the next answer was correct, but that is one sample. The release check on a whole project took about 90 seconds to answer.
 
 ## Security and privacy
 
@@ -214,7 +214,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      416 tests, the 30-pair fixture set and the reworded-case set
+test/  fixtures/      415 tests, the 30-pair fixture set and the reworded-case set
 scripts/              live gate check, receipt verifier, payload capture, public-data probe
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -252,13 +252,13 @@ flowchart LR
 
 No model is in the detection path. Rovo agents and MCP tools call read-only actions and hand back findings with evidence. The optional Forge LLM module is off unless the developer sets `SAME_PAGE_AI=1`.
 
-Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, `confluence:contentBylineItem`, two `trigger` modules (a Confluence page-updated guard and a Jira issue-updated watcher), a `scheduledTrigger` for the weekly scan, eight `action` modules, nine `rovo:agent` modules, `rovo:mcp` and `llm`. The language is TypeScript (strict) with UI Kit native.
+Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, `confluence:contentBylineItem`, two `trigger` modules (a Confluence page-updated guard and a Jira issue-updated watcher), a `scheduledTrigger` for the weekly scan, eight `action` modules, five `rovo:agent` modules, `rovo:mcp` and `llm`. The language is TypeScript (strict) with UI Kit native.
 
 ## Run the tests
 
 ```bash
 npm install
-npm test            # 416 tests, all passing (see docs/tests.md)
+npm test            # 415 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

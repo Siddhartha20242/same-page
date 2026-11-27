@@ -10,9 +10,9 @@ One page for a judge with ten minutes. Each row says what we claim, where to see
 | The gate fails open: if Same Page errors, the move is allowed | `src/gate.ts`, [docs/gate-setup.md](gate-setup.md) | |
 | The audit log is hash-chained, and anyone can check an export without the app | Run `node scripts/demo-tamper.mjs` (offline, generated data). Change one field and the check fails at that entry | It is hash-linked, not signed, so it does not prove who wrote an entry |
 | A suggested edit is applied only if it changes nothing but the version references on that line and lands where proposed | `src/propose.ts`, `src/apply.ts` | |
-| Nine Rovo agents and one MCP module (9 tools) | `same-page-app/manifest.yml`, [docs/agent.md](agent.md), [docs/mcp.md](mcp.md) | A signed-in call from a third-party MCP client |
+| Five Rovo agents and one MCP module (9 tools) | `same-page-app/manifest.yml`, [docs/agent.md](agent.md), [docs/mcp.md](mcp.md) | A signed-in call from a third-party MCP client |
 | Runs on Atlassian: the manifest declares no external egress | `same-page-app/manifest.yml` | |
-| 416 tests, type check, and a guard that fails if the panel bundle imports Node-only code | [docs/tests.md](tests.md), CI badge | |
+| 415 tests, type check, and a guard that fails if the panel bundle imports Node-only code | [docs/tests.md](tests.md), CI badge | |
 | Accuracy on 100 authored pairs: first runs on unseen wording 0.86 / 0.40 and 1.00 / 0.67, then fixed | [docs/accuracy.md](accuracy.md), `test/realistic.test.ts` | Any real site. The cases are ours |
 
 ## Design
