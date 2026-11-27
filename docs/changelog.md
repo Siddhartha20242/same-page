@@ -3,6 +3,7 @@
 Recent versions only; older changes are in the git history. Dates are when a version was deployed. "Production" means the environment installed on the demo site and the one behind the install link.
 
 ## 7.75.0, 2026-11-23 (development only)
+- **Silence now explains itself.** When a work item states no version, time, limit, port, percentage or date, the panel no longer says "No contradictions found" in green. It says "Nothing to compare yet", explains that no rule could fire, and gives an example to add. Development only; not yet seen on a live site.
 - **Accuracy pass on authored wording.** 100 pairs written to read like real runbooks (see [accuracy.md](accuracy.md)). The first run on unseen wording scored precision 0.86 and recall 0.40; fixes brought the false alarms to zero and recall to 0.83 on the same sets, which were then tuned on. Changes: different qualifiers on each side are different things, named settings ("Max retries is 3") are read, past states and past-tense milestones are skipped, "between 1 and 10 minutes" is a range, years are a unit, deprecation and migration deadlines are plans. Offline only; not a real-world figure. 413 tests. A second unseen set (30 pairs) scored precision 1.00 and recall 0.67 on its first run; fixes took all 100 pairs to 1.00 and 0.84.
 
 ## 7.74.0, 2026-11-23 (development only)

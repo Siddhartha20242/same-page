@@ -792,7 +792,9 @@ const App = () => {
   );
 
   if (m.status === 'clean') return shell(
-    <SectionMessage appearance="success" title="No contradictions found">{`Read ${m.pagesChecked} linked page${m.pagesChecked === 1 ? '' : 's'} and found nothing that disagrees with this work item.${m.hidden ? ` ${m.hidden} finding(s) hidden by snooze or dismissal.` : ''} Rules only, no AI.`}</SectionMessage>,
+    m.pagesChecked > 0 && !m.readFromTicket?.length
+      ? <SectionMessage appearance="information" title="Nothing to compare yet">{`Read ${m.pagesChecked} linked page${m.pagesChecked === 1 ? '' : 's'}, but this work item states no version, time, limit, port, percentage or date, so no rule could fire. That is not the same as "no contradictions". Add one to the description, for example "Token expiry is 1 hour", set the API version field, or declare a fact for the whole site, and check again. Rules only, no AI.`}</SectionMessage>
+      : <SectionMessage appearance="success" title="No contradictions found">{`Read ${m.pagesChecked} linked page${m.pagesChecked === 1 ? '' : 's'} and found nothing that disagrees with this work item.${m.hidden ? ` ${m.hidden} finding(s) hidden by snooze or dismissal.` : ''} Rules only, no AI.`}</SectionMessage>,
     0,
     <EmptyStateBlock onRefresh={load} />,
   );
