@@ -49,3 +49,18 @@ Write to 2282614@mbmc.edu.np. There is no formal disclosure program.
 
 ## See the tamper check without installing anything
 `node scripts/demo-tamper.mjs` runs the real ledger and the real verifier on a generated six-entry chain: the untouched export passes, and changing one field of one entry fails at that entry. The data is generated for the demonstration, so it shows how the check behaves, not what happened on any real site. The chain is hash-linked, not signed, so it detects edits to past entries; it does not prove who wrote an entry.
+
+## Why each scope is requested
+
+| Scope | Why | Used without a click? |
+|---|---|---|
+| `read:jira-work`, `read:jira-user` | Read the work item, its links and status; show the approver's name in a page-version note | Yes (gate, triggers) |
+| `write:jira-work` | The app's own short comments (three cases, rules and counts only, never page text), links added by "Link a page", and the demo seed | Comments only |
+| `read:confluence-content.all`, `.summary`, `search:confluence`, `read:space`, `read:page`, `read:label` | Read linked pages, specs and labels; the site-wide fact check | Yes |
+| `write:confluence-content`, `write:page` | Apply the verified one-line edit | No, only when a person clicks Apply |
+| `write:label` | Demo seed only. A hardened release could drop it | No |
+| `read:confluence-content.permission`, `read:content.permission` | The gate asks whether the person making a transition may read each page, and withholds page text if not | Yes |
+| `read:/write:` content property scopes | Pin guard: pins are kept on the page as a content property | Pin guard |
+| `storage:app` | Dismiss and snooze records, the hash-chained audit log, declared facts | Yes |
+
+There is no `external` egress permission, so nothing leaves Atlassian. The `llm` module is declared but inert: it sends nothing unless the developer sets `SAME_PAGE_AI=1`, calls are capped at 40 a day per installation and cached for 24 hours, and its output is rejected unless it passes the rule check.

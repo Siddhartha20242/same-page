@@ -219,6 +219,39 @@ scripts/              live gate check, receipt verifier, payload capture, public
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
 
+```mermaid
+flowchart LR
+  subgraph Jira
+    WI[Work item] --> GATE[Workflow validator: Done gate]
+    WI --> PANEL[Issue panel and project overview]
+    EV[issue-updated trigger] --> WATCH[Re-check and comment]
+  end
+  subgraph Confluence
+    PG[Linked pages and OpenAPI specs]
+    BYL[Byline: page-updated guard]
+  end
+  subgraph Same Page core
+    EXT[Fixed-rule extraction: versions, times, limits, ports, percentages, dates, names]
+    RULES[10 rules plus admin rules and declared facts]
+    LOG[(Hash-chained audit log, Forge KVS)]
+  end
+  subgraph Rovo and MCP
+    AG[Rovo agents] --> ACT[Read-only actions]
+    MCP[rovo:mcp tools] --> ACT
+  end
+  PG --> EXT
+  WI --> EXT
+  EXT --> RULES
+  RULES --> GATE
+  RULES --> PANEL
+  RULES --> ACT
+  PANEL -->|person clicks Apply| FIX[Verified one-line edit] --> PG
+  FIX --> LOG
+  GATE -->|override with reason| LOG
+```
+
+No model is in the detection path. Rovo agents and MCP tools call read-only actions and hand back findings with evidence. The optional Forge LLM module is off unless the developer sets `SAME_PAGE_AI=1`.
+
 Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, `confluence:contentBylineItem`, two `trigger` modules (a Confluence page-updated guard and a Jira issue-updated watcher), a `scheduledTrigger` for the weekly scan, eight `action` modules, nine `rovo:agent` modules, `rovo:mcp` and `llm`. The language is TypeScript (strict) with UI Kit native.
 
 ## Run the tests
