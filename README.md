@@ -37,6 +37,8 @@ No model decides what counts as a contradiction. Fixed rules do, so a finding ca
 
 At 2:00 AM an on-call engineer follows a runbook that says the timeout is 30 seconds. The epic changed it to 10 seconds three sprints ago. Or a runbook says `/api/v1/charge`, the epic targets `v2`, and the engineer calls a retired endpoint. Anyone could have caught the contradiction weeks earlier, but docs and tickets live in different tools and nobody looked.
 
+Stale runbooks are a known part of real incidents. Slack's own engineering post on a January 2024 Kibana failure says its runbook was out of date and the old backup failed when they tried to restore ([Slack Engineering](https://slack.engineering/break-stuff-on-purpose/)). That post does not say which fact in the runbook was stale, so we do not claim Same Page would have prevented it. It targets this class of problem: a ticket changes a hard fact and the linked runbook does not.
+
 ### Isn't this solved by keeping one source of truth?
 
 Good advice, and teams that follow it have fewer contradictions: keep each fact in one place, embed live Jira macros instead of typing dates and versions, and put a "last verified" date on critical runbooks. It depends on every person doing it every time. A macro helps with a status or a fix version, but it does nothing for "the timeout is 30 seconds" typed into a paragraph two years ago, and nothing tells you when someone copied a value anyway. Same Page is the safety net for the pages that did not follow the advice. It is the automated drift check that advice recommends, so no team has to write and maintain its own script.
@@ -207,7 +209,7 @@ All of this was observed on real Jira and Confluence sites: a dev site, and a se
 src/                  detection engine, plain TypeScript, no Forge imports (tested offline)
 same-page-app/        the Forge app: manifest, resolvers, UI Kit panel, validator, Rovo tools
   src/core/           synced copy of src/ (npm run sync)
-test/  fixtures/      414 tests, the 30-pair fixture set and the reworded-case set
+test/  fixtures/      415 tests, the 30-pair fixture set and the reworded-case set
 scripts/              live gate check, receipt verifier, payload capture, public-data probe
 docs/                 live results, gate setup, pilot kit, feasibility
 ```
@@ -218,7 +220,7 @@ Forge modules: `jira:issuePanel`, `jira:projectPage`, `jira:workflowValidator`, 
 
 ```bash
 npm install
-npm test            # 414 tests, all passing (see docs/tests.md)
+npm test            # 415 tests, all passing (see docs/tests.md)
 npm run typecheck
 ```
 

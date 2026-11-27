@@ -122,7 +122,8 @@ function factsInLine(line: string): Fact[] {
     const { subject, qual, surface } = subjectBefore(line, f.index, floor);
     out.push({ ...f, subject, qual, surface });
   };
-  const floorOf = () => (out.length ? out[out.length - 1]!.index + out[out.length - 1]!.text.length : 0);
+  // Where this fact's subject may start: the end of the nearest fact that sits before it. Dates are read first, so the last fact pushed is not always the nearest one.
+  const floorBefore = (idx: number) => out.reduce((m, f) => { const e = f.index + f.text.length; return e <= idx && e > m ? e : m; }, 0);
 
   // Dates first, so their digits are never read as counts. A date counts only right after a milestone word.
   const dateRe = /(\b20\d{2}-\d{2}-\d{2}\b)|(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+20\d{2}\b)|(\b\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?,?\s+20\d{2}\b)/gi;
@@ -146,25 +147,25 @@ function factsInLine(line: string): Fact[] {
     const idx = m.index ?? 0; const end = idx + m[0].length;
     if (RANGE_AFTER.test(line.slice(end)) || /\d\s*[a-z]{0,12}\s*(?:[-–—]|to)\s*$/i.test(line.slice(Math.max(0, idx - 24), idx))) continue;
     if (/\bbetween\s+\d[\d.,]*\s*[a-z]{0,12}\s+and\s*$/i.test(line.slice(Math.max(0, idx - 40), idx))) continue;
-    push({ kind: 'duration', unit: 'time', value: norm(toNum(m[1]!) * (DURATION_UNITS[m[2]!.toLowerCase()] ?? NaN)), text: m[0], index: idx }, floorOf(), end);
+    push({ kind: 'duration', unit: 'time', value: norm(toNum(m[1]!) * (DURATION_UNITS[m[2]!.toLowerCase()] ?? NaN)), text: m[0], index: idx }, floorBefore(idx), end);
   }
   for (const m of line.matchAll(new RegExp(`${NUM}(ms|s|h|d|w)${END}`, 'g'))) {   // "30s", "2h": a letter unit only when it touches the number
     const idx = m.index ?? 0; const end = idx + m[0].length;
-    push({ kind: 'duration', unit: 'time', value: norm(toNum(m[1]!) * (DURATION_UNITS[m[2]!] ?? NaN)), text: m[0], index: idx }, floorOf(), end);
+    push({ kind: 'duration', unit: 'time', value: norm(toNum(m[1]!) * (DURATION_UNITS[m[2]!] ?? NaN)), text: m[0], index: idx }, floorBefore(idx), end);
   }
   for (const m of line.matchAll(new RegExp(`${NUM}\\s*(kib|mib|gib|tib|kb|mb|gb|tb)${END}`, 'gi'))) {
     const idx = m.index ?? 0;
-    push({ kind: 'limit', unit: 'bytes', value: norm(toNum(m[1]!) * (SIZE[m[2]!.toLowerCase()] ?? NaN)), text: m[0], index: idx }, floorOf(), idx + m[0].length);
+    push({ kind: 'limit', unit: 'bytes', value: norm(toNum(m[1]!) * (SIZE[m[2]!.toLowerCase()] ?? NaN)), text: m[0], index: idx }, floorBefore(idx), idx + m[0].length);
   }
   for (const m of line.matchAll(/(?<![\w.])port\s*[:=]?\s*(\d{2,5})(?!\w)(?!\.\d)/gi)) {
     const idx = m.index ?? 0;
-    push({ kind: 'limit', unit: 'port', value: Number(m[1]), text: m[0], index: idx }, floorOf(), idx + m[0].length);
+    push({ kind: 'limit', unit: 'port', value: Number(m[1]), text: m[0], index: idx }, floorBefore(idx), idx + m[0].length);
   }
   // Percentages (a canary share, an availability target, an error threshold). Kept under the limit rule so no new rule id is needed.
   for (const m of line.matchAll(new RegExp(`${NUM}\\s?(?:%|percent|per cent)${END}`, 'gi'))) {
     const idx = m.index ?? 0; const end = idx + m[0].length;
     if (RANGE_AFTER.test(line.slice(end)) || /\d\s*(?:[-–—]|to)\s*$/i.test(line.slice(Math.max(0, idx - 8), idx))) continue;
-    push({ kind: 'limit', unit: 'percent', value: norm(toNum(m[1]!)), text: m[0], index: idx }, floorOf(), end);
+    push({ kind: 'limit', unit: 'percent', value: norm(toNum(m[1]!)), text: m[0], index: idx }, floorBefore(idx), end);
   }
   const countRe = new RegExp(`${NUM}\\s*(k)?\\s*(${Object.keys(COUNT_UNITS).join('|')})\\b(?:\\s*(?:/|per|a|every|each)\\s*(seconds?|secs?|s|minutes?|mins?|hours?|hrs?|days?))?`, 'gi');
   for (const m of line.matchAll(countRe)) {
@@ -172,7 +173,7 @@ function factsInLine(line: string): Fact[] {
     if (RANGE_AFTER.test(line.slice(end))) continue;
     const per = m[4] ? PER[m[4].toLowerCase().replace(/s$/, '')] ?? PER[m[4].toLowerCase()] : undefined;
     const count = toNum(m[1]!) * (m[2] ? 1000 : 1);
-    push({ kind: 'limit', unit: `${COUNT_UNITS[m[3]!.toLowerCase()]}${per ? '/time' : ''}`, value: norm(per ? count / per : count), text: m[0], index: idx }, floorOf(), end);
+    push({ kind: 'limit', unit: `${COUNT_UNITS[m[3]!.toLowerCase()]}${per ? '/time' : ''}`, value: norm(per ? count / per : count), text: m[0], index: idx }, floorBefore(idx), end);
   }
   // A count stated after the setting's name: "Max retries is 3", "Connection pool size: 20", "Max connections per host: 200".
   const setRe = /\b(retries|retry limit|attempts|pool size|batch size|queue size|page size|concurrency|connections|replicas|workers|threads|partitions)\b[^.;:=\d]{0,30}?(?:\s(?:is|are|should be|must be|of|to)\s+|\s*[:=]\s*)(\d{1,6})(?![\w%/:-])(?!\.\d)(?!\s*(?:ms|s|seconds?|minutes?|mins?|hours?|days?|%|percent|[kmgt]b)\b)/gi;
@@ -215,6 +216,8 @@ const same = (a: Fact, b: Fact) => {
   if (a.kind === 'date') return common.length >= 1 || (a.subject.size === 0 && b.subject.size === 0);
   if (named || a.unit === 'port') return identical(a, b);
   if ([...a.subject, ...b.subject].some((w) => DISTINCT.has(w) && !(a.subject.has(w) && b.subject.has(w)))) return false;
+  // A bare "Timeout is 10 seconds" against "Timeout is 30 seconds" names nothing else, so the same single word on both sides is enough.
+  if (a.kind === 'duration' && identical(a, b)) return true;
   return common.length >= 2 && !(common.length < a.subject.size && common.length < b.subject.size);
 };
 

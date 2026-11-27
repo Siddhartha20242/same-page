@@ -161,3 +161,10 @@ test('R9: percentages stay silent when equal, ranged, for another subject, anoth
   assert.deepEqual(ids('Production canary rollout share is 10%', 'Staging canary rollout share is 50%.'), []);
   assert.deepEqual(ids('Canary rollout share is 10%', 'The canary rollout share was previously 50%.'), []);
 });
+
+test('R8: a bare "Timeout is 10 seconds" against "Timeout is 30 seconds" is a contradiction, but a named timeout is a different thing', () => {
+  assert.deepEqual(ids('Timeout is 10 seconds.', 'Timeout is 30 seconds.'), ['R8_DURATION_DIFFERS']);
+  assert.deepEqual(ids('Timeout is 10 seconds.', 'Upload timeout is 30 seconds.'), []);
+  // A later date on the same line must not erase the subject of an earlier number.
+  assert.deepEqual(ids('Deploy v2. Timeout is 10 seconds. Release freeze starts on December 15, 2026.', 'Timeout is 30 seconds. Release freeze starts on December 15, 2026.'), ['R8_DURATION_DIFFERS']);
+});
