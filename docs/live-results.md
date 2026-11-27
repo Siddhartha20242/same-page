@@ -350,3 +350,12 @@ Not seen: a case where a page *starts* contradicting (this needs a page that agr
 ## 2026-11-24: production deploy of the accuracy pass
 
 Deployed the 7.75.0 sources to production (Forge reports 3.29.0 for that environment); both the Jira and the Confluence install on the demo site report "at the latest". CI on the push was green. Not seen: the new rules firing on a real item, or any Rovo answer after this deploy. The browser pane was signed out of the demo site, so no live check was made.
+
+## 2026-11-28: production 3.30.0, checked on the demo site
+
+Deployed the current sources to production (3.30.0); Jira and Confluence installs both report "at the latest". Checked on MOBL-58 (Migrate Payment API to v2), signed in, in the browser:
+- **Panel.** "2 contradictions found": the runbook's stale `/api/v1/charge` line against the v2 target (Blocker, with the verified one-line edit offered) and the deprecated decision ADR-12 while the work item is In Progress. Same findings as 2026-11-21.
+- **On-call agent.** Asked "Can I trust the runbook for this work item right now?". It answered "Contradiction found", named both pages, quoted the stale line, said what the one-line edit would change and that a person applies it from the panel, and said no edit is offered for the deprecated decision because Same Page cannot tell which side is right.
+- **Developer agent, what-if.** Asked "What would break in the docs if this work item moved to v3?". It answered in its own words that no new contradictions would start and none would stop, that nothing was changed, and that both pages checked would keep contradicting the ticket. This is the shortened answer; it no longer repeats the tool's note. The case where a move to v3 makes a page START contradicting has not been seen live, because both linked pages already say v1.
+- **Not checked:** the "Nothing to compare yet" panel message, the extraction fixes on a real item (this item states no timeout or date), the gate, and any third-party MCP call.
+- A set of mis-clicks while switching agents opened three extra browser tabs and a status dropdown. Nothing was selected, the work item stayed In Progress, and the extra tabs were closed.
