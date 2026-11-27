@@ -150,6 +150,11 @@ A Jira administrator can move any rule between Draft, Warning and Blocker from t
    Rovo may list each Same Page agent twice. The app is installed once for Jira and once for Confluence (step 1), which is the likely cause (the install list shows both). On 2026-11-21 both entries, asked the same question about MOBL-58, found the same two blocking contradictions and the same suggested edit, so either works. Not checked: whether a one-product install shows each agent once.
 7. Optional, no install and no account: `node scripts/demo-tamper.mjs` builds a small audit chain with the app's own code (generated data, not from a real site), verifies it, changes one field of one entry and verifies again, which fails at that entry.
 8. Optional, no install and no account: `node scripts/demo-whatif.mjs` shows the what-if check on generated data (not from a real site): which pages would start contradicting a work item if its target version moved from v2 to v3, before anyone changes it.
+9. Optional, no install and no account: `node scripts/demo-incident.mjs` runs the on-call story on generated data (not from a real site): a release ticket changed a version, a timeout and a freeze date, the runbook did not, and Same Page names all three. It also says what it does not find.
+10. Optional, no install and no account: `node scripts/demo-silent.mjs` shows one real contradiction flagged and seven look-alikes left alone (an example, history, another environment, a default, a range, a different thing, the same value in other units).
+
+Short on time? Use step 6 with the "Same Page on-call check" agent; it is the one to start with. If a work item states no version, time, limit, port, percentage or date, the panel says "Nothing to compare yet" rather than reporting a clean result.
+
 Nothing changes unless a person clicks a button. The demo data is created as the person who clicks, in a project and space they can write to.
 
 ## What was verified on a real site
